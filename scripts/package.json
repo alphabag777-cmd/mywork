@@ -1,0 +1,14 @@
+{
+  "name": "scripts",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "import-referrals.js",
+  "scripts": {
+    "import-referrals": "node import-referrals.js",
+    "migrate-firebase": "cd .. && node scripts/migrate-firebase.mjs",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
