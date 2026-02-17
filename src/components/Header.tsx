@@ -134,15 +134,6 @@ const Header = () => {
             <Lock className="w-4 h-4" />
             Staking
           </Button>
-          <Button 
-            variant="outline" 
-            size="default" 
-            className="gap-2" 
-            onClick={() => navigate("/support")}
-          >
-            <MessageSquare className="w-4 h-4" />
-            Support
-          </Button>
           {isConnected && (
             <>
               <Button 
@@ -167,6 +158,15 @@ const Header = () => {
               >
                 <Users className="w-4 h-4" />
                 {t.community.title}
+              </Button>
+              <Button 
+                variant="outline" 
+                size="default" 
+                className="gap-2" 
+                onClick={() => navigate("/support")}
+              >
+                <MessageSquare className="w-4 h-4" />
+                Support
               </Button>
               <Button 
                 variant="outline" 
@@ -238,17 +238,6 @@ const Header = () => {
                   <Lock className="w-4 h-4" />
                   Staking
                 </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start gap-2" 
-                  onClick={() => {
-                    navigate("/support");
-                    setMobileMenuOpen(false);
-                  }}
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  Support
-                </Button>
                 {/* <Button 
                   variant="outline"  
                   className="w-full justify-start gap-2" 
@@ -291,6 +280,17 @@ const Header = () => {
                     </Button>
                     <Button 
                       variant="outline" 
+                      className="w-full justify-start gap-2" 
+                      onClick={() => {
+                        navigate("/support");
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Support
+                    </Button>
+                    <Button 
+                      variant="outline"  
                       className="w-full justify-start gap-2" 
                       onClick={() => {
                         navigate("/profile");
