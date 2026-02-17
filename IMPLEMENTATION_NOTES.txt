@@ -1,0 +1,13 @@
+AdminOrganization Page:
+- Path: /admin/organization
+- Access: Admin Menu -> Organization
+- Features:
+  - Displays hierarchical tree of all users.
+  - Shows aggregated sales (Personal + Team) for each user.
+  - Zoom/Pan controls.
+  - Summary stats (Total Members, Total Volume).
+
+Implementation Details:
+- Uses `react-d3-tree` for visualization.
+- Recursive aggregation logic in `src/lib/orgChart.ts`.
+- Enhanced UI in `src/components/OrgChart.tsx` using `shadcn/ui` style via `foreignObject`.

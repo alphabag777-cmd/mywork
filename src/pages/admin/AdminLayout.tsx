@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { BarChart3, Users, Wallet, LayoutDashboard, PlusSquare, Share2, LogOut, Network, Image, FileText, Lock } from "lucide-react";
+import { BarChart3, Users, Wallet, LayoutDashboard, PlusSquare, Share2, LogOut, Network, Image, FileText, Lock, GitGraph } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
@@ -10,6 +10,7 @@ const navItems = [
   { to: "/admin/notices", label: "Notices", icon: FileText },
   { to: "/admin/ads", label: "Ad Images", icon: Image },
   { to: "/admin/referred", label: "Referred", icon: Share2 },
+  { to: "/admin/organization", label: "Organization", icon: GitGraph },
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/total-earning", label: "Total Earning", icon: BarChart3 },
 ];

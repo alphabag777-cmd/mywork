@@ -29,6 +29,7 @@ import AdminAds from "./pages/admin/AdminAds";
 import AdminReferred from "./pages/admin/AdminReferred";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminTotalEarning from "./pages/admin/AdminTotalEarning";
+import AdminOrganization from "./pages/admin/AdminOrganization";
 import AdminRouteGuard from "./pages/admin/AdminRouteGuard";
 
 const queryClient = new QueryClient();
@@ -58,6 +59,7 @@ const App = () => (
                   <Route path="ads" element={<AdminAds />} />
                   <Route path="referred" element={<AdminReferred />} />
                   <Route path="users" element={<AdminUsers />} />
+                  <Route path="organization" element={<AdminOrganization />} />
                   <Route path="total-earning" element={<AdminTotalEarning />} />
                 </Route>
               </Route>
