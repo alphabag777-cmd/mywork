@@ -4,18 +4,22 @@ import { OrgNode, buildOrgTree, convertToD3Tree, exportOrgDataToCSV } from "@/li
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, ZoomIn, ZoomOut, RefreshCw, UserCheck, Activity, DollarSign, Home, Download, Search, Undo2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, ZoomIn, ZoomOut, RefreshCw, UserCheck, Activity, DollarSign, Home, Download, Search, Undo2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
-import { addDays, startOfMonth, endOfMonth } from "date-fns";
+import { useAccount } from "wagmi";
+import { ImportOrgData } from "@/components/ImportOrgData";
 
 interface OrgChartProps {
   className?: string;
+  viewAs?: "admin" | "user"; // Allow override, but default to auto-detect
 }
 
-export function OrgChart({ className }: OrgChartProps) {
+export function OrgChart({ className, viewAs }: OrgChartProps) {
+  const { address } = useAccount();
   const [data, setData] = useState<any>(null);
   const [originalRoots, setOriginalRoots] = useState<OrgNode[]>([]); // Store original data for filtering/searching
   const [loading, setLoading] = useState(true);
@@ -31,12 +35,37 @@ export function OrgChart({ className }: OrgChartProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"full" | "subtree">("full");
   const [subtreeRoot, setSubtreeRoot] = useState<OrgNode | null>(null);
+  const [depthFilter, setDepthFilter] = useState<string>("all"); // "5", "10", "15", "all"
+
+  // Access Control
+  const isAdmin = viewAs === "admin" || (typeof window !== "undefined" && localStorage.getItem("alphabag_admin_authenticated") === "true");
+  const isUserView = !isAdmin;
 
   // Stats to display at the top
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalVolume: 0,
+    personalSales: 0, // For user view
+    teamSales: 0,     // For user view
+    directs: 0,       // For user view
   });
+
+  // Helper to expand/collapse based on depth
+  const applyDepthFilter = (node: any, currentDepth: number, targetDepth: number) => {
+    if (!node) return;
+    
+    // Expand if within depth, collapse if deeper
+    // In react-d3-tree, `__rd3t.collapsed` controls visibility of children
+    if (!node.__rd3t) node.__rd3t = {};
+    
+    // If target is "all" (Infinity), never collapse.
+    // Otherwise, collapse if currentDepth >= targetDepth
+    node.__rd3t.collapsed = targetDepth !== Infinity && currentDepth >= targetDepth;
+
+    if (node.children) {
+      node.children.forEach((child: any) => applyDepthFilter(child, currentDepth + 1, targetDepth));
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -48,7 +77,46 @@ export function OrgChart({ className }: OrgChartProps) {
       });
       
       setOriginalRoots(roots);
-      updateView(roots, viewMode === "subtree" ? subtreeRoot : null);
+      
+      // If Admin, prepare full tree
+      if (isAdmin) {
+        updateView(roots, viewMode === "subtree" ? subtreeRoot : null);
+      } else {
+        // If User, find their node and show stats
+        if (address) {
+          const findUserNode = (nodes: OrgNode[]): OrgNode | null => {
+            for (const node of nodes) {
+              if (node.walletAddress.toLowerCase() === address.toLowerCase()) return node;
+              if (node.children) {
+                const found = findUserNode(node.children);
+                if (found) return found;
+              }
+            }
+            return null;
+          };
+          
+          const userNode = findUserNode(roots);
+          if (userNode) {
+            // Calculate total downline count for user
+            let downlineCount = 0;
+            const countDownline = (node: OrgNode) => {
+               node.children.forEach(child => {
+                 downlineCount++;
+                 countDownline(child);
+               });
+            };
+            countDownline(userNode);
+
+            setStats({
+              totalUsers: downlineCount,
+              totalVolume: userNode.teamSales, // Already aggregated
+              personalSales: userNode.personalSales,
+              teamSales: userNode.teamSales,
+              directs: userNode.children.length,
+            });
+          }
+        }
+      }
 
     } catch (error) {
       console.error("Failed to load org chart:", error);
@@ -61,7 +129,19 @@ export function OrgChart({ className }: OrgChartProps) {
   // Re-fetch when date range changes
   useEffect(() => {
     fetchData();
-  }, [dateRange]);
+  }, [dateRange, address, isAdmin]);
+
+  // Apply depth filter when data or depth changes (only for admin chart)
+  useEffect(() => {
+    if (isAdmin && data) {
+       const targetDepth = depthFilter === "all" ? Infinity : parseInt(depthFilter);
+       const newData = { ...data }; // Shallow copy root
+       // Recursively apply depth
+       applyDepthFilter(newData, 0, targetDepth);
+       setData(newData);
+    }
+  }, [depthFilter, isAdmin]);
+
 
   // Handle Search
   const handleSearch = () => {
@@ -124,6 +204,7 @@ export function OrgChart({ className }: OrgChartProps) {
     countNodes(nodesToRender);
 
     setStats({
+      ...stats,
       totalUsers: count,
       totalVolume: currentTotalVolume,
     });
@@ -135,6 +216,10 @@ export function OrgChart({ className }: OrgChartProps) {
       },
       children: nodesToRender.map(convertToD3Tree),
     };
+
+    // Initial expansion based on depth filter
+    const targetDepth = depthFilter === "all" ? Infinity : parseInt(depthFilter);
+    applyDepthFilter(treeData, 0, targetDepth);
 
     setData(treeData);
 
@@ -148,11 +233,6 @@ export function OrgChart({ className }: OrgChartProps) {
 
   const handleExport = () => {
     if (!originalRoots.length) return;
-    
-    // Export mostly consistent with current view logic? 
-    // Usually export full data regardless of view, but respecting date filter.
-    // Let's export the *currently filtered* full tree (originalRoots).
-    
     const csvContent = exportOrgDataToCSV(originalRoots);
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -184,6 +264,64 @@ export function OrgChart({ className }: OrgChartProps) {
     }
   };
 
+  // --- USER VIEW RENDER ---
+  if (isUserView) {
+    if (loading) {
+       return (
+        <Card className={`w-full h-[200px] flex items-center justify-center ${className}`}>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="ml-2">Loading Network Stats...</span>
+        </Card>
+      );
+    }
+
+    if (!address) {
+       return (
+        <Card className={`w-full p-6 flex flex-col items-center justify-center text-center gap-4 ${className}`}>
+          <Lock className="h-10 w-10 text-muted-foreground" />
+          <h3 className="text-lg font-semibold">Wallet Not Connected</h3>
+          <p className="text-muted-foreground">Please connect your wallet to view your network statistics.</p>
+        </Card>
+      );
+    }
+
+    return (
+      <Card className={cn("w-full border shadow-sm", className)}>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xl font-bold flex items-center gap-2">
+            <Activity className="h-5 w-5 text-primary" />
+            My Network Performance
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-6 md:grid-cols-3 pt-4">
+          <div className="flex flex-col gap-1 p-4 bg-muted/30 rounded-lg border">
+            <span className="text-sm text-muted-foreground font-medium flex items-center gap-2">
+              <UserCheck className="w-4 h-4" /> Total Downline
+            </span>
+            <span className="text-2xl font-bold">{stats.totalUsers.toLocaleString()}</span>
+            <span className="text-xs text-muted-foreground">Direct Referrals: {stats.directs}</span>
+          </div>
+          
+          <div className="flex flex-col gap-1 p-4 bg-muted/30 rounded-lg border">
+            <span className="text-sm text-muted-foreground font-medium flex items-center gap-2">
+              <DollarSign className="w-4 h-4" /> Personal Sales
+            </span>
+            <span className="text-2xl font-bold">${stats.personalSales.toLocaleString()}</span>
+          </div>
+          
+          <div className="flex flex-col gap-1 p-4 bg-primary/10 rounded-lg border border-primary/20">
+            <span className="text-sm text-primary font-medium flex items-center gap-2">
+              <DollarSign className="w-4 h-4" /> Total Team Volume
+            </span>
+            <span className="text-2xl font-bold text-primary">${stats.teamSales.toLocaleString()}</span>
+            <span className="text-xs text-muted-foreground">Includes your personal sales</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // --- ADMIN VIEW RENDER ---
   if (loading && !data) {
     return (
       <Card className={`w-full h-[600px] flex items-center justify-center ${className}`}>
@@ -217,6 +355,7 @@ export function OrgChart({ className }: OrgChartProps) {
           </div>
           
           <div className="flex items-center gap-2">
+            {isAdmin && <ImportOrgData onSuccess={handleRefresh} />}
             <Button variant="outline" size="sm" onClick={handleExport} className="gap-2">
               <Download className="h-4 w-4" />
               Export CSV
@@ -232,6 +371,17 @@ export function OrgChart({ className }: OrgChartProps) {
               onChange={setDateRange} 
               className="w-[260px]"
             />
+             <Select value={depthFilter} onValueChange={setDepthFilter}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Depth" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Levels</SelectItem>
+                <SelectItem value="5">5 Levels</SelectItem>
+                <SelectItem value="10">10 Levels</SelectItem>
+                <SelectItem value="15">15 Levels</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex items-center gap-2 flex-1 max-w-md">
@@ -289,6 +439,7 @@ export function OrgChart({ className }: OrgChartProps) {
               )}
               enableLegacyTransitions={true}
               transitionDuration={800}
+              initialDepth={depthFilter === "all" ? undefined : parseInt(depthFilter)}
             />
           </div>
         ) : (
