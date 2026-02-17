@@ -23,6 +23,10 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 
+import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Badge } from "@/components/ui/badge";
+
 export const AdminNotices = () => {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [editingNotice, setEditingNotice] = useState<Notice | null>(null);
@@ -30,7 +34,9 @@ export const AdminNotices = () => {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
-    points: [""] as string[], // Array of bullet points
+    title: "",
+    points: [""] as string[],
+    type: "normal" as "normal" | "popup",
     isActive: true,
   });
 
@@ -50,7 +56,9 @@ export const AdminNotices = () => {
 
   const resetForm = () => {
     setFormData({
+      title: "",
       points: [""],
+      type: "normal",
       isActive: true,
     });
     setEditingNotice(null);
@@ -60,7 +68,9 @@ export const AdminNotices = () => {
     if (notice) {
       setEditingNotice(notice);
       setFormData({
+        title: notice.title || "",
         points: notice.points.length > 0 ? notice.points : [""],
+        type: notice.type,
         isActive: notice.isActive,
       });
     } else {
@@ -68,6 +78,7 @@ export const AdminNotices = () => {
     }
     setIsDialogOpen(true);
   };
+
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
@@ -115,10 +126,13 @@ export const AdminNotices = () => {
 
     const noticeData = {
       id: editingNotice?.id,
+      title: formData.title,
       points: validPoints,
+      type: formData.type,
       isActive: formData.isActive,
       sortOrder: editingNotice?.sortOrder || 0,
     };
+
 
     try {
       await saveNotice(noticeData);
@@ -157,6 +171,7 @@ export const AdminNotices = () => {
     try {
       await saveNotice({
         ...notice,
+        type: notice.type || "normal",
         isActive: !notice.isActive,
       });
       toast.success(`Notice ${!notice.isActive ? "activated" : "deactivated"} successfully!`);
@@ -197,7 +212,8 @@ export const AdminNotices = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Status</TableHead>
-                  <TableHead>Bullet Points</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Title & Points</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -226,7 +242,16 @@ export const AdminNotices = () => {
                       </div>
                     </TableCell>
                     <TableCell>
+                      <Badge variant={notice.type === "popup" ? "default" : "secondary"}>
+                        {notice.type === "popup" ? "Popup" : "Normal"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {notice.title && (
+                        <div className="font-semibold mb-1">{notice.title}</div>
+                      )}
                       <ul className="list-disc list-inside space-y-1">
+
                         {notice.points.slice(0, 3).map((point, index) => (
                           <li key={index} className="text-sm">
                             {point.length > 60 ? `${point.substring(0, 60)}...` : point}
@@ -277,8 +302,37 @@ export const AdminNotices = () => {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Notice Type</Label>
+                <RadioGroup 
+                  value={formData.type} 
+                  onValueChange={(val: "normal" | "popup") => setFormData({...formData, type: val})}
+                  className="flex gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="normal" id="type-normal" />
+                    <Label htmlFor="type-normal">Normal (Home Page)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="popup" id="type-popup" />
+                    <Label htmlFor="type-popup">Popup (Modal)</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="title">Title (Optional)</Label>
+                <Input
+                  id="title"
+                  placeholder="e.g. Important Announcement"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                />
+              </div>
+
               <div className="flex items-center justify-between">
                 <Label>Bullet Points</Label>
+
                 <Button
                   type="button"
                   variant="outline"

@@ -18,7 +18,9 @@ import { db } from "./firebase";
 
 export interface Notice {
   id: string;
+  title?: string; // Optional title for popups
   points: string[]; // Array of bullet point text
+  type: "popup" | "normal"; // Type of notice
   isActive: boolean;
   sortOrder: number; // Order for display (lower numbers appear first)
   createdAt: number;
@@ -46,7 +48,9 @@ function timestampToNumber(timestamp: any): number {
 function fromFirestore(docData: any, id: string): Notice {
   return {
     id,
+    title: docData.title || "",
     points: docData.points || [],
+    type: docData.type || "normal",
     isActive: docData.isActive !== undefined ? docData.isActive : true,
     sortOrder: docData.sortOrder !== undefined ? docData.sortOrder : 999999,
     createdAt: timestampToNumber(docData.createdAt),
@@ -60,7 +64,9 @@ function fromFirestore(docData: any, id: string): Notice {
 function toFirestore(notice: Partial<Notice>): any {
   const now = Timestamp.now();
   return {
+    title: notice.title || "",
     points: notice.points || [],
+    type: notice.type || "normal",
     isActive: notice.isActive !== undefined ? notice.isActive : true,
     sortOrder: notice.sortOrder !== undefined ? notice.sortOrder : 999999,
     createdAt: notice.createdAt ? Timestamp.fromMillis(notice.createdAt) : now,
@@ -109,6 +115,35 @@ export async function getActiveNotice(): Promise<Notice | null> {
       return b.createdAt - a.createdAt;
     });
     return localNotices[0];
+  }
+}
+
+/**
+ * Get active popup notices from Firestore
+ */
+export async function getActivePopupNotices(): Promise<Notice[]> {
+  try {
+    const noticesRef = collection(db, NOTICES_COLLECTION);
+    const q = query(noticesRef); // Can't easily query by array or field without index, fetch all then filter
+    const querySnapshot = await getDocs(q);
+    
+    const notices: Notice[] = [];
+    querySnapshot.forEach((doc) => {
+      const notice = fromFirestore(doc.data(), doc.id);
+      if (notice.isActive && notice.type === "popup") {
+        notices.push(notice);
+      }
+    });
+    
+    // Sort by sortOrder, then by createdAt
+    return notices.sort((a, b) => {
+      const orderDiff = a.sortOrder - b.sortOrder;
+      if (orderDiff !== 0) return orderDiff;
+      return b.createdAt - a.createdAt;
+    });
+  } catch (error) {
+    console.error("Error getting popup notices from Firestore:", error);
+    return getNoticesFromLocalStorage().filter(n => n.isActive && n.type === "popup");
   }
 }
 
@@ -262,6 +297,11 @@ function saveNoticeToLocalStorage(
     const newNotice: Notice = {
       ...notice,
       id: notice.id || `notice_${now}_${Math.random().toString(36).substr(2, 9)}`,
+      title: notice.title || "",
+      points: notice.points || [],
+      type: notice.type || "normal",
+      isActive: notice.isActive !== undefined ? notice.isActive : true,
+      sortOrder: notice.sortOrder !== undefined ? notice.sortOrder : 999999,
       createdAt: now,
       updatedAt: now,
     };

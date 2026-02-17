@@ -8,6 +8,7 @@ import { ReferralTracker } from "@/components/ReferralTracker";
 import { LoomxReferralGuard } from "@/components/LoomxReferralGuard";
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 import { TermsAgreement } from "@/components/TermsAgreement";
+import { UserNoticePopup } from "@/components/UserNoticePopup";
 import { CartProvider } from "@/contexts/CartContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -18,6 +19,7 @@ import Community from "./pages/Community";
 import Cart from "./pages/Cart";
 import Introduction from "./pages/Introduction";
 import Tutorial from "./pages/Tutorial";
+import Support from "./pages/Support";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -28,6 +30,7 @@ import AdminNotices from "./pages/admin/AdminNotices";
 import AdminAds from "./pages/admin/AdminAds";
 import AdminReferred from "./pages/admin/AdminReferred";
 import AdminUsers from "./pages/admin/AdminUsers";
+import AdminSupport from "./pages/admin/AdminSupport";
 import AdminTotalEarning from "./pages/admin/AdminTotalEarning";
 import AdminOrganization from "./pages/admin/AdminOrganization";
 import AdminRouteGuard from "./pages/admin/AdminRouteGuard";
@@ -41,6 +44,7 @@ const App = () => (
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>
             <TermsAgreement />
+            <UserNoticePopup />
             <ReferralTracker />
             <LoomxReferralGuard />
             <Toaster />
@@ -60,6 +64,7 @@ const App = () => (
                   <Route path="referred" element={<AdminReferred />} />
                   <Route path="users" element={<AdminUsers />} />
                   <Route path="organization" element={<AdminOrganization />} />
+                  <Route path="support" element={<AdminSupport />} />
                   <Route path="total-earning" element={<AdminTotalEarning />} />
                 </Route>
               </Route>
@@ -73,6 +78,7 @@ const App = () => (
               <Route path="/community" element={<Community />} />
               <Route path="/introduction" element={<Introduction />} />
               <Route path="/tutorial" element={<Tutorial />} />
+              <Route path="/support" element={<Support />} />
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
