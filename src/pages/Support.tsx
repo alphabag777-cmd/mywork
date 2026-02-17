@@ -20,7 +20,7 @@ import { format } from "date-fns";
 export default function Support() {
   const { address } = useAccount();
   const [view, setView] = useState<"list" | "detail">("list");
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  // const [showCreateForm, setShowCreateForm] = useState(false); // Removed toggle state
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(false);
@@ -72,7 +72,7 @@ export default function Support() {
         priority: formData.priority as "low" | "medium" | "high",
       });
       toast.success("Ticket created successfully");
-      setShowCreateForm(false);
+      // setShowCreateForm(false); // Removed toggle update
       setFormData({ subject: "", priority: "medium", message: "" });
       loadTickets();
     } catch (error) {
@@ -135,32 +135,20 @@ export default function Support() {
     <div className="container py-10 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Support Center</h1>
-        {view === "list" && (
-          <Button onClick={() => setShowCreateForm(!showCreateForm)}>
-            {showCreateForm ? (
-              <>Cancel</>
-            ) : (
-              <>
-                <Plus className="w-4 h-4 mr-2" />
-                New Ticket
-              </>
-            )}
-          </Button>
-        )}
+        {/* Button removed, form is always visible */}
       </div>
 
       {/* LIST VIEW */}
       {view === "list" && (
         <div className="space-y-6">
-          {/* CREATE FORM - Collapsible */}
-          {showCreateForm && (
-            <Card className="border-primary/20 bg-primary/5">
-              <CardHeader>
-                <CardTitle>Create New Ticket</CardTitle>
-                <CardDescription>Describe your issue and we'll get back to you.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleCreateTicket} className="space-y-4">
+          {/* CREATE FORM - Always Visible */}
+          <Card className="border-primary/20 bg-primary/5">
+            <CardHeader>
+              <CardTitle>Create New Ticket</CardTitle>
+              <CardDescription>Describe your issue and we'll get back to you.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleCreateTicket} className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Subject</label>
                     <Input
@@ -205,9 +193,8 @@ export default function Support() {
                     </Button>
                   </div>
                 </form>
-              </CardContent>
-            </Card>
-          )}
+            </CardContent>
+          </Card>
 
           <Card>
             <CardContent className="p-0">

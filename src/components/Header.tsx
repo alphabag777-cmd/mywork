@@ -1,4 +1,4 @@
-import { Coins, Wallet, User, Users, Menu, ShoppingCart, BookOpen, Lock } from "lucide-react";
+import { Coins, Wallet, User, Users, Menu, ShoppingCart, BookOpen, Lock, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAccount, useDisconnect } from "wagmi";
 import { useWeb3Modal } from "@web3modal/wagmi/react";
@@ -134,6 +134,15 @@ const Header = () => {
             <Lock className="w-4 h-4" />
             Staking
           </Button>
+          <Button 
+            variant="outline" 
+            size="default" 
+            className="gap-2" 
+            onClick={() => navigate("/support")}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Support
+          </Button>
           {isConnected && (
             <>
               <Button 
@@ -229,8 +238,19 @@ const Header = () => {
                   <Lock className="w-4 h-4" />
                   Staking
                 </Button>
-                {/* <Button 
+                <Button 
                   variant="outline" 
+                  className="w-full justify-start gap-2" 
+                  onClick={() => {
+                    navigate("/support");
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Support
+                </Button>
+                {/* <Button 
+                  variant="outline"  
                   className="w-full justify-start gap-2" 
                   onClick={() => {
                     navigate("/tutorial");
