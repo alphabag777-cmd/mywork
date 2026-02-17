@@ -20,6 +20,7 @@ import Cart from "./pages/Cart";
 import Introduction from "./pages/Introduction";
 import Tutorial from "./pages/Tutorial";
 import Support from "./pages/Support";
+import CompanyRegistration from "./pages/CompanyRegistration";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -79,6 +80,7 @@ const App = () => (
               <Route path="/introduction" element={<Introduction />} />
               <Route path="/tutorial" element={<Tutorial />} />
               <Route path="/support" element={<Support />} />
+              <Route path="/company-registration" element={<CompanyRegistration />} />
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

@@ -4,6 +4,7 @@ import UserStakesNew from "@/components/UserStakesNew";
 import Footer from "@/components/Footer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAccount } from "wagmi";
+import { ROICalculator } from "@/components/ROICalculator";
 
 const Staking = () => {
   const { isConnected } = useAccount();
@@ -13,6 +14,9 @@ const Staking = () => {
       <Header />
       <main className="pt-16 sm:pt-20">
         <div className="container mx-auto px-4 py-8">
+          <div className="flex justify-end mb-4">
+            <ROICalculator />
+          </div>
           <Tabs defaultValue="plans" className="w-full">
             <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
               <TabsTrigger value="plans">Staking Plans</TabsTrigger>

@@ -5,6 +5,7 @@ import { useWeb3Modal } from "@web3modal/wagmi/react";
 import { formatAddress } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { NotificationCenter } from "@/components/NotificationCenter";
 import { 
   getOrCreateReferralCode, 
   storeReferralFromURL, 
@@ -136,6 +137,7 @@ const Header = () => {
           </Button>
           {isConnected && (
             <>
+              <NotificationCenter />
               <Button 
                 variant="outline" 
                 size="default" 

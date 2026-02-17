@@ -10,6 +10,7 @@ import Footer from "@/components/Footer";
 import { getReferralsByReferrer } from "@/lib/referrals";
 import { getReferralActivitiesByReferrer, ReferralActivity } from "@/lib/referralActivities";
 import { toast } from "sonner";
+import { Leaderboard } from "@/components/Leaderboard";
 
 interface DirectReferral {
   address: string;
@@ -150,6 +151,11 @@ const Community = () => {
             <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-500" />
             <span className="text-xs sm:text-sm font-mono text-foreground">{formatAddress(address)}</span>
           </div>
+        </div>
+
+        {/* Leaderboard Section */}
+        <div className="mb-6 sm:mb-8">
+          <Leaderboard />
         </div>
 
         {/* Overall Team Performance */}
