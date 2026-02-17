@@ -19,7 +19,8 @@ import { format } from "date-fns";
 
 export default function Support() {
   const { address } = useAccount();
-  const [view, setView] = useState<"list" | "create" | "detail">("list");
+  const [view, setView] = useState<"list" | "detail">("list");
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(false);
@@ -71,7 +72,7 @@ export default function Support() {
         priority: formData.priority as "low" | "medium" | "high",
       });
       toast.success("Ticket created successfully");
-      setView("list");
+      setShowCreateForm(false);
       setFormData({ subject: "", priority: "medium", message: "" });
       loadTickets();
     } catch (error) {
@@ -135,112 +136,119 @@ export default function Support() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Support Center</h1>
         {view === "list" && (
-          <Button onClick={() => setView("create")}>
-            <Plus className="w-4 h-4 mr-2" />
-            New Ticket
+          <Button onClick={() => setShowCreateForm(!showCreateForm)}>
+            {showCreateForm ? (
+              <>Cancel</>
+            ) : (
+              <>
+                <Plus className="w-4 h-4 mr-2" />
+                New Ticket
+              </>
+            )}
           </Button>
         )}
       </div>
 
       {/* LIST VIEW */}
       {view === "list" && (
-        <Card>
-          <CardContent className="p-0">
-            {loading ? (
-              <div className="flex justify-center p-8">
-                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : tickets.length === 0 ? (
-              <div className="text-center p-8 text-muted-foreground">
-                No tickets found. Create one if you need help!
-              </div>
-            ) : (
-              <div className="divide-y">
-                {tickets.map((ticket) => (
-                  <div
-                    key={ticket.id}
-                    className="p-4 hover:bg-muted/50 cursor-pointer transition-colors flex items-center justify-between"
-                    onClick={() => {
-                      setSelectedTicket(ticket);
-                      setView("detail");
-                    }}
-                  >
-                    <div className="flex flex-col gap-1">
-                      <div className="font-semibold">{ticket.subject}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {format(ticket.createdAt, "PPP p")}
+        <div className="space-y-6">
+          {/* CREATE FORM - Collapsible */}
+          {showCreateForm && (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardHeader>
+                <CardTitle>Create New Ticket</CardTitle>
+                <CardDescription>Describe your issue and we'll get back to you.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleCreateTicket} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Subject</label>
+                    <Input
+                      value={formData.subject}
+                      onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                      placeholder="Brief summary of the issue"
+                      className="bg-background"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Priority</label>
+                    <Select
+                      value={formData.priority}
+                      onValueChange={(val) => setFormData({ ...formData, priority: val })}
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Message</label>
+                    <Textarea
+                      value={formData.message}
+                      onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                      placeholder="Detailed description..."
+                      rows={5}
+                      className="bg-background"
+                    />
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <Button type="submit" disabled={loading}>
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Ticket"}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardContent className="p-0">
+              {loading && !tickets.length ? (
+                <div className="flex justify-center p-8">
+                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : tickets.length === 0 ? (
+                <div className="text-center p-8 text-muted-foreground">
+                  No tickets found. Create one if you need help!
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {tickets.map((ticket) => (
+                    <div
+                      key={ticket.id}
+                      className="p-4 hover:bg-muted/50 cursor-pointer transition-colors flex items-center justify-between"
+                      onClick={() => {
+                        setSelectedTicket(ticket);
+                        setView("detail");
+                      }}
+                    >
+                      <div className="flex flex-col gap-1">
+                        <div className="font-semibold">{ticket.subject}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {format(ticket.createdAt, "PPP p")}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={ticket.status === "answered" ? "default" : "secondary"}>
+                          {ticket.status.toUpperCase()}
+                        </Badge>
+                        <Badge variant="outline">{ticket.priority}</Badge>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={ticket.status === "answered" ? "default" : "secondary"}>
-                        {ticket.status.toUpperCase()}
-                      </Badge>
-                      <Badge variant="outline">{ticket.priority}</Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* CREATE VIEW */}
-      {view === "create" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Create New Ticket</CardTitle>
-            <CardDescription>Describe your issue and we'll get back to you.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleCreateTicket} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Subject</label>
-                <Input
-                  value={formData.subject}
-                  onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                  placeholder="Brief summary of the issue"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Priority</label>
-                <Select
-                  value={formData.priority}
-                  onValueChange={(val) => setFormData({ ...formData, priority: val })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Message</label>
-                <Textarea
-                  value={formData.message}
-                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                  placeholder="Detailed description..."
-                  rows={5}
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={() => setView("list")}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Ticket"}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* DETAIL VIEW */}
