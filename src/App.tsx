@@ -10,6 +10,7 @@ import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 import { TermsAgreement } from "@/components/TermsAgreement";
 import { UserNoticePopup } from "@/components/UserNoticePopup";
 import { CartProvider } from "@/contexts/CartContext";
+import Footer from "@/components/Footer";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Investment from "./pages/Investment";
@@ -85,6 +86,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <Footer />
             </BrowserRouter>
           </TooltipProvider>
         </QueryClientProvider>

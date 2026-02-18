@@ -1,7 +1,6 @@
 import Header from "@/components/Header";
 import StakingSection from "@/components/StakingSection";
 import NodeSection from "@/components/NodeSection";
-import Footer from "@/components/Footer";
 
 const Index = () => {
   return (
@@ -11,7 +10,6 @@ const Index = () => {
         <StakingSection />
         <NodeSection />
       </main>
-      <Footer />
     </div>
   );
 };

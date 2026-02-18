@@ -1,15 +1,16 @@
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { MessageCircle, Twitter } from "lucide-react";
+import { MessageCircle, Twitter, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 const Footer = () => {
   const { t } = useLanguage();
   
   return (
-    <footer className="py-12 border-t border-border/50 bg-dark-surface/30">
+    <footer className="relative z-50 py-12 border-t border-border/50 bg-background">
       <div className="container mx-auto px-4">
-        <div className="flex flex-col md:flex-row items-center justify-center gap-4 sm:gap-6">
-          {/* Logo */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          {/* Logo & Brand */}
           <div className="flex items-center gap-2 sm:gap-3">
             <img 
               src="/logo.png" 
@@ -17,45 +18,63 @@ const Footer = () => {
               className="w-16 h-16 sm:w-20 sm:h-20 object-contain"
             />
             <span className="font-display font-bold text-base sm:text-lg lg:text-xl text-foreground">
-              <span className="hidden sm:inline">ALPHABAG </span>
+              <span>ALPHABAG </span>
               <span className="text-primary">INVESTMENT</span>
             </span>
           </div>
 
-          {/* Social Links */}
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
+          {/* Links & Socials */}
+          <div className="flex flex-wrap items-center justify-center gap-4">
+             {/* Company Registration Link */}
+             <Button
+              variant="ghost"
               size="sm"
               asChild
-              className="gap-2"
+              className="gap-2 text-muted-foreground hover:text-foreground"
             >
-              <a
-                href="https://t.me/alphabagdao"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Telegram"
-              >
-                <MessageCircle className="w-4 h-4" />
-                <span className="hidden sm:inline">Telegram</span>
-              </a>
+              <Link to="/company-registration">
+                <Building2 className="w-4 h-4" />
+                <span>Company Registration</span>
+              </Link>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              asChild
-              className="gap-2"
-            >
-              <a
-                href="https://x.com/ALPHABAG_DAO"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Twitter"
+
+            <div className="h-4 w-px bg-border hidden sm:block" />
+
+            {/* Socials */}
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                className="gap-2"
               >
-                <Twitter className="w-4 h-4" />
-                <span className="hidden sm:inline">Twitter</span>
-              </a>
-            </Button>
+                <a
+                  href="https://t.me/alphabagdao"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Telegram"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Telegram</span>
+                </a>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                className="gap-2"
+              >
+                <a
+                  href="https://x.com/ALPHABAG_DAO"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Twitter"
+                >
+                  <Twitter className="w-4 h-4" />
+                  <span>Twitter</span>
+                </a>
+              </Button>
+            </div>
           </div>
         </div>
 
