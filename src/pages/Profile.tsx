@@ -364,15 +364,41 @@ const Profile = () => {
     eCategoryMap[cat] = (eCategoryMap[cat] || 0) + (inv.amount || 0);
   });
   const ePieData = Object.entries(eCategoryMap).map(([name, value]) => ({ name, value }));
+
+  // investedAt 안전 변환: Firestore Timestamp / number / string / Date 모두 처리
+  const toSafeDate = (val: any): Date | null => {
+    try {
+      if (!val) return null;
+      // Firestore Timestamp 객체 (seconds 필드 보유)
+      if (typeof val === "object" && "seconds" in val) {
+        return new Date(val.seconds * 1000);
+      }
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? null : d;
+    } catch {
+      return null;
+    }
+  };
+
   const eMonthlyMap: Record<string, number> = {};
   earningsInvestments.forEach((inv) => {
-    const m = format(new Date(inv.investedAt), "yyyy-MM");
-    eMonthlyMap[m] = (eMonthlyMap[m] || 0) + (inv.amount || 0);
+    try {
+      const d = toSafeDate(inv.investedAt);
+      if (!d) return;
+      const m = format(d, "yyyy-MM");
+      eMonthlyMap[m] = (eMonthlyMap[m] || 0) + (inv.amount || 0);
+    } catch { /* 날짜 변환 실패 시 해당 항목 무시 */ }
   });
   const eBarData = Object.entries(eMonthlyMap)
     .sort((a, b) => a[0].localeCompare(b[0]))
     .slice(-6)
-    .map(([month, amount]) => ({ month: format(new Date(month), "MMM yy"), amount }));
+    .map(([month, amount]) => {
+      try {
+        return { month: format(new Date(month), "MMM yy"), amount };
+      } catch {
+        return { month, amount };
+      }
+    });
 
   // ── Plan Selection State ──
   const [allPlans, setAllPlans] = useState<InvestmentPlan[]>([]);
@@ -1278,7 +1304,7 @@ const Profile = () => {
                             <Badge variant="outline" className="text-xs font-mono">{inv.category}</Badge>
                             <div>
                               <p className="text-sm font-medium">{inv.projectName}</p>
-                              <p className="text-xs text-muted-foreground">{format(new Date(inv.investedAt), "yyyy-MM-dd")}</p>
+                              <p className="text-xs text-muted-foreground">{(() => { try { const d = toSafeDate(inv.investedAt); return d ? format(d, "yyyy-MM-dd") : "-"; } catch { return "-"; } })()}</p>
                             </div>
                           </div>
                           <div className="text-right">
