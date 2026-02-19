@@ -200,24 +200,30 @@ const Header = () => {
         {/* Mobile Navigation */}
         <div className="flex md:hidden items-center gap-1 flex-shrink-0">
           <LanguageSelector />
-          <Button 
-            variant="gold" 
-            size="sm" 
-            className="gap-1 px-1.5 sm:px-2 h-8 w-8 sm:w-auto sm:h-auto sm:gap-1.5" 
-            onClick={handleWalletClick}
-            title={isConnected && address ? formatAddress(address) : "Connect Wallet"}
-          >
-            {isConnected ? (
-              <>
-                <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline text-xs">{address ? formatAddress(address, 3) : ""}</span>
-              </>
-            ) : (
-              <>
-                <Coins className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </>
-            )}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="gold" 
+                size="sm" 
+                className="gap-1 px-1.5 sm:px-2 h-8 w-8 sm:w-auto sm:h-auto sm:gap-1.5" 
+                onClick={handleWalletClick}
+              >
+                {isConnected ? (
+                  <>
+                    <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline text-xs">{address ? formatAddress(address, 3) : ""}</span>
+                  </>
+                ) : (
+                  <>
+                    <Coins className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </>
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {isConnected && address ? address : "Connect Wallet"}
+            </TooltipContent>
+          </Tooltip>
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" size="sm" className="px-1.5 sm:px-2 h-8 w-8 sm:w-auto sm:h-auto">

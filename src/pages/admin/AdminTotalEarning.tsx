@@ -6,11 +6,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getWalletBalances } from "@/lib/walletBalance";
 import { formatAddress } from "@/lib/utils";
 
-// Wallet addresses to track
-const TRACKED_WALLETS = [
+// Wallet addresses to track.
+// Override via VITE_TRACKED_WALLETS env var (comma-separated addresses).
+// e.g. VITE_TRACKED_WALLETS=0xAbc...,0xDef...
+const DEFAULT_TRACKED_WALLETS = [
   "0xFdb440cA2285Ab6d09A88B13a4b49A0323C94CE6",
   "0x47975F7517419f57DCC77e89DDbF611021204127",
 ];
+
+const TRACKED_WALLETS: string[] = import.meta.env.VITE_TRACKED_WALLETS
+  ? (import.meta.env.VITE_TRACKED_WALLETS as string)
+      .split(",")
+      .map((w: string) => w.trim())
+      .filter(Boolean)
+  : DEFAULT_TRACKED_WALLETS;
 
 interface WalletBalance {
   address: string;

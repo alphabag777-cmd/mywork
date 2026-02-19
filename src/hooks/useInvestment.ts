@@ -1,5 +1,5 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient, useChainId } from "wagmi";
-import { parseUnits, parseAbiItem, decodeEventLog, isAddress } from "viem";
+import { parseUnits, parseAbiItem, decodeEventLog, isAddress, type Log, type DecodeEventLogReturnType } from "viem";
 import { INVESTMENT_CONTRACT_ADDRESS, USDT_CONTRACT_ADDRESS, INVESTMENT_ABI, ERC20_ABI, SEPARATE_INVESTMENT_CONTRACT_ADDRESS, SEPARATE_INVESTMENT_ABI, NEW_INVESTMENT_CONTRACT_ADDRESS, NEW_INVESTMENT_ABI } from "@/lib/contract";
 import { useAccount } from "wagmi";
 import { useState, useEffect } from "react";
@@ -319,25 +319,26 @@ export function useSeparateInvestment(userAddress?: `0x${string}`) {
               let tokenAddress: string | undefined;
               let amount: bigint | undefined;
 
-              if ((log as any).args && (log as any).args.userAddress) {
-                userAddress = (log as any).args.userAddress;
-                investId = (log as any).args.investId;
-                tokenAddress = (log as any).args.tokenAddress;
-                amount = (log as any).args.amount;
+              if (log.args && (log.args as Record<string, unknown>).userAddress) {
+                const args = log.args as { userAddress: string; investId: bigint; tokenAddress: string; amount: bigint };
+                userAddress = args.userAddress;
+                investId = args.investId;
+                tokenAddress = args.tokenAddress;
+                amount = args.amount;
               } else {
-                const rawLog = log as any;
+                const rawLog = log as Log;
                 if (rawLog.data && rawLog.topics) {
-                  const decoded: any = decodeEventLog({
+                  const decoded = decodeEventLog({
                     abi: SEPARATE_INVESTMENT_ABI,
                     data: rawLog.data,
                     topics: rawLog.topics,
-                  } as any);
-                  const decodedArgs = decoded?.args;
+                  }) as DecodeEventLogReturnType;
+                  const decodedArgs = decoded?.args as Record<string, unknown> | undefined;
                   if (decodedArgs) {
-                    userAddress = decodedArgs.userAddress;
-                    investId = decodedArgs.investId;
-                    tokenAddress = decodedArgs.tokenAddress;
-                    amount = decodedArgs.amount;
+                    userAddress = decodedArgs.userAddress as string | undefined;
+                    investId = decodedArgs.investId as bigint | undefined;
+                    tokenAddress = decodedArgs.tokenAddress as string | undefined;
+                    amount = decodedArgs.amount as bigint | undefined;
                   }
                 }
               }
@@ -373,7 +374,7 @@ export function useSeparateInvestment(userAddress?: `0x${string}`) {
         // This is the main contract for investSplit function
         try {
           // Try to get logs with indexed user filter first (more efficient)
-          let splitLogs: any[] = [];
+          let splitLogs: Log[] = [];
           try {
             splitLogs = await publicClient.getLogs({
               address: NEW_INVESTMENT_CONTRACT_ADDRESS,
@@ -395,8 +396,9 @@ export function useSeparateInvestment(userAddress?: `0x${string}`) {
             });
             
             // Filter by user address
-            splitLogs = allSplitLogs.filter((log: any) => {
-              const user = log.args?.user;
+            splitLogs = allSplitLogs.filter((log) => {
+              const args = log.args as Record<string, unknown> | undefined;
+              const user = args?.user as string | undefined;
               return user && user.toLowerCase() === targetAddress.toLowerCase();
             });
           }
@@ -407,21 +409,22 @@ export function useSeparateInvestment(userAddress?: `0x${string}`) {
               let userAddress: string | undefined;
               let amount: bigint | undefined;
 
-              if ((log as any).args && (log as any).args.user) {
-                userAddress = (log as any).args.user;
-                amount = (log as any).args.amount;
+              if (log.args && (log.args as Record<string, unknown>).user) {
+                const args = log.args as { user: string; amount: bigint };
+                userAddress = args.user;
+                amount = args.amount;
               } else {
-                const rawLog = log as any;
+                const rawLog = log as Log;
                 if (rawLog.data && rawLog.topics) {
-                  const decoded: any = decodeEventLog({
+                  const decoded = decodeEventLog({
                     abi: NEW_INVESTMENT_ABI,
                     data: rawLog.data,
                     topics: rawLog.topics,
-                  } as any);
-                  const decodedArgs = decoded?.args;
+                  }) as DecodeEventLogReturnType;
+                  const decodedArgs = decoded?.args as Record<string, unknown> | undefined;
                   if (decodedArgs) {
-                    userAddress = decodedArgs.user;
-                    amount = decodedArgs.amount;
+                    userAddress = decodedArgs.user as string | undefined;
+                    amount = decodedArgs.amount as bigint | undefined;
                   }
                 }
               }

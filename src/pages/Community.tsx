@@ -3,12 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { formatAddress } from "@/lib/utils";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Crown, Share2, User, RefreshCw, Copy, Check } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { getReferralsByReferrer } from "@/lib/referrals";
 import { getReferralActivitiesByReferrer, ReferralActivity } from "@/lib/referralActivities";
+import { getUserInvestments } from "@/lib/userInvestments";
 import { toast } from "sonner";
 import { Leaderboard } from "@/components/Leaderboard";
 
@@ -53,6 +54,8 @@ const Community = () => {
   const [referralActivities, setReferralActivities] = useState<ReferralActivity[]>([]);
   const [isLoadingActivities, setIsLoadingActivities] = useState(false);
   const [copied, setCopied] = useState<{ [key: string]: boolean }>({});
+  // 실시간 로딩 상태
+  const [isLoadingTeam, setIsLoadingTeam] = useState(false);
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -62,66 +65,75 @@ const Community = () => {
     }, 2000);
   };
 
+  /**
+   * Firebase Referrals 에서 실시간 팀 데이터 로드
+   * localStorage 의존 제거 → 팟이 마운트/주소 변경 시에도 항상 정확한 데이터 표시
+   */
+  const loadTeamData = useCallback(async () => {
+    if (!address) return;
+    setIsLoadingTeam(true);
+    setIsLoadingReferred(true);
+    setIsLoadingActivities(true);
+    try {
+      const normalizedAddress = address.toLowerCase();
+
+      // Firebase에서 직접 추청 연동 사용자 목록 + 활동 동시 요청
+      const [referrals, activities] = await Promise.all([
+        getReferralsByReferrer(normalizedAddress),
+        getReferralActivitiesByReferrer(normalizedAddress),
+      ]);
+
+      const users = referrals.map((ref) => ({
+        wallet: ref.referredWallet,
+        joinedAt: ref.createdAt,
+      }));
+      setReferredUsers(users);
+      setReferralActivities(activities);
+
+      // 각 직접 추천 사용자의 투자 데이터를 받아 팀 퍼포먼스 쪼산
+      const referralInvestments = await Promise.all(
+        users.map((u) => getUserInvestments(u.wallet).catch(() => []))
+      );
+
+      let totalPersonalPerformance = 0;
+      const builtDirectReferrals: DirectReferral[] = users.map((user, idx) => {
+        const investments = referralInvestments[idx];
+        const personalPerf = investments.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+        totalPersonalPerformance += personalPerf;
+        return {
+          address: user.wallet,
+          level: "Direct",
+          directPush: { current: 0, required: 1 },
+          personalPerformance: personalPerf,
+          communityPerformance: 0,
+          thirtySky: 0,
+          totalTeamPerformance: personalPerf,
+          totalTeamMembers: 1,
+        };
+      });
+
+      setDirectReferrals(builtDirectReferrals);
+      setTeamPerformance((prev) => ({
+        ...prev,
+        teamNode: users.length,
+        totalTeamMembers: users.length,
+        totalTeamPerformance: totalPersonalPerformance,
+      }));
+    } catch (error) {
+      console.error("Failed to load team data from Firebase:", error);
+      setReferredUsers([]);
+      setReferralActivities([]);
+    } finally {
+      setIsLoadingTeam(false);
+      setIsLoadingReferred(false);
+      setIsLoadingActivities(false);
+    }
+  }, [address]);
+
   useEffect(() => {
-    if (!isConnected || !address) {
-      return;
-    }
-
-    // Load direct referrals from localStorage
-    const DIRECT_REFERRALS_KEY = `alphabag_direct_referrals_${address.toLowerCase()}`;
-    const stored = localStorage.getItem(DIRECT_REFERRALS_KEY);
-    if (stored) {
-      try {
-        const referrals = JSON.parse(stored) as DirectReferral[];
-        setDirectReferrals(referrals);
-
-        // Calculate total team members (sum of all direct referral team members)
-        const totalMembers = referrals.reduce((sum, ref) => sum + ref.totalTeamMembers, 0);
-        
-        // Calculate total team performance (sum of all direct referral team performances)
-        const totalPerformance = referrals.reduce((sum, ref) => sum + ref.totalTeamPerformance, 0);
-
-        // Update team performance
-        setTeamPerformance((prev) => ({
-          ...prev,
-          teamNode: referrals.length,
-          totalTeamMembers: totalMembers + referrals.length, // Include direct referrals themselves
-          totalTeamPerformance: totalPerformance,
-        }));
-      } catch (e) {
-        console.error("Failed to parse direct referrals:", e);
-      }
-    }
-
-    // Load referred users
-    const loadReferredUsers = async () => {
-      setIsLoadingReferred(true);
-      setIsLoadingActivities(true);
-      try {
-        const normalizedAddress = address.toLowerCase();
-        const referrals = await getReferralsByReferrer(normalizedAddress);
-        
-        const users = referrals.map(ref => ({
-          wallet: ref.referredWallet,
-          joinedAt: ref.createdAt,
-        }));
-        setReferredUsers(users);
-        
-        // Load referral activities
-        const activities = await getReferralActivitiesByReferrer(normalizedAddress);
-        setReferralActivities(activities);
-      } catch (error) {
-        console.error("Failed to load referred users:", error);
-        setReferredUsers([]);
-        setReferralActivities([]);
-      } finally {
-        setIsLoadingReferred(false);
-        setIsLoadingActivities(false);
-      }
-    };
-
-    loadReferredUsers();
-  }, [address, isConnected]);
+    if (!isConnected || !address) return;
+    loadTeamData();
+  }, [address, isConnected, loadTeamData]);
 
   if (!isConnected || !address) {
     return (
@@ -277,38 +289,11 @@ const Community = () => {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={async () => {
-                  if (address) {
-                    setIsLoadingReferred(true);
-                    setIsLoadingActivities(true);
-                    try {
-                      const normalizedAddress = address.toLowerCase();
-                      const referrals = await getReferralsByReferrer(normalizedAddress);
-                      
-                      const users = referrals.map(ref => ({
-                        wallet: ref.referredWallet,
-                        joinedAt: ref.createdAt,
-                      }));
-                      setReferredUsers(users);
-                      
-                      // Load referral activities
-                      const activities = await getReferralActivitiesByReferrer(normalizedAddress);
-                      setReferralActivities(activities);
-                      
-                      toast.success(`Loaded ${users.length} referred user(s) with ${activities.length} activity(ies)`);
-                    } catch (error) {
-                      console.error("Failed to refresh referred users:", error);
-                      toast.error("Failed to refresh referred users");
-                    } finally {
-                      setIsLoadingReferred(false);
-                      setIsLoadingActivities(false);
-                    }
-                  }
-                }}
-                disabled={isLoadingReferred || !address}
+                onClick={() => loadTeamData()}
+                disabled={isLoadingReferred || isLoadingTeam || !address}
                 className="shrink-0 h-8 w-8 sm:h-10 sm:w-10"
               >
-                <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 ${isLoadingReferred ? "animate-spin" : ""}`} />
+                <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 ${(isLoadingReferred || isLoadingTeam) ? "animate-spin" : ""}`} />
               </Button>
             </div>
           </CardHeader>

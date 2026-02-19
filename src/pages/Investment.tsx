@@ -30,7 +30,7 @@ const Investment = () => {
   const [planName, setPlanName] = useState("");
   const [copied, setCopied] = useState(false);
   const [successPopupOpen, setSuccessPopupOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // 플랜 정보 로딩 상태 (UI 로딩 스피너에 활용)
 
   // Get plan information from URL params, recent investment, or cart
   useEffect(() => {
@@ -114,13 +114,27 @@ const Investment = () => {
     }
   };
 
-  const handleTestSuccessPopup = () => {
-    setSuccessPopupOpen(true);
-  };
-
   if (!isConnected) {
     navigate("/");
     return null;
+  }
+
+  // 플랜 정보 로딩 중 스켈레톤 표시
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="pt-16 sm:pt-20 pb-12">
+          <div className="container mx-auto px-4">
+            <div className="animate-pulse space-y-4 mt-8">
+              <div className="h-8 bg-secondary rounded w-1/3" />
+              <div className="h-48 bg-secondary rounded" />
+              <div className="h-48 bg-secondary rounded" />
+            </div>
+          </div>
+        </main>
+      </div>
+    );
   }
 
   return (
@@ -223,16 +237,6 @@ const Investment = () => {
                 </CardContent>
               </Card>
 
-              {/* Test Success Popup Button */}
-              <div className="flex justify-end">
-                <Button
-                  variant="gold"
-                  onClick={handleTestSuccessPopup}
-                  className="gap-2"
-                >
-                  {t.investment.testSuccessPopup}
-                </Button>
-              </div>
             </div>
 
             {/* Integration Status Sidebar */}

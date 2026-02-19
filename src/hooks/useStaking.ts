@@ -1,7 +1,9 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient, useAccount } from "wagmi";
 import { parseUnits, formatUnits, isAddress } from "viem";
 import { STAKING_VAULT_CONTRACT_ADDRESS, STAKING_VAULT_ABI, ERC20_ABI } from "@/lib/contract";
-import { useState, useEffect } from "react";
+// Re-export shared useTokenBalance from useInvestment to avoid duplication
+export { useTokenBalance } from "@/hooks/useInvestment";
+import { useState, useEffect, useCallback } from "react";
 import { getStakingPlanByPlanId } from "@/lib/stakingPlans";
 import { createUserStake, getUserStakes, markStakeWithdrawn } from "@/lib/userStakes";
 import { StakingPlan } from "@/lib/stakingPlans";
@@ -37,24 +39,6 @@ export function useStakingTokenDecimals(tokenAddress?: `0x${string}`) {
   });
 
   return decimals ?? 18;
-}
-
-/**
- * Get token balance
- */
-export function useTokenBalance(tokenAddress?: `0x${string}`) {
-  const { address } = useAccount();
-  const { data: balance } = useReadContract({
-    address: tokenAddress,
-    abi: ERC20_ABI,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: {
-      enabled: !!tokenAddress && !!address,
-    },
-  });
-
-  return balance;
 }
 
 /**
@@ -237,18 +221,20 @@ export function useWithdraw() {
 
 /**
  * Get user stakes from Firestore
+ * 개선: useCallback으로 loadStakes 안정화 → useEffect 의존성 배열 안전,
+ *       이벤트 핸들러를 useCallback으로 메모이제이션하여 중복 리스너 누적 방지
  */
 export function useUserStakes() {
   const { address } = useAccount();
   const [stakes, setStakes] = useState<UserStake[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const loadStakes = async () => {
+  // useCallback으로 안정적인 참조 유지 → 이벤트 리스너 add/remove 페어링 보장
+  const loadStakes = useCallback(async () => {
     if (!address) {
       setStakes([]);
       return;
     }
-
     setIsLoading(true);
     try {
       const userStakes = await getUserStakes(address);
@@ -259,7 +245,7 @@ export function useUserStakes() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [address]);
 
   useEffect(() => {
     if (!address) {
@@ -269,45 +255,38 @@ export function useUserStakes() {
 
     loadStakes();
 
-    // Listen for stake creation events to refresh the list automatically
+    // stakeCreated: 특정 지갑의 스테이크 생성 이벤트
     const handleStakeCreated = (event: Event) => {
       const customEvent = event as CustomEvent;
-      if (customEvent.detail && customEvent.detail.wallet && address) {
-        if (customEvent.detail.wallet.toLowerCase() === address.toLowerCase()) {
-          console.log("Stake created event received for this wallet, reloading stakes...");
-          // Wait a bit for Firestore to be updated
-          setTimeout(() => {
-            loadStakes();
-          }, 1500);
-        }
+      if (
+        customEvent.detail?.wallet &&
+        customEvent.detail.wallet.toLowerCase() === address.toLowerCase()
+      ) {
+        console.log("Stake created event received for this wallet, reloading stakes...");
+        setTimeout(loadStakes, 1500);
       }
     };
 
-    // Also listen for generic refresh event
+    // refreshStakes: 일반 새로고침 이벤트
     const handleRefreshStakes = () => {
       console.log("Refresh stakes event received, reloading...");
-      if (address) {
-        setTimeout(() => {
-          loadStakes();
-        }, 1000);
-      }
+      setTimeout(loadStakes, 1000);
     };
 
-    window.addEventListener('stakeCreated', handleStakeCreated);
-    window.addEventListener('refreshStakes', handleRefreshStakes);
-    
+    window.addEventListener("stakeCreated", handleStakeCreated);
+    window.addEventListener("refreshStakes", handleRefreshStakes);
+
+    // cleanup: 컴포넌트 언마운트 또는 address 변경 시 리스너 제거 → 메모리 누수 방지
     return () => {
-      window.removeEventListener('stakeCreated', handleStakeCreated);
-      window.removeEventListener('refreshStakes', handleRefreshStakes);
+      window.removeEventListener("stakeCreated", handleStakeCreated);
+      window.removeEventListener("refreshStakes", handleRefreshStakes);
     };
-  }, [address]);
+  }, [address, loadStakes]);
 
-  const refreshStakes = () => {
+  const refreshStakes = useCallback(() => {
     console.log("Manual refresh triggered");
-    if (address) {
-      loadStakes();
-    }
-  };
+    loadStakes();
+  }, [loadStakes]);
 
   return { stakes, isLoading, refreshStakes };
 }
