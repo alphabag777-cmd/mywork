@@ -117,13 +117,12 @@ const Header = () => {
           </span>
         </button>
 
-        {/* Token price widget – desktop only */}
-        <div className="hidden lg:flex flex-1 justify-center">
-          <TokenPriceWidget />
-        </div>
-
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center gap-2 lg:gap-3 flex-shrink-0">
+        <div className="hidden md:flex items-center gap-2 lg:gap-3 flex-shrink-0 ml-auto">
+          {/* 토큰 가격 위젯 – 네비 좌측 인라인 배치 */}
+          <div className="hidden lg:flex">
+            <TokenPriceWidget />
+          </div>
           <ThemeToggle />
           <LanguageSelector />
           {/* <Button 

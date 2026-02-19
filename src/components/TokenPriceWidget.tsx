@@ -6,9 +6,7 @@
  * - Auto-refreshes every 5 minutes.
  */
 import { useState, useEffect, useCallback } from "react";
-import { TrendingUp, TrendingDown, RefreshCw, ExternalLink } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { RefreshCw, ExternalLink } from "lucide-react";
 import { getCachedNUMIPrice } from "@/lib/coinmarketcap";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -52,34 +50,54 @@ export function TokenPriceWidget() {
   }, [refresh]);
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex items-center gap-3">
+      {/* 구분선 */}
+      <div className="h-5 w-px bg-border/60" />
+
       {prices.map((token) => (
-        <Card key={token.symbol} className="border-border/50 bg-card/60 backdrop-blur">
-          <CardContent className="py-1.5 px-3 flex items-center gap-2">
-            <span className="text-xs font-semibold text-muted-foreground font-mono">{token.symbol}</span>
-            {loading || token.price === null ? (
-              <Skeleton className="h-4 w-16" />
-            ) : (
-              <span className="text-xs font-bold text-foreground">
-                ${token.price.toFixed(4)}
-              </span>
-            )}
-            {token.link && (
-              <a href={token.link} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            )}
-          </CardContent>
-        </Card>
+        <div key={token.symbol} className="flex items-center gap-1.5">
+          <span className="text-[11px] font-semibold text-muted-foreground tracking-wide">
+            {token.symbol}
+          </span>
+          {loading || token.price === null ? (
+            <Skeleton className="h-3.5 w-12" />
+          ) : (
+            <span className="text-[11px] font-bold text-foreground">
+              ${token.price.toFixed(4)}
+            </span>
+          )}
+          {token.link && (
+            <a
+              href={token.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-primary transition-colors"
+            >
+              <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+          )}
+        </div>
       ))}
-      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={refresh} disabled={loading}>
+
+      {/* 새로고침 */}
+      <button
+        onClick={refresh}
+        disabled={loading}
+        className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+        aria-label="Refresh prices"
+      >
         <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} />
-      </Button>
+      </button>
+
+      {/* 업데이트 시각 */}
       {lastUpdated && (
-        <span className="text-xs text-muted-foreground hidden sm:block">
+        <span className="text-[10px] text-muted-foreground hidden xl:block">
           {lastUpdated.toLocaleTimeString()}
         </span>
       )}
+
+      {/* 구분선 */}
+      <div className="h-5 w-px bg-border/60" />
     </div>
   );
 }
