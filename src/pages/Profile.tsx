@@ -31,7 +31,7 @@ import {
 import { generateReferralLink, getReferrerWallet, getOrCreateReferralCode } from "@/lib/referral";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { getUserInvestments } from "@/lib/userInvestments";
 import { getActiveUserStakes } from "@/lib/userStakes";
@@ -159,7 +159,7 @@ const WalletSubCard = ({
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {new Date(transfer.timestamp).toLocaleString()}
+                  {(() => { try { const d = toSafeDate ? toSafeDate(transfer.timestamp) : new Date(transfer.timestamp); return d ? d.toLocaleString() : "-"; } catch { return "-"; } })()}
                 </p>
                 <a
                   href={`https://bscscan.com/tx/${transfer.transactionHash}`}
@@ -345,60 +345,70 @@ const Profile = () => {
 
   const balanceFormatted = tokenBalance ? formatUnits(tokenBalance, decimals) : "0";
 
-  // ── Earnings computed values ──
-  const eTotalInvested = earningsInvestments.reduce((s, i) => s + (i.amount || 0), 0);
-  const eTotalProfit   = earningsInvestments.reduce((s, i) => s + (i.profit || 0), 0);
-  const eTotalTokenVal = earningsInvestments.reduce((s, i) => s + (i.tokenValueUSDT || 0), 0);
-  const eStakingPrincipal = earningsStakes.reduce((s, st) => {
-    try { return s + parseFloat(formatUnits(BigInt(st.principal), 18)); } catch { return s; }
-  }, 0);
-  const eStakingDaily = earningsStakes.reduce((s, st) => {
+  // ── Earnings computed values (useMemo로 격리 — 예외가 re-render를 오염시키지 않도록) ──
+  const earningsComputed = useMemo(() => {
     try {
-      const p = parseFloat(formatUnits(BigInt(st.principal), 18));
-      return s + (p * st.dailyRateBps) / 10000;
-    } catch { return s; }
-  }, 0);
-  const eCategoryMap: Record<string, number> = {};
-  earningsInvestments.forEach((inv) => {
-    const cat = inv.category || "BBAG";
-    eCategoryMap[cat] = (eCategoryMap[cat] || 0) + (inv.amount || 0);
-  });
-  const ePieData = Object.entries(eCategoryMap).map(([name, value]) => ({ name, value }));
+      const eTotalInvested = earningsInvestments.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+      const eTotalProfit   = earningsInvestments.reduce((s, i) => s + (Number(i.profit) || 0), 0);
+      const eTotalTokenVal = earningsInvestments.reduce((s, i) => s + (Number(i.tokenValueUSDT) || 0), 0);
+      const eStakingPrincipal = earningsStakes.reduce((s, st) => {
+        try { return s + parseFloat(formatUnits(BigInt(st.principal), 18)); } catch { return s; }
+      }, 0);
+      const eStakingDaily = earningsStakes.reduce((s, st) => {
+        try {
+          const p = parseFloat(formatUnits(BigInt(st.principal), 18));
+          return s + (p * st.dailyRateBps) / 10000;
+        } catch { return s; }
+      }, 0);
 
-  // investedAt 안전 변환: Firestore Timestamp / number / string / Date 모두 처리
-  const toSafeDate = (val: any): Date | null => {
-    try {
-      if (!val) return null;
-      // Firestore Timestamp 객체 (seconds 필드 보유)
-      if (typeof val === "object" && "seconds" in val) {
-        return new Date(val.seconds * 1000);
-      }
-      const d = new Date(val);
-      return isNaN(d.getTime()) ? null : d;
-    } catch {
-      return null;
+      const eCategoryMap: Record<string, number> = {};
+      earningsInvestments.forEach((inv) => {
+        const cat = inv.category || "BBAG";
+        eCategoryMap[cat] = (eCategoryMap[cat] || 0) + (Number(inv.amount) || 0);
+      });
+      const ePieData = Object.entries(eCategoryMap).map(([name, value]) => ({ name, value }));
+
+      // investedAt 안전 변환: Firestore Timestamp / number / string / Date 모두 처리
+      const toSafeDate = (val: any): Date | null => {
+        try {
+          if (!val) return null;
+          if (typeof val === "object" && "seconds" in val) return new Date(val.seconds * 1000);
+          if (typeof val === "object" && "toMillis" in val) return new Date(val.toMillis());
+          const d = new Date(val);
+          return isNaN(d.getTime()) ? null : d;
+        } catch { return null; }
+      };
+
+      const eMonthlyMap: Record<string, number> = {};
+      earningsInvestments.forEach((inv) => {
+        try {
+          const d = toSafeDate(inv.investedAt);
+          if (!d) return;
+          const m = format(d, "yyyy-MM");
+          eMonthlyMap[m] = (eMonthlyMap[m] || 0) + (Number(inv.amount) || 0);
+        } catch { /* skip */ }
+      });
+      const eBarData = Object.entries(eMonthlyMap)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .slice(-6)
+        .map(([month, amount]) => {
+          try { return { month: format(new Date(month), "MMM yy"), amount }; }
+          catch { return { month, amount }; }
+        });
+
+      return { eTotalInvested, eTotalProfit, eTotalTokenVal, eStakingPrincipal, eStakingDaily, ePieData, eBarData, toSafeDate };
+    } catch (err) {
+      console.error("[Profile] earningsComputed error:", err);
+      return {
+        eTotalInvested: 0, eTotalProfit: 0, eTotalTokenVal: 0,
+        eStakingPrincipal: 0, eStakingDaily: 0,
+        ePieData: [], eBarData: [],
+        toSafeDate: (_: any) => null as Date | null,
+      };
     }
-  };
+  }, [earningsInvestments, earningsStakes]);
 
-  const eMonthlyMap: Record<string, number> = {};
-  earningsInvestments.forEach((inv) => {
-    try {
-      const d = toSafeDate(inv.investedAt);
-      if (!d) return;
-      const m = format(d, "yyyy-MM");
-      eMonthlyMap[m] = (eMonthlyMap[m] || 0) + (inv.amount || 0);
-    } catch { /* 날짜 변환 실패 시 해당 항목 무시 */ }
-  });
-  const eBarData = Object.entries(eMonthlyMap)
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .slice(-6)
-    .map(([month, amount]) => {
-      try {
-        return { month: format(new Date(month), "MMM yy"), amount };
-      } catch {
-        return { month, amount };
-      }
-    });
+  const { eTotalInvested, eTotalProfit, eTotalTokenVal, eStakingPrincipal, eStakingDaily, ePieData, eBarData, toSafeDate } = earningsComputed;
 
   // ── Plan Selection State ──
   const [allPlans, setAllPlans] = useState<InvestmentPlan[]>([]);
@@ -1311,7 +1321,7 @@ const Profile = () => {
                             <p className="text-sm font-semibold">${(inv.amount||0).toLocaleString(undefined,{maximumFractionDigits:2})}</p>
                             {inv.profit !== undefined && (
                               <p className={`text-xs font-medium ${inv.profit>=0?"text-green-500":"text-red-500"}`}>
-                                {inv.profit>=0?"+":""}{inv.profit.toFixed(2)} P/L
+                                {inv.profit>=0?"+":""}{ (inv.profit||0).toFixed(2)} P/L
                               </p>
                             )}
                           </div>

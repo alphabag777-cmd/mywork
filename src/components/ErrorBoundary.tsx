@@ -68,13 +68,11 @@ export class ErrorBoundary extends Component<Props, State> {
               An unexpected error occurred. Please try refreshing the page or contact support if the
               issue persists.
             </p>
-            {import.meta.env.DEV && (
-              <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-40 text-destructive">
-                {this.state.error.message}
-                {"\n"}
-                {this.state.error.stack}
-              </pre>
-            )}
+            <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-40 text-destructive">
+              {this.state.error.message}
+              {"\n"}
+              {this.state.error.stack?.split("\n").slice(0, 6).join("\n")}
+            </pre>
             <div className="flex gap-2">
               <Button onClick={this.handleReset} variant="outline" className="flex-1">
                 Try Again
