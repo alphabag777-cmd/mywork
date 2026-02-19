@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
-import { translateContent, isKorean } from '@/lib/translator';
+import { translateContent, detectLanguage } from '@/lib/translator';
 
 /**
- * Hook to translate dynamic content from admin panel
- * Automatically translates Korean content to current language
+ * Hook to translate dynamic content from admin panel.
+ * Translates ANY language → current UI language when they differ.
  */
 export function useTranslate() {
   const { language } = useLanguage();
@@ -14,29 +14,28 @@ export function useTranslate() {
   const translate = useCallback(
     async (text: string): Promise<string> => {
       if (!text || !text.trim()) return text;
-      
-      // If Korean and current language is not Korean, translate
-      if (isKorean(text) && language !== 'ko') {
-        // Check if already translated
-        const cacheKey = `${text}|${language}`;
-        if (translations.has(cacheKey)) {
-          return translations.get(cacheKey)!;
-        }
 
-        setLoading(true);
-        try {
-          const translated = await translateContent(text, language);
-          setTranslations((prev) => new Map(prev.set(cacheKey, translated)));
-          return translated;
-        } catch (error) {
-          console.error('Translation error:', error);
-          return text;
-        } finally {
-          setLoading(false);
-        }
+      const sourceLang = detectLanguage(text);
+
+      // Already in target language or undetectable
+      if (sourceLang === 'unknown' || sourceLang === language) return text;
+
+      const cacheKey = `${text}|${language}`;
+      if (translations.has(cacheKey)) {
+        return translations.get(cacheKey)!;
       }
 
-      return text;
+      setLoading(true);
+      try {
+        const translated = await translateContent(text, language);
+        setTranslations((prev) => new Map(prev.set(cacheKey, translated)));
+        return translated;
+      } catch (error) {
+        console.error('Translation error:', error);
+        return text;
+      } finally {
+        setLoading(false);
+      }
     },
     [language, translations]
   );
@@ -44,13 +43,10 @@ export function useTranslate() {
   const translateSync = useCallback(
     (text: string): string => {
       if (!text || !text.trim()) return text;
-      
-      if (isKorean(text) && language !== 'ko') {
-        const cacheKey = `${text}|${language}`;
-        return translations.get(cacheKey) || text;
-      }
-      
-      return text;
+      const sourceLang = detectLanguage(text);
+      if (sourceLang === 'unknown' || sourceLang === language) return text;
+      const cacheKey = `${text}|${language}`;
+      return translations.get(cacheKey) || text;
     },
     [language, translations]
   );
@@ -67,31 +63,28 @@ export function useTranslateObject<T extends Record<string, any>>() {
   const [loading, setLoading] = useState(false);
 
   const translateObject = useCallback(
-    async <K extends keyof T>(
-      obj: T,
-      fields: K[]
-    ): Promise<T> => {
-      if (language === 'ko') {
-        return obj; // No translation needed
-      }
-
+    async <K extends keyof T>(obj: T, fields: K[]): Promise<T> => {
       setLoading(true);
       try {
         const translated = { ...obj };
-        
+
         await Promise.all(
           fields.map(async (field) => {
             const value = obj[field];
-            if (typeof value === 'string' && isKorean(value)) {
-              const cacheKey = `${value}|${language}`;
-              if (translations.has(cacheKey)) {
-                (translated as any)[field] = translations.get(cacheKey)!;
-              } else {
-                const translatedValue = await translateContent(value, language);
-                setTranslations((prev) => new Map(prev.set(cacheKey, translatedValue)));
-                (translated as any)[field] = translatedValue;
-              }
+            if (typeof value !== 'string' || !value.trim()) return;
+
+            const sourceLang = detectLanguage(value);
+            if (sourceLang === 'unknown' || sourceLang === language) return;
+
+            const cacheKey = `${value}|${language}`;
+            if (translations.has(cacheKey)) {
+              (translated as any)[field] = translations.get(cacheKey)!;
+              return;
             }
+
+            const translatedValue = await translateContent(value, language);
+            setTranslations((prev) => new Map(prev.set(cacheKey, translatedValue)));
+            (translated as any)[field] = translatedValue;
           })
         );
 
@@ -108,4 +101,5 @@ export function useTranslateObject<T extends Record<string, any>>() {
 
   return { translateObject, isLoading: loading };
 }
+
 

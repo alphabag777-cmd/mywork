@@ -7,7 +7,6 @@ import { formatAddress } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { NotificationCenter } from "@/components/NotificationCenter";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { TokenPriceWidget } from "@/components/TokenPriceWidget";
 import { 
   getOrCreateReferralCode, 
@@ -128,7 +127,6 @@ const Header = () => {
           <div className="hidden lg:flex">
             <TokenPriceWidget />
           </div>
-          <ThemeToggle />
           <LanguageSelector />
           {/* <Button 
             variant="outline" 
@@ -216,7 +214,6 @@ const Header = () => {
 
         {/* Mobile Navigation */}
         <div className="flex md:hidden items-center gap-1 flex-shrink-0">
-          <ThemeToggle />
           <LanguageSelector />
           <Tooltip>
             <TooltipTrigger asChild>

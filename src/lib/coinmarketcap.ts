@@ -1,14 +1,51 @@
 /**
- * CoinMarketCap API integration for fetching NUMI token price
+ * Token price fetching – uses Binance public API (no key required).
+ * Falls back to CoinMarketCap if VITE_COINMARKETCAP_API_KEY is set.
+ *
+ * Binance ticker endpoint:
+ *   GET https://api.binance.com/api/v3/ticker/price?symbol=NUMIUSDT
  */
 
-const COINMARKETCAP_API_BASE = "https://pro-api.coinmarketcap.com/v1";
-const NUMI_SYMBOL = "NUMI"; // Update this if NUMI has a different symbol on CoinMarketCap
+/* ─── Binance ────────────────────────────────────────────────────────── */
+const BINANCE_TICKER = "https://api.binance.com/api/v3/ticker/price";
 
-// CoinMarketCap API Key (loaded from env so it is not committed)
-// Define VITE_COINMARKETCAP_API_KEY in your `.env.local` file.
-const COINMARKETCAP_API_KEY = import.meta.env.VITE_COINMARKETCAP_API_KEY || "";
+async function fetchPriceFromBinance(symbol: string): Promise<number | null> {
+  try {
+    const res = await fetch(`${BINANCE_TICKER}?symbol=${symbol}USDT`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) throw new Error(`Binance ${res.status}`);
+    const data = await res.json();
+    const price = parseFloat(data.price);
+    return isNaN(price) ? null : price;
+  } catch (err) {
+    console.warn(`Binance price fetch failed for ${symbol}:`, err);
+    return null;
+  }
+}
 
+/* ─── CoinMarketCap (optional fallback) ─────────────────────────────── */
+const CMC_BASE = "https://pro-api.coinmarketcap.com/v1";
+const CMC_KEY = import.meta.env.VITE_COINMARKETCAP_API_KEY || "";
+
+async function fetchPriceFromCMC(symbol: string): Promise<number | null> {
+  if (!CMC_KEY) return null;
+  try {
+    const url = `${CMC_BASE}/cryptocurrency/quotes/latest?symbol=${symbol}&convert=USDT`;
+    const res = await fetch(url, {
+      headers: { "X-CMC_PRO_API_KEY": CMC_KEY, Accept: "application/json" },
+    });
+    if (!res.ok) throw new Error(`CMC ${res.status}`);
+    const data = await res.json();
+    const quote = data?.data?.[symbol]?.[0]?.quote?.USDT;
+    return quote?.price ?? null;
+  } catch (err) {
+    console.warn(`CMC price fetch failed for ${symbol}:`, err);
+    return null;
+  }
+}
+
+/* ─── Public interface ───────────────────────────────────────────────── */
 export interface CoinMarketCapPrice {
   symbol: string;
   price: number;
@@ -18,126 +55,51 @@ export interface CoinMarketCapPrice {
 }
 
 /**
- * Fetch NUMI price from CoinMarketCap API
- * Returns price in USDT
+ * Fetch NUMI price.
+ * Order: Binance → CoinMarketCap → null (no mock fallback).
  */
 export async function fetchNUMIPrice(): Promise<number | null> {
-  try {
-    if (!COINMARKETCAP_API_KEY) {
-      console.warn("CoinMarketCap API key not configured. Using fallback price.");
-      // Fallback: Return a mock price for development
-      // In production, this should throw an error or use a different price source
-      return 0.26; // Mock price
-    }
+  // 1. Try Binance (free, no key)
+  const binancePrice = await fetchPriceFromBinance("NUMI");
+  if (binancePrice !== null) return binancePrice;
 
-    // CoinMarketCap API endpoint for cryptocurrency quotes
-    const url = `${COINMARKETCAP_API_BASE}/cryptocurrency/quotes/latest`;
-    const params = new URLSearchParams({
-      symbol: NUMI_SYMBOL,
-      convert: "USDT",
-    });
+  // 2. Try CoinMarketCap (needs API key)
+  const cmcPrice = await fetchPriceFromCMC("NUMI");
+  if (cmcPrice !== null) return cmcPrice;
 
-    const response = await fetch(`${url}?${params}`, {
-      headers: {
-        "X-CMC_PRO_API_KEY": COINMARKETCAP_API_KEY,
-        "Accept": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`CoinMarketCap API error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-
-    // Extract price from CoinMarketCap response
-    if (data.data && data.data[NUMI_SYMBOL] && data.data[NUMI_SYMBOL][0]) {
-      const quote = data.data[NUMI_SYMBOL][0].quote?.USDT;
-      if (quote && quote.price) {
-        return quote.price;
-      }
-    }
-
-    throw new Error("NUMI price not found in CoinMarketCap response");
-  } catch (error) {
-    console.error("Error fetching NUMI price from CoinMarketCap:", error);
-    
-    // Fallback: Return a mock price for development/testing
-    // In production, you might want to return null or throw
-    console.warn("Using fallback NUMI price");
-    return 0.26; // Mock price - replace with actual fallback logic
-  }
+  // 3. No price available
+  console.warn("NUMI price unavailable from all sources.");
+  return null;
 }
 
 /**
- * Fetch multiple cryptocurrency prices
+ * Fetch prices for multiple symbols.
+ * Uses Binance for each symbol; falls back to CMC if available.
  */
-export async function fetchPrices(symbols: string[]): Promise<Record<string, number>> {
-  try {
-    if (!COINMARKETCAP_API_KEY) {
-      console.warn("CoinMarketCap API key not configured.");
-      return {};
-    }
-
-    const url = `${COINMARKETCAP_API_BASE}/cryptocurrency/quotes/latest`;
-    const params = new URLSearchParams({
-      symbol: symbols.join(","),
-      convert: "USDT",
-    });
-
-    const response = await fetch(`${url}?${params}`, {
-      headers: {
-        "X-CMC_PRO_API_KEY": COINMARKETCAP_API_KEY,
-        "Accept": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`CoinMarketCap API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const prices: Record<string, number> = {};
-
-    symbols.forEach((symbol) => {
-      if (data.data && data.data[symbol] && data.data[symbol][0]) {
-        const quote = data.data[symbol][0].quote?.USDT;
-        if (quote && quote.price) {
-          prices[symbol] = quote.price;
-        }
-      }
-    });
-
-    return prices;
-  } catch (error) {
-    console.error("Error fetching prices from CoinMarketCap:", error);
-    return {};
-  }
+export async function fetchPrices(
+  symbols: string[]
+): Promise<Record<string, number>> {
+  const results: Record<string, number> = {};
+  await Promise.all(
+    symbols.map(async (sym) => {
+      const price =
+        (await fetchPriceFromBinance(sym)) ?? (await fetchPriceFromCMC(sym));
+      if (price !== null) results[sym] = price;
+    })
+  );
+  return results;
 }
 
-/**
- * Get NUMI price with caching (5 minute cache)
- */
+/* ─── Cache (5 min TTL) ──────────────────────────────────────────────── */
 let cachedPrice: { price: number; timestamp: number } | null = null;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 5 * 60 * 1000;
 
 export async function getCachedNUMIPrice(): Promise<number | null> {
   const now = Date.now();
-  
-  // Return cached price if still valid
-  if (cachedPrice && (now - cachedPrice.timestamp) < CACHE_DURATION) {
+  if (cachedPrice && now - cachedPrice.timestamp < CACHE_DURATION) {
     return cachedPrice.price;
   }
-
-  // Fetch new price
   const price = await fetchNUMIPrice();
-  
-  if (price !== null) {
-    cachedPrice = {
-      price,
-      timestamp: now,
-    };
-  }
-
+  if (price !== null) cachedPrice = { price, timestamp: now };
   return price;
 }

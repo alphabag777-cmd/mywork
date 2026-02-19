@@ -96,8 +96,9 @@ async function translateText(
 }
 
 /**
- * Translate text based on current language
- * If text is Korean and current language is not Korean, translate it
+ * Translate text based on current language.
+ * Translates ANY language → currentLanguage when they differ.
+ * (Previously only Korean→other was supported.)
  */
 export async function translateContent(
   text: string,
@@ -105,12 +106,13 @@ export async function translateContent(
 ): Promise<string> {
   if (!text || !text.trim()) return text;
 
-  // If current language is Korean or text is not Korean, return as is
-  if (currentLanguage === 'ko' || !isKorean(text)) {
+  const sourceLang = detectLanguage(text);
+
+  // Already in the target language or undetectable – no translation needed
+  if (sourceLang === 'unknown' || sourceLang === currentLanguage) {
     return text;
   }
 
-  // Translate Korean to current language
   return await translateText(text, currentLanguage);
 }
 
@@ -121,10 +123,6 @@ export async function translateMultiple(
   texts: string[],
   currentLanguage: Language
 ): Promise<string[]> {
-  if (currentLanguage === 'ko') {
-    return texts;
-  }
-
   return Promise.all(
     texts.map((text) => translateContent(text, currentLanguage))
   );
