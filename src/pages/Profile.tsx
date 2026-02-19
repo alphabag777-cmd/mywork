@@ -397,14 +397,19 @@ const Profile = () => {
   }, [address]);
 
   // 자유 다중 선택 토글 — 개수 제한 없음
-  const handlePlanToggle = (planId: string) => {
+  const handlePlanToggle = useCallback((planId: string) => {
     setPlanSelectionDirty(true);
     setSelectedPlanIds(prev =>
       prev.includes(planId)
         ? prev.filter(id => id !== planId)
         : [...prev, planId]
     );
-  };
+  }, []);
+
+  // 터치/클릭 공용 핸들러 — touch-action: manipulation 으로 300ms 지연 없음
+  const makeTouchHandlers = useCallback((planId: string) => ({
+    onClick: () => handlePlanToggle(planId),
+  }), [handlePlanToggle]);
 
   // 전체 선택 / 전체 해제
   const handleSelectAll = () => {
@@ -508,7 +513,7 @@ const Profile = () => {
                     type="button"
                     onClick={handleSelectAll}
                     style={{ touchAction: "manipulation" }}
-                    className="text-xs text-primary hover:underline"
+                    className="text-xs text-primary hover:underline active:underline"
                   >
                     전체 선택
                   </button>
@@ -517,7 +522,7 @@ const Profile = () => {
                     type="button"
                     onClick={handleClearAll}
                     style={{ touchAction: "manipulation" }}
-                    className="text-xs text-muted-foreground hover:underline"
+                    className="text-xs text-muted-foreground hover:underline active:underline"
                   >
                     전체 해제
                   </button>
@@ -539,24 +544,26 @@ const Profile = () => {
                         role="checkbox"
                         aria-checked={isSelected}
                         tabIndex={0}
-                        onClick={() => handlePlanToggle(planId)}
+                        {...makeTouchHandlers(planId)}
                         onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handlePlanToggle(planId); }}
-                        style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent", cursor: "pointer" }}
+                        style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent", cursor: "pointer", userSelect: "none" }}
                         className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all select-none ${
                           isSelected
                             ? "border-primary bg-primary/10"
                             : "border-border"
                         }`}
                       >
-                        {isSelected ? (
-                          <CheckSquare className="w-5 h-5 text-primary flex-shrink-0" />
-                        ) : (
-                          <Square className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                        )}
+                        <span className="pointer-events-none flex-shrink-0">
+                          {isSelected ? (
+                            <CheckSquare className="w-5 h-5 text-primary" />
+                          ) : (
+                            <Square className="w-5 h-5 text-muted-foreground" />
+                          )}
+                        </span>
                         {plan.logo && (
-                          <img src={plan.logo} alt={plan.label} className="w-8 h-8 object-contain flex-shrink-0" />
+                          <img src={plan.logo} alt="" aria-hidden="true" className="w-8 h-8 object-contain flex-shrink-0 pointer-events-none" />
                         )}
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 pointer-events-none">
                           <p className="text-sm font-semibold truncate">{plan.name}</p>
                           <p className="text-xs text-muted-foreground truncate">{plan.label}</p>
                           {plan.dailyProfit && (
@@ -564,7 +571,7 @@ const Profile = () => {
                           )}
                         </div>
                         {isSelected && (
-                          <span className="text-xs font-bold text-primary/70 flex-shrink-0 bg-primary/10 px-1.5 py-0.5 rounded">
+                          <span className="text-xs font-bold text-primary/70 flex-shrink-0 bg-primary/10 px-1.5 py-0.5 rounded pointer-events-none">
                             #{posIdx + 1}
                           </span>
                         )}
@@ -591,7 +598,7 @@ const Profile = () => {
                             type="button"
                             onClick={(e) => { e.stopPropagation(); handlePlanToggle(id); }}
                             style={{ touchAction: "manipulation" }}
-                            className="text-muted-foreground hover:text-red-500 active:text-red-500 ml-0.5 p-1 -m-1"
+                            className="text-muted-foreground hover:text-red-500 active:text-red-500 ml-0.5 p-2 -m-1"
                           >
                             <X className="w-3 h-3" />
                           </button>
