@@ -71,3 +71,30 @@ export function LanguageSelectorInline({ onSelect }: { onSelect?: () => void }) 
     </div>
   );
 }
+
+/** 모바일 상단 헤더 바에 가로로 나열되는 미니 언어 버튼 (텍스트만) */
+export function LanguageSelectorBar() {
+  const { language, setLanguage } = useLanguage();
+
+  return (
+    <div className="flex items-center gap-1">
+      {languages.map((lang, idx) => (
+        <span key={lang.code} className="flex items-center">
+          <button
+            onClick={() => setLanguage(lang.code)}
+            className={`text-[11px] font-medium px-0.5 transition-colors ${
+              language === lang.code
+                ? 'text-primary font-bold'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {lang.nativeName}
+          </button>
+          {idx < languages.length - 1 && (
+            <span className="text-border mx-0.5 text-[10px]">|</span>
+          )}
+        </span>
+      ))}
+    </div>
+  );
+}

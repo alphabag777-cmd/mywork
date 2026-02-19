@@ -1,10 +1,10 @@
-import { Coins, Wallet, User, Users, Menu, ShoppingCart, Lock, MessageSquare } from "lucide-react";
+import { Coins, Wallet, User, Users, Menu, ShoppingCart, Lock, MessageSquare, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useAccount, useDisconnect } from "wagmi";
+import { useAccount, useDisconnect, useConnect } from "wagmi";
 import { useWeb3Modal } from "@web3modal/wagmi/react";
 import { formatAddress } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { TokenPriceWidget } from "@/components/TokenPriceWidget";
@@ -20,7 +20,7 @@ import {
 import { saveUser, updateUserConnection } from "@/lib/users";
 import { saveReferral } from "@/lib/referrals";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { LanguageSelector, LanguageSelectorInline } from "@/components/LanguageSelector";
+import { LanguageSelector, LanguageSelectorBar } from "@/components/LanguageSelector";
 import { useCart } from "@/contexts/CartContext";
 import {
   Sheet,
@@ -30,13 +30,50 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
+/** TokenPocket 환경 여부 감지 */
+function isTokenPocketBrowser(): boolean {
+  if (typeof window === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  // TokenPocket injects window.ethereum.isTokenPocket = true
+  // and UA contains "TokenPocket"
+  return (
+    ua.includes("TokenPocket") ||
+    !!(window as any).ethereum?.isTokenPocket
+  );
+}
+
+/** TokenPocket에서 계정 전환 요청 */
+async function requestTokenPocketAccountSwitch(): Promise<string | null> {
+  try {
+    const ethereum = (window as any).ethereum;
+    if (!ethereum) return null;
+
+    // wallet_requestPermissions triggers account picker in TokenPocket
+    await ethereum.request({
+      method: "wallet_requestPermissions",
+      params: [{ eth_accounts: {} }],
+    });
+
+    // After permission granted, get the newly selected account
+    const accounts: string[] = await ethereum.request({
+      method: "eth_requestAccounts",
+    });
+    return accounts?.[0] ?? null;
+  } catch (err) {
+    console.warn("TokenPocket account switch cancelled or failed:", err);
+    return null;
+  }
+}
+
 const Header = () => {
   const { address, isConnected } = useAccount();
   const { open } = useWeb3Modal();
   const { disconnect } = useDisconnect();
+  const { connectors, connect } = useConnect();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
   const { getTotalItems } = useCart();
   const cartItemCount = getTotalItems();
 
@@ -90,19 +127,57 @@ const Header = () => {
     }
   }, [isConnected, address]);
 
-  const handleWalletClick = () => {
-    if (isConnected) {
-      disconnect();
-    } else {
-      open();
+  /** 
+   * 일반: 연결 → open(), 연결됨 → disconnect()
+   * TokenPocket 모바일(연결됨): wallet_requestPermissions로 계정 선택 팝업 호출
+   */
+  const handleWalletClick = useCallback(async () => {
+    if (!isConnected) {
+      // 연결 안 됨 → 지갑 선택 모달 오픈
+      if (isTokenPocketBrowser()) {
+        // TokenPocket 내장 브라우저: injected connector로 직접 연결
+        setIsSwitching(true);
+        try {
+          const injectedConnector = connectors.find(
+            (c) => c.id === "injected" || c.type === "injected"
+          );
+          if (injectedConnector) {
+            connect({ connector: injectedConnector });
+          } else {
+            open();
+          }
+        } finally {
+          setIsSwitching(false);
+        }
+      } else {
+        open();
+      }
+      return;
     }
-  };
+
+    // 연결됨 상태
+    if (isTokenPocketBrowser()) {
+      // TokenPocket: 계정 전환 팝업 (wallet_requestPermissions)
+      setIsSwitching(true);
+      try {
+        await requestTokenPocketAccountSwitch();
+        // wagmi는 accountsChanged 이벤트로 자동 업데이트됨
+      } finally {
+        setIsSwitching(false);
+      }
+    } else {
+      disconnect();
+    }
+  }, [isConnected, open, disconnect, connect, connectors]);
+
+  const isTP = isTokenPocketBrowser();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
-      {/* 모바일 전용 가격 ticker 바 – 헤더 맨 위 한 줄 */}
-      <div className="flex md:hidden items-center justify-center gap-4 px-3 py-1 bg-muted/60 border-b border-border/30 text-xs">
+      {/* 모바일 전용 상단 바 – 가격 ticker + 언어 선택 */}
+      <div className="flex md:hidden items-center justify-between gap-2 px-3 py-1 bg-muted/60 border-b border-border/30 text-xs">
         <TokenPriceWidget compact />
+        <LanguageSelectorBar />
       </div>
 
       <div className="container mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-2">
@@ -128,15 +203,6 @@ const Header = () => {
             <TokenPriceWidget />
           </div>
           <LanguageSelector />
-          {/* <Button 
-            variant="outline" 
-            size="default" 
-            className="gap-2" 
-            onClick={() => navigate("/tutorial")}
-          >
-            <BookOpen className="w-4 h-4" />
-            Tutorial
-          </Button> */}
           <Button 
             variant="outline" 
             size="default" 
@@ -217,10 +283,17 @@ const Header = () => {
                 size="sm" 
                 className="gap-1 px-1.5 sm:px-2 h-8 w-8 sm:w-auto sm:h-auto sm:gap-1.5" 
                 onClick={handleWalletClick}
+                disabled={isSwitching}
               >
-                {isConnected ? (
+                {isSwitching ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : isConnected ? (
                   <>
                     <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    {/* TokenPocket: 탭하면 계정 전환 → 아이콘 힌트 표시 */}
+                    {isTP && (
+                      <span className="hidden sm:inline text-[10px] opacity-70">⇄</span>
+                    )}
                     <span className="hidden sm:inline text-xs">{address ? formatAddress(address, 3) : ""}</span>
                   </>
                 ) : (
@@ -231,7 +304,11 @@ const Header = () => {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              {isConnected && address ? address : "Connect Wallet"}
+              {isConnected && address
+                ? isTP
+                  ? `${address} (탭하여 지갑 변경)`
+                  : address
+                : "Connect Wallet"}
             </TooltipContent>
           </Tooltip>
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
@@ -245,14 +322,42 @@ const Header = () => {
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
               <div className="mt-6 flex flex-col gap-3">
-                {/* 언어 선택 – Sheet 상단 인라인 */}
-                <LanguageSelectorInline onSelect={() => setMobileMenuOpen(false)} />
-                <div className="h-px bg-border/50" />
                 {/* 토큰 가격 – Sheet 상단 */}
                 <div className="px-1 py-2 rounded-lg bg-muted/50 border border-border/50">
                   <TokenPriceWidget />
                 </div>
                 <div className="h-px bg-border/50" />
+
+                {/* TokenPocket 계정 전환 버튼 */}
+                {isTP && isConnected && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-2 border-amber-500/50 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                    disabled={isSwitching}
+                    onClick={async () => {
+                      setMobileMenuOpen(false);
+                      setIsSwitching(true);
+                      try {
+                        await requestTokenPocketAccountSwitch();
+                      } finally {
+                        setIsSwitching(false);
+                      }
+                    }}
+                  >
+                    {isSwitching ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Wallet className="w-4 h-4" />
+                    )}
+                    {isSwitching ? "전환 중..." : "본인 지갑 변경"}
+                    {address && (
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        {formatAddress(address, 4)}
+                      </span>
+                    )}
+                  </Button>
+                )}
+
                 <Button 
                   variant="outline" 
                   className="w-full justify-start gap-2" 
@@ -264,17 +369,6 @@ const Header = () => {
                   <Lock className="w-4 h-4" />
                   Staking
                 </Button>
-                {/* <Button 
-                  variant="outline"  
-                  className="w-full justify-start gap-2" 
-                  onClick={() => {
-                    navigate("/tutorial");
-                    setMobileMenuOpen(false);
-                  }}
-                >
-                  <BookOpen className="w-4 h-4" />
-                  Tutorial
-                </Button> */}
                 {isConnected && (
                   <>
                     <Button 
