@@ -1,5 +1,6 @@
 import { Coins, Wallet, User, Users, Menu, ShoppingCart, BookOpen, Lock, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAccount, useDisconnect } from "wagmi";
 import { useWeb3Modal } from "@web3modal/wagmi/react";
 import { formatAddress } from "@/lib/utils";
