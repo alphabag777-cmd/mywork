@@ -51,6 +51,24 @@ export interface InvestmentPlan {
   wallet3?: string; // Third wallet address
   wallet3Percentage?: number; // Percentage for third wallet (0-100)
   useUserAddress3?: boolean; // If true, use user's wallet address instead of wallet3
+  // ── Detail Info (세부정보 탭) ──
+  detailImages?: Array<{ url: string; caption?: string }> | string[]; // 상세 이미지 (캡션 포함)
+  highlights?: Array<{ icon: string; title: string; value: string }>; // 핵심 지표 카드
+  riskLevel?: "Low" | "Medium" | "High";          // 리스크 레벨
+  network?: string;                               // 블록체인 네트워크 (e.g. BSC, ETH)
+  tokenSymbol?: string;                           // 토큰 심볼 (e.g. BBAG)
+  lockupPeriod?: string;                          // 락업 기간 (e.g. "30일")
+  minInvestment?: string;                         // 최소 투자금 (e.g. "100 USDT")
+  detailDescription?: string;                     // 세부 설명 (마크다운 지원)
+  // ── 추가 세부 정보 ──
+  investmentPeriod?: string;                      // 투자 기간 (e.g. "90일", "무기한")
+  profitCycle?: string;                           // 수익 지급 주기 (e.g. "매일", "매주")
+  feeInfo?: string;                               // 수수료 정보 (e.g. "출금 수수료 2%")
+  contractAddress?: string;                       // 스마트 컨트랙트 주소
+  auditInfo?: string;                             // 감사 정보 (e.g. "CertiK 감사 완료")
+  totalCapacity?: string;                         // 총 모집 한도 (e.g. "10,000 USDT")
+  currentParticipants?: string;                   // 현재 참여자 수
+  noticeText?: string;                            // 주의사항 / 공지 (빨간 경고 박스로 표시)
   createdAt: number;
   updatedAt: number;
 }
@@ -105,6 +123,22 @@ function fromFirestore(docData: any, id: string): InvestmentPlan {
     materials: docData.materials || [],
     recommendedAmount: docData.recommendedAmount || "1000",
     referralCode: docData.referralCode || "",
+    detailImages: docData.detailImages || [],
+    highlights: docData.highlights || [],
+    riskLevel: docData.riskLevel || undefined,
+    network: docData.network || "",
+    tokenSymbol: docData.tokenSymbol || "",
+    lockupPeriod: docData.lockupPeriod || "",
+    minInvestment: docData.minInvestment || "",
+    detailDescription: docData.detailDescription || "",
+    investmentPeriod: docData.investmentPeriod || "",
+    profitCycle: docData.profitCycle || "",
+    feeInfo: docData.feeInfo || "",
+    contractAddress: docData.contractAddress || "",
+    auditInfo: docData.auditInfo || "",
+    totalCapacity: docData.totalCapacity || "",
+    currentParticipants: docData.currentParticipants || "",
+    noticeText: docData.noticeText || "",
     sortOrder: docData.sortOrder !== undefined ? docData.sortOrder : 999999, // Default to high number if not set
     createdAt: timestampToNumber(docData.createdAt),
     updatedAt: timestampToNumber(docData.updatedAt),
@@ -133,6 +167,22 @@ function toFirestore(plan: Partial<InvestmentPlan>): any {
     materials: plan.materials || [],
     recommendedAmount: plan.recommendedAmount || "1000",
     referralCode: plan.referralCode || "",
+    detailImages: plan.detailImages || [],
+    highlights: plan.highlights || [],
+    riskLevel: plan.riskLevel || undefined,
+    network: plan.network || "",
+    tokenSymbol: plan.tokenSymbol || "",
+    lockupPeriod: plan.lockupPeriod || "",
+    minInvestment: plan.minInvestment || "",
+    detailDescription: plan.detailDescription || "",
+    investmentPeriod: plan.investmentPeriod || "",
+    profitCycle: plan.profitCycle || "",
+    feeInfo: plan.feeInfo || "",
+    contractAddress: plan.contractAddress || "",
+    auditInfo: plan.auditInfo || "",
+    totalCapacity: plan.totalCapacity || "",
+    currentParticipants: plan.currentParticipants || "",
+    noticeText: plan.noticeText || "",
     sortOrder: plan.sortOrder !== undefined ? plan.sortOrder : 999999,
     wallet1: plan.wallet1 || "",
     wallet1Percentage: plan.wallet1Percentage !== undefined ? plan.wallet1Percentage : 0,
