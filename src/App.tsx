@@ -37,6 +37,7 @@ import AdminSupport from "./pages/admin/AdminSupport";
 import AdminTotalEarning from "./pages/admin/AdminTotalEarning";
 import AdminOrganization from "./pages/admin/AdminOrganization";
 import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
+import AdminCompanyApplications from "./pages/admin/AdminCompanyApplications";
 import AdminRouteGuard from "./pages/admin/AdminRouteGuard";
 import Earnings from "./pages/Earnings";
 import InvestmentHistory from "./pages/InvestmentHistory";
@@ -88,6 +89,7 @@ const App = () => (
                     <Route path="support" element={<AdminSupport />} />
                     <Route path="total-earning" element={<AdminTotalEarning />} />
                     <Route path="announcements" element={<AdminAnnouncements />} />
+                    <Route path="company-applications" element={<AdminCompanyApplications />} />
                   </Route>
                 </Route>
 
