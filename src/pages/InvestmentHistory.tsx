@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAccount } from "wagmi";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -121,7 +120,6 @@ const InvestmentHistory = () => {
           <Wallet className="w-12 h-12 text-muted-foreground" />
           <p className="text-muted-foreground">Connect your wallet to view investment history</p>
         </main>
-        <Footer />
       </div>
     );
   }
@@ -277,7 +275,6 @@ const InvestmentHistory = () => {
           </CardContent>
         </Card>
       </main>
-      <Footer />
     </div>
   );
 };

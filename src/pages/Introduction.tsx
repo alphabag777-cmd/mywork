@@ -1,6 +1,5 @@
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 
 const Introduction = () => {
   const { t } = useLanguage();
@@ -317,7 +316,6 @@ const Introduction = () => {
           {t.introduction.foot}
         </div>
       </div>
-      <Footer />
     </div>
   );
 };

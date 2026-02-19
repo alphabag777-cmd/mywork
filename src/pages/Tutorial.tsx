@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
@@ -359,7 +358,6 @@ const Tutorial = () => {
           </div> */}
         </section>
       </div>
-      <Footer />
     </div>
   );
 };

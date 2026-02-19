@@ -6,7 +6,6 @@ import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { useEffect, useState, useCallback } from "react";
 import { Crown, Share2, User, RefreshCw, Copy, Check } from "lucide-react";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { getReferralsByReferrer } from "@/lib/referrals";
 import { getReferralActivitiesByReferrer, ReferralActivity } from "@/lib/referralActivities";
 import { getUserInvestments } from "@/lib/userInvestments";
@@ -147,7 +146,6 @@ const Community = () => {
             </Card>
           </div>
         </div>
-        <Footer />
       </>
     );
   }
@@ -416,7 +414,6 @@ const Community = () => {
         </Card>
         </div>
       </div>
-      <Footer />
     </>
   );
 };

@@ -1,7 +1,6 @@
 import Header from "@/components/Header";
 import StakingSectionNew from "@/components/StakingSectionNew";
 import UserStakesNew from "@/components/UserStakesNew";
-import Footer from "@/components/Footer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAccount } from "wagmi";
 import { ROICalculator } from "@/components/ROICalculator";
@@ -39,7 +38,6 @@ const Staking = () => {
           </Tabs>
         </div>
       </main>
-      <Footer />
     </div>
   );
 };

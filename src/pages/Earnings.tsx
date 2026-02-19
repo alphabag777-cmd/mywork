@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAccount } from "wagmi";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -93,7 +92,6 @@ const Earnings = () => {
           <Wallet className="w-12 h-12 text-muted-foreground" />
           <p className="text-muted-foreground">Connect your wallet to view earnings</p>
         </main>
-        <Footer />
       </div>
     );
   }
@@ -254,7 +252,6 @@ const Earnings = () => {
           </CardContent>
         </Card>
       </main>
-      <Footer />
     </div>
   );
 };

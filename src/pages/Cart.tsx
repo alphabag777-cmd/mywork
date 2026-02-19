@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -473,7 +472,6 @@ const Cart = () => {
             </Card>
           </div>
         </main>
-        <Footer />
       </div>
     );
   }
@@ -683,7 +681,6 @@ const Cart = () => {
           </div>
         </div>
       </main>
-      <Footer />
 
       {/* Success Investment Popup */}
       <Dialog open={showSuccessPopup} onOpenChange={setShowSuccessPopup}>
