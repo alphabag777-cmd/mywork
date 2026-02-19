@@ -1,4 +1,4 @@
-import { Coins, Wallet, User, Users, Menu, ShoppingCart, BookOpen, Lock, MessageSquare, TrendingUp } from "lucide-react";
+import { Coins, Wallet, User, Users, Menu, ShoppingCart, Lock, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAccount, useDisconnect } from "wagmi";
@@ -149,10 +149,6 @@ const Header = () => {
           {isConnected && (
             <>
               <NotificationCenter />
-              <Button variant="outline" size="default" className="gap-2" onClick={() => navigate("/earnings")}>
-                <TrendingUp className="w-4 h-4" />
-                Earnings
-              </Button>
               <Button 
                 variant="outline" 
                 size="default" 

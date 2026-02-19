@@ -39,7 +39,6 @@ import AdminOrganization from "./pages/admin/AdminOrganization";
 import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
 import AdminCompanyApplications from "./pages/admin/AdminCompanyApplications";
 import AdminRouteGuard from "./pages/admin/AdminRouteGuard";
-import Earnings from "./pages/Earnings";
 import InvestmentHistory from "./pages/InvestmentHistory";
 import { StakingMaturityChecker } from "@/components/StakingMaturityChecker";
 
@@ -99,7 +98,6 @@ const App = () => (
                 <Route path="/investment" element={<Investment />} />
                 <Route path="/staking" element={<Staking />} />
                 <Route path="/profile" element={<Profile />} />
-                <Route path="/earnings" element={<Earnings />} />
                 <Route path="/history" element={<InvestmentHistory />} />
                 <Route path="/community" element={<Community />} />
                 <Route path="/introduction" element={<Introduction />} />

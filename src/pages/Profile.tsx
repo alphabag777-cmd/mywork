@@ -3,6 +3,8 @@ import Header from "@/components/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Copy,
   Check,
@@ -18,12 +20,23 @@ import {
   Edit2,
   Save,
   X,
+  DollarSign,
+  BarChart3,
+  PieChart,
+  AlertCircle,
 } from "lucide-react";
 import { generateReferralLink, getReferrerWallet, getOrCreateReferralCode } from "@/lib/referral";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { getUserInvestments } from "@/lib/userInvestments";
+import { getActiveUserStakes } from "@/lib/userStakes";
+import {
+  PieChart as RechartsPie, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+} from "recharts";
+import { format } from "date-fns";
 import {
   useUSDTToken,
   useUSDTDecimals,
@@ -38,6 +51,13 @@ import { useProfileData } from "@/hooks/useProfileData";
 import type { UserNode } from "@/hooks/useProfileData";
 import type { USDTTransfer } from "@/lib/walletTransfers";
 import type { InvestmentPlan } from "@/lib/plans";
+
+const EARNINGS_COLORS: Record<string, string> = {
+  BBAG: "#f59e0b",
+  SBAG: "#3b82f6",
+  CBAG: "#10b981",
+  Staking: "#8b5cf6",
+};
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helper: wallet transfer sub-card (used for BBAG / SBAG / CBAG)
@@ -162,6 +182,30 @@ const Profile = () => {
   const { address, isConnected } = useAccount();
   const { t } = useLanguage();
   const navigate = useNavigate();
+
+  // ── Earnings state ──
+  const [earningsInvestments, setEarningsInvestments] = useState<any[]>([]);
+  const [earningsStakes, setEarningsStakes] = useState<any[]>([]);
+  const [earningsLoading, setEarningsLoading] = useState(false);
+
+  const loadEarnings = useCallback(async () => {
+    if (!address) return;
+    setEarningsLoading(true);
+    try {
+      const [invData, stakeData] = await Promise.all([
+        getUserInvestments(address),
+        getActiveUserStakes(address),
+      ]);
+      setEarningsInvestments(invData);
+      setEarningsStakes(stakeData);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setEarningsLoading(false);
+    }
+  }, [address]);
+
+  useEffect(() => { loadEarnings(); }, [loadEarnings]);
 
   // ── UI-only state (referral info, clipboard, node edit) ──
   const [referralLink, setReferralLink] = useState<string>("");
@@ -294,6 +338,35 @@ const Profile = () => {
   };
 
   const balanceFormatted = tokenBalance ? formatUnits(tokenBalance, decimals) : "0";
+
+  // ── Earnings computed values ──
+  const eTotalInvested = earningsInvestments.reduce((s, i) => s + (i.amount || 0), 0);
+  const eTotalProfit   = earningsInvestments.reduce((s, i) => s + (i.profit || 0), 0);
+  const eTotalTokenVal = earningsInvestments.reduce((s, i) => s + (i.tokenValueUSDT || 0), 0);
+  const eStakingPrincipal = earningsStakes.reduce((s, st) => {
+    try { return s + parseFloat(formatUnits(BigInt(st.principal), 18)); } catch { return s; }
+  }, 0);
+  const eStakingDaily = earningsStakes.reduce((s, st) => {
+    try {
+      const p = parseFloat(formatUnits(BigInt(st.principal), 18));
+      return s + (p * st.dailyRateBps) / 10000;
+    } catch { return s; }
+  }, 0);
+  const eCategoryMap: Record<string, number> = {};
+  earningsInvestments.forEach((inv) => {
+    const cat = inv.category || "BBAG";
+    eCategoryMap[cat] = (eCategoryMap[cat] || 0) + (inv.amount || 0);
+  });
+  const ePieData = Object.entries(eCategoryMap).map(([name, value]) => ({ name, value }));
+  const eMonthlyMap: Record<string, number> = {};
+  earningsInvestments.forEach((inv) => {
+    const m = format(new Date(inv.investedAt), "yyyy-MM");
+    eMonthlyMap[m] = (eMonthlyMap[m] || 0) + (inv.amount || 0);
+  });
+  const eBarData = Object.entries(eMonthlyMap)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .slice(-6)
+    .map(([month, amount]) => ({ month: format(new Date(month), "MMM yy"), amount }));
 
   // ── Not connected ──
   if (!isConnected || !address) {
@@ -847,6 +920,159 @@ const Profile = () => {
                 </div>
                 <p className="text-muted-foreground">{t.profile.availableForInvestment}</p>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* ── EARNINGS SECTION ── */}
+          <Card className="mb-8 border-border/50">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-primary" />
+                    My Earnings
+                  </CardTitle>
+                  <CardDescription>Investment performance &amp; portfolio overview</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={loadEarnings} disabled={earningsLoading} className="gap-2">
+                  <RefreshCw className={`w-4 h-4 ${earningsLoading ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* KPI Cards */}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  { label: "Total Invested",   value: `$${eTotalInvested.toLocaleString(undefined,{maximumFractionDigits:2})}`,  sub: "USDT",                                              icon: DollarSign, color: "border-l-primary" },
+                  { label: "Total Token Value", value: `$${eTotalTokenVal.toLocaleString(undefined,{maximumFractionDigits:2})}`,  sub: "Current value",                                    icon: BarChart3,   color: "border-l-blue-500" },
+                  { label: "Unrealized P/L",    value: `${eTotalProfit>=0?"+":""}$${eTotalProfit.toLocaleString(undefined,{maximumFractionDigits:2})}`, sub: eTotalInvested?`${((eTotalProfit/eTotalInvested)*100).toFixed(1)}%`:"0%", icon: TrendingUp, color: eTotalProfit>=0?"border-l-green-500":"border-l-red-500" },
+                  { label: "Staking Daily",     value: `+$${eStakingDaily.toFixed(2)}`,                                            sub: `Principal: $${eStakingPrincipal.toFixed(2)}`,     icon: Wallet,      color: "border-l-purple-500" },
+                ].map((kpi) => (
+                  <Card key={kpi.label} className={`border-l-4 ${kpi.color}`}>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium">{kpi.label}</CardTitle>
+                      <kpi.icon className="w-4 h-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      {earningsLoading ? <Skeleton className="h-8 w-32" /> : <div className="text-2xl font-bold">{kpi.value}</div>}
+                      <p className="text-xs text-muted-foreground">{kpi.sub}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Charts */}
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* Pie */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <PieChart className="w-4 h-4 text-primary" /> Portfolio Allocation
+                    </CardTitle>
+                    <CardDescription>Investment by category</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {earningsLoading ? (
+                      <Skeleton className="h-60 w-full" />
+                    ) : ePieData.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-60 text-muted-foreground gap-2">
+                        <AlertCircle className="w-8 h-8" />
+                        <p className="text-sm">No investment data</p>
+                      </div>
+                    ) : (
+                      <div className="h-60">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RechartsPie>
+                            <Pie data={ePieData} cx="50%" cy="50%" outerRadius={80} dataKey="value"
+                              label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`}>
+                              {ePieData.map((entry) => (
+                                <Cell key={entry.name} fill={EARNINGS_COLORS[entry.name] || "#6b7280"} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, "Amount"]} />
+                            <Legend />
+                          </RechartsPie>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Bar */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <BarChart3 className="w-4 h-4 text-primary" /> Monthly Investment
+                    </CardTitle>
+                    <CardDescription>Last 6 months</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {earningsLoading ? (
+                      <Skeleton className="h-60 w-full" />
+                    ) : eBarData.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-60 text-muted-foreground gap-2">
+                        <AlertCircle className="w-8 h-8" />
+                        <p className="text-sm">No investment data</p>
+                      </div>
+                    ) : (
+                      <div className="h-60">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={eBarData}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="month" fontSize={11} tickLine={false} axisLine={false} />
+                            <YAxis fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
+                            <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, "Invested"]} />
+                            <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[4,4,0,0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Investment List */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Investment Details</CardTitle>
+                  <CardDescription>{earningsInvestments.length} total investments</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {earningsLoading ? (
+                    <div className="space-y-3">
+                      {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+                    </div>
+                  ) : earningsInvestments.length === 0 ? (
+                    <div className="flex flex-col items-center py-10 text-muted-foreground gap-2">
+                      <AlertCircle className="w-8 h-8" />
+                      <p className="text-sm">No investments found</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {earningsInvestments.map((inv) => (
+                        <div key={inv.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border/50">
+                          <div className="flex items-center gap-3">
+                            <Badge variant="outline" className="text-xs font-mono">{inv.category}</Badge>
+                            <div>
+                              <p className="text-sm font-medium">{inv.projectName}</p>
+                              <p className="text-xs text-muted-foreground">{format(new Date(inv.investedAt), "yyyy-MM-dd")}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold">${(inv.amount||0).toLocaleString(undefined,{maximumFractionDigits:2})}</p>
+                            {inv.profit !== undefined && (
+                              <p className={`text-xs font-medium ${inv.profit>=0?"text-green-500":"text-red-500"}`}>
+                                {inv.profit>=0?"+":""}{inv.profit.toFixed(2)} P/L
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </CardContent>
           </Card>
         </div>
