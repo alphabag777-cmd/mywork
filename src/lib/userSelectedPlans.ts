@@ -14,7 +14,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-export type PlanSelectionMode = "single" | "portfolio";
+export type PlanSelectionMode = "single" | "portfolio" | "multi";
 
 export interface UserSelectedPlans {
   userId: string;                   // Wallet address (lowercase)
@@ -113,8 +113,8 @@ export async function saveUserSelectedPlans(
   const uid = userId.toLowerCase();
   const now = Date.now();
 
-  // Validate constraints
-  const ids = planIds.slice(0, mode === "portfolio" ? 3 : 1);
+  // No hard cap — save all provided IDs
+  const ids = planIds;
 
   const existing = await getUserSelectedPlans(uid);
   const data: UserSelectedPlans = {

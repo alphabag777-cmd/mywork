@@ -560,9 +560,7 @@ const StakingSection = () => {
               <span className="text-xs text-muted-foreground">
                 {urlPlanIds.length > 0
                   ? `🔗 추천인이 선택한 ${visiblePlans.length}개 상품을 보여드립니다`
-                  : userSelection?.mode === "portfolio"
-                    ? `🗂️ 포트폴리오 모드 (${userSelection.planIds.length}개 상품 선택됨)`
-                    : `📌 단일상품 모드 (1개 상품 선택됨)`}
+                  : `📌 내가 선택한 ${userSelection?.planIds.length || 0}개 상품`}
               </span>
               {urlPlanIds.length === 0 && isConnected && (
                 <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => navigate("/profile")}>

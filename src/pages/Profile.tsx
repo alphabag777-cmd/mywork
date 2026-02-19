@@ -55,7 +55,7 @@ import type { UserNode } from "@/hooks/useProfileData";
 import type { USDTTransfer } from "@/lib/walletTransfers";
 import type { InvestmentPlan } from "@/lib/plans";
 import { getAllPlans } from "@/lib/plans";
-import { getUserSelectedPlans, saveUserSelectedPlans, PlanSelectionMode, UserSelectedPlans } from "@/lib/userSelectedPlans";
+import { getUserSelectedPlans, saveUserSelectedPlans, UserSelectedPlans } from "@/lib/userSelectedPlans";
 import ReferralShare from "@/components/ReferralShare";
 
 const EARNINGS_COLORS: Record<string, string> = {
@@ -377,7 +377,6 @@ const Profile = () => {
   // ── Plan Selection State ──
   const [allPlans, setAllPlans] = useState<InvestmentPlan[]>([]);
   const [userSelection, setUserSelection] = useState<UserSelectedPlans | null>(null);
-  const [selectionMode, setSelectionMode] = useState<PlanSelectionMode>("single");
   const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
   const [isSavingSelection, setIsSavingSelection] = useState(false);
   const [planSelectionDirty, setPlanSelectionDirty] = useState(false);
@@ -392,31 +391,36 @@ const Profile = () => {
     getUserSelectedPlans(address).then(sel => {
       if (sel) {
         setUserSelection(sel);
-        setSelectionMode(sel.mode);
         setSelectedPlanIds(sel.planIds);
       }
     }).catch(console.error);
   }, [address]);
 
+  // 자유 다중 선택 토글 — 개수 제한 없음
   const handlePlanToggle = (planId: string) => {
     setPlanSelectionDirty(true);
-    if (selectionMode === "single") {
-      setSelectedPlanIds([planId]);
-    } else {
-      // portfolio mode: up to 3
-      setSelectedPlanIds(prev => {
-        if (prev.includes(planId)) return prev.filter(id => id !== planId);
-        if (prev.length >= 3) { toast.error("포트폴리오 모드는 최대 3개까지 선택 가능합니다"); return prev; }
-        return [...prev, planId];
-      });
-    }
+    setSelectedPlanIds(prev =>
+      prev.includes(planId)
+        ? prev.filter(id => id !== planId)
+        : [...prev, planId]
+    );
+  };
+
+  // 전체 선택 / 전체 해제
+  const handleSelectAll = () => {
+    setPlanSelectionDirty(true);
+    setSelectedPlanIds(allPlans.map(p => p.id));
+  };
+  const handleClearAll = () => {
+    setPlanSelectionDirty(true);
+    setSelectedPlanIds([]);
   };
 
   const handleSaveSelection = async () => {
     if (!address) return;
     setIsSavingSelection(true);
     try {
-      const saved = await saveUserSelectedPlans(address, selectionMode, selectedPlanIds);
+      const saved = await saveUserSelectedPlans(address, "multi", selectedPlanIds);
       setUserSelection(saved);
       setPlanSelectionDirty(false);
       toast.success("투자상품 선택이 저장되었습니다!");
@@ -426,9 +430,6 @@ const Profile = () => {
       setIsSavingSelection(false);
     }
   };
-
-  // Portfolio allocation labels
-  const portfolioLabels = ["40%", "40%", "20%"];
 
   // ── Not connected ──
   if (!isConnected || !address) {
@@ -487,87 +488,114 @@ const Profile = () => {
                 내 투자상품 선택
               </CardTitle>
               <CardDescription>
-                표시할 투자상품을 선택하세요. 선택한 상품만 메인 화면에 표시되며, 레퍼럴 링크도 해당 상품으로 연결됩니다.
+                홍보하고 싶은 투자상품을 자유롭게 선택하세요. 선택한 상품만 메인 화면에 표시되며, 레퍼럴 링크도 해당 상품들로 연결됩니다.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
-              {/* Mode selector */}
-              <div>
-                <p className="text-sm font-semibold mb-3">선택 방식</p>
-                <div className="flex gap-3">
+
+              {/* 선택 현황 헤더 */}
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-foreground">
+                  상품 선택
+                  {selectedPlanIds.length > 0 && (
+                    <span className="ml-2 px-2 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-bold">
+                      {selectedPlanIds.length}개 선택됨
+                    </span>
+                  )}
+                </p>
+                <div className="flex gap-2">
                   <button
-                    className={`flex-1 py-2.5 px-4 rounded-xl border-2 text-sm font-medium transition-colors ${
-                      selectionMode === "single"
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:border-primary/50"
-                    }`}
-                    onClick={() => { setSelectionMode("single"); setSelectedPlanIds(selectedPlanIds.slice(0, 1)); setPlanSelectionDirty(true); }}
+                    className="text-xs text-primary hover:underline"
+                    onClick={handleSelectAll}
                   >
-                    📌 단일 상품
+                    전체 선택
                   </button>
+                  <span className="text-muted-foreground text-xs">|</span>
                   <button
-                    className={`flex-1 py-2.5 px-4 rounded-xl border-2 text-sm font-medium transition-colors ${
-                      selectionMode === "portfolio"
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:border-primary/50"
-                    }`}
-                    onClick={() => { setSelectionMode("portfolio"); setPlanSelectionDirty(true); }}
+                    className="text-xs text-muted-foreground hover:underline"
+                    onClick={handleClearAll}
                   >
-                    🗂️ 포트폴리오 (40:40:20)
+                    전체 해제
                   </button>
                 </div>
               </div>
 
-              {/* Plan list */}
-              <div>
-                <p className="text-sm font-semibold mb-3">
-                  {selectionMode === "single" ? "상품 선택 (1개)" : `상품 선택 (최대 3개 · 순서대로 40%·40%·20% 배분)`}
-                </p>
-                {allPlans.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">투자상품을 불러오는 중…</p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {allPlans.map((plan) => {
-                      const isSelected = selectedPlanIds.includes(plan.id);
-                      const posIdx = selectedPlanIds.indexOf(plan.id);
+              {/* Plan list — 제한 없는 다중 선택 */}
+              {allPlans.length === 0 ? (
+                <p className="text-sm text-muted-foreground">투자상품을 불러오는 중…</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {allPlans.map((plan) => {
+                    const isSelected = selectedPlanIds.includes(plan.id);
+                    const posIdx = selectedPlanIds.indexOf(plan.id);
+                    return (
+                      <button
+                        key={plan.id}
+                        onClick={() => handlePlanToggle(plan.id)}
+                        className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                          isSelected
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:border-primary/40 hover:bg-muted/40"
+                        }`}
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="w-5 h-5 text-primary flex-shrink-0" />
+                        ) : (
+                          <Square className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                        )}
+                        {plan.logo && (
+                          <img src={plan.logo} alt={plan.label} className="w-8 h-8 object-contain flex-shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold truncate">{plan.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{plan.label}</p>
+                          {plan.dailyProfit && (
+                            <p className="text-xs text-primary font-medium mt-0.5">{plan.dailyProfit}</p>
+                          )}
+                        </div>
+                        {isSelected && (
+                          <span className="text-xs font-bold text-primary/70 flex-shrink-0 bg-primary/10 px-1.5 py-0.5 rounded">
+                            #{posIdx + 1}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* 선택된 상품 순서 미리보기 */}
+              {selectedPlanIds.length > 0 && (
+                <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">선택 순서 (레퍼럴 링크에 포함됨)</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPlanIds.map((id, idx) => {
+                      const plan = allPlans.find(p => p.id === id);
+                      if (!plan) return null;
                       return (
-                        <button
-                          key={plan.id}
-                          onClick={() => handlePlanToggle(plan.id)}
-                          className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
-                            isSelected
-                              ? "border-primary bg-primary/10"
-                              : "border-border hover:border-primary/40 hover:bg-muted/40"
-                          }`}
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="w-5 h-5 text-primary flex-shrink-0" />
-                          ) : (
-                            <Square className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                          )}
-                          {plan.logo && (
-                            <img src={plan.logo} alt={plan.label} className="w-8 h-8 object-contain flex-shrink-0" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate">{plan.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">{plan.label}</p>
-                          </div>
-                          {isSelected && selectionMode === "portfolio" && posIdx !== -1 && (
-                            <span className="text-xs font-bold text-primary flex-shrink-0">{portfolioLabels[posIdx]}</span>
-                          )}
-                        </button>
+                        <div key={id} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-background border border-border text-xs">
+                          <span className="font-bold text-primary">#{idx + 1}</span>
+                          {plan.logo && <img src={plan.logo} alt={plan.label} className="w-3.5 h-3.5 object-contain" />}
+                          <span className="font-medium">{plan.name}</span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handlePlanToggle(id); }}
+                            className="text-muted-foreground hover:text-red-500 ml-0.5"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Save button */}
               <Button
                 variant="gold"
                 className="w-full"
                 onClick={handleSaveSelection}
-                disabled={isSavingSelection || selectedPlanIds.length === 0}
+                disabled={isSavingSelection}
               >
                 {isSavingSelection ? (
                   <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> 저장 중…</>
@@ -578,11 +606,12 @@ const Profile = () => {
                 )}
               </Button>
 
-              {/* Current selection summary */}
-              {userSelection && userSelection.planIds.length > 0 && !planSelectionDirty && (
+              {/* 저장 상태 안내 */}
+              {userSelection && !planSelectionDirty && (
                 <div className="text-xs text-muted-foreground text-center">
-                  현재 저장된 선택: {userSelection.mode === "portfolio" ? "포트폴리오" : "단일상품"} ·{" "}
-                  {userSelection.planIds.length}개 상품
+                  {userSelection.planIds.length > 0
+                    ? `✅ ${userSelection.planIds.length}개 상품 저장됨 — 메인화면과 레퍼럴 링크에 반영`
+                    : "아직 선택된 상품이 없습니다. 상품을 선택하고 저장하세요."}
                 </div>
               )}
             </CardContent>
