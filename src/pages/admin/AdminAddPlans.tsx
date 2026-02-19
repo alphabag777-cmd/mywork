@@ -8,8 +8,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   PlusSquare, Trash2, Edit, Save, X, GripVertical, ChevronUp, ChevronDown,
-  Image as ImageIcon, Star, AlertTriangle, Plus, Info, Link, Wallet,
-  Eye, EyeOff, ArrowUp, ArrowDown, FileText, Bell,
+  Image as ImageIcon, Star, Plus, Info, Link, Wallet,
+  Eye, EyeOff, ArrowUp, ArrowDown, FileText, Bell, Youtube,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -122,13 +122,16 @@ function HighlightEditor({
 }
 
 /* ─────────────────────────────────────────────── */
-/*  Detail Image 행 편집 컴포넌트 (캡션 지원)       */
+/*  Detail Image 행 편집 컴포넌트 (캡션 + URL입력)  */
 /* ─────────────────────────────────────────────── */
 interface DetailImageItem { url: string; caption: string }
 
 function DetailImageEditor({
   images, onChange,
 }: { images: DetailImageItem[]; onChange: (imgs: DetailImageItem[]) => void }) {
+  const [urlInput, setUrlInput] = useState("");
+  const [addMode, setAddMode] = useState<"upload" | "url">("upload");
+
   const remove = (i: number) => onChange(images.filter((_, idx) => idx !== i));
   const updateCaption = (i: number, caption: string) => {
     const next = [...images];
@@ -147,65 +150,146 @@ function DetailImageEditor({
     [next[i], next[i + 1]] = [next[i + 1], next[i]];
     onChange(next);
   };
+  const handleAddUrl = () => {
+    const url = urlInput.trim();
+    if (!url) return;
+    if (!url.startsWith("http") && !url.startsWith("/")) {
+      toast.error("올바른 이미지 URL을 입력하세요 (http... 또는 /...)");
+      return;
+    }
+    onChange([...images, { url, caption: "" }]);
+    setUrlInput("");
+  };
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {images.map((item, i) => (
-          <div key={i} className="rounded-lg border border-border/60 overflow-hidden bg-muted/30">
-            {/* 이미지 */}
-            <div className="relative group">
-              {item.url ? (
-                <img src={item.url} alt={`detail-${i}`} className="w-full h-36 object-cover" />
-              ) : (
-                <div className="w-full h-36 flex items-center justify-center text-muted-foreground text-xs">
-                  이미지 없음
+      {/* 이미지 목록 */}
+      {images.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {images.map((item, i) => (
+            <div key={i} className="rounded-lg border border-border/60 overflow-hidden bg-muted/30">
+              <div className="relative group">
+                {item.url ? (
+                  <img src={item.url} alt={`detail-${i}`} className="w-full h-36 object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }} />
+                ) : (
+                  <div className="w-full h-36 flex items-center justify-center text-muted-foreground text-xs bg-muted/50">
+                    이미지 로드 실패
+                  </div>
+                )}
+                <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button type="button" onClick={() => moveUp(i)} disabled={i === 0}
+                    className="bg-black/60 text-white rounded w-6 h-6 flex items-center justify-center hover:bg-black/80 disabled:opacity-30" title="위로">
+                    <ArrowUp className="w-3 h-3" />
+                  </button>
+                  <button type="button" onClick={() => moveDown(i)} disabled={i === images.length - 1}
+                    className="bg-black/60 text-white rounded w-6 h-6 flex items-center justify-center hover:bg-black/80 disabled:opacity-30" title="아래로">
+                    <ArrowDown className="w-3 h-3" />
+                  </button>
+                  <button type="button" onClick={() => remove(i)}
+                    className="bg-destructive text-white rounded w-6 h-6 flex items-center justify-center hover:bg-destructive/80" title="삭제">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 bg-black/40 text-white text-[10px] px-2 py-0.5 flex items-center justify-between">
+                  <span>이미지 {i + 1}</span>
+                  <span className="truncate max-w-[120px] opacity-60">{item.url.split("/").pop()}</span>
+                </div>
+              </div>
+              <div className="p-2 space-y-1.5">
+                <Input
+                  placeholder="이미지 캡션 (선택 사항)"
+                  value={item.caption || ""}
+                  onChange={(e) => updateCaption(i, e.target.value)}
+                  className="text-xs h-7"
+                />
+                <div className="flex gap-1">
+                  <Input
+                    placeholder="URL 직접 수정"
+                    value={item.url}
+                    onChange={(e) => {
+                      const next = [...images];
+                      next[i] = { ...next[i], url: e.target.value };
+                      onChange(next);
+                    }}
+                    className="text-[10px] h-6 font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 추가 방식 선택 탭 */}
+      <div className="border border-border/60 rounded-xl overflow-hidden">
+        <div className="flex border-b border-border/60 bg-muted/20">
+          <button
+            type="button"
+            onClick={() => setAddMode("upload")}
+            className={`flex-1 py-2 text-xs font-medium transition-colors ${
+              addMode === "upload" ? "bg-background text-foreground border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            📤 파일 업로드
+          </button>
+          <button
+            type="button"
+            onClick={() => setAddMode("url")}
+            className={`flex-1 py-2 text-xs font-medium transition-colors ${
+              addMode === "url" ? "bg-background text-foreground border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            🔗 URL 직접 입력
+          </button>
+        </div>
+        <div className="p-3">
+          {addMode === "upload" ? (
+            <ImageUpload
+              value=""
+              onChange={(url) => { if (url) onChange([...images, { url, caption: "" }]); }}
+              label="이미지 추가 (클릭하여 업로드)"
+              folder="alphabag/plans/detail"
+              maxSizeMB={5}
+            />
+          ) : (
+            <div className="space-y-2">
+              <Label className="text-xs">이미지 URL 직접 입력</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  placeholder="https://example.com/image.jpg"
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddUrl(); } }}
+                  className="flex-1 text-sm"
+                />
+                <Button type="button" variant="outline" onClick={handleAddUrl} className="gap-1.5">
+                  <Plus className="w-3.5 h-3.5" /> 추가
+                </Button>
+              </div>
+              {urlInput && urlInput.startsWith("http") && (
+                <div className="rounded-lg overflow-hidden border border-border/60 bg-muted/20">
+                  <p className="text-[10px] text-muted-foreground px-2 py-1">미리보기</p>
+                  <img
+                    src={urlInput}
+                    alt="url-preview"
+                    className="w-full h-28 object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
                 </div>
               )}
-              {/* 오버레이 버튼 */}
-              <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button type="button" onClick={() => moveUp(i)} disabled={i === 0}
-                  className="bg-black/60 text-white rounded w-6 h-6 flex items-center justify-center hover:bg-black/80 disabled:opacity-30">
-                  <ArrowUp className="w-3 h-3" />
-                </button>
-                <button type="button" onClick={() => moveDown(i)} disabled={i === images.length - 1}
-                  className="bg-black/60 text-white rounded w-6 h-6 flex items-center justify-center hover:bg-black/80 disabled:opacity-30">
-                  <ArrowDown className="w-3 h-3" />
-                </button>
-                <button type="button" onClick={() => remove(i)}
-                  className="bg-destructive text-white rounded w-6 h-6 flex items-center justify-center hover:bg-destructive/80">
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 bg-black/40 text-white text-[10px] px-2 py-0.5">
-                이미지 {i + 1}
-              </div>
+              <p className="text-[11px] text-muted-foreground">Cloudinary, Firebase Storage, 외부 이미지 URL 모두 가능합니다.</p>
             </div>
-            {/* 캡션 입력 */}
-            <div className="p-2">
-              <Input
-                placeholder="이미지 캡션 (선택 사항)"
-                value={item.caption || ""}
-                onChange={(e) => updateCaption(i, e.target.value)}
-                className="text-xs h-7"
-              />
-            </div>
-          </div>
-        ))}
+          )}
+        </div>
       </div>
-      {/* 새 이미지 추가 */}
-      <div className="p-3 border-2 border-dashed border-border/50 rounded-lg">
-        <ImageUpload
-          value=""
-          onChange={(url) => { if (url) onChange([...images, { url, caption: "" }]); }}
-          label="이미지 추가 (클릭하여 업로드)"
-          folder="alphabag/plans/detail"
-          maxSizeMB={5}
-        />
+
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">
+          💡 이미지 카드에 마우스를 올리면 ▲▼ 순서 변경, 삭제 버튼이 나타납니다.
+        </p>
+        <span className="text-xs text-muted-foreground">{images.length}장 / 최대 8장 권장</span>
       </div>
-      <p className="text-xs text-muted-foreground">
-        💡 이미지 위에 마우스를 올리면 순서 변경 및 삭제 버튼이 나타납니다. 각 이미지에 캡션을 입력할 수 있습니다.
-      </p>
     </div>
   );
 }
@@ -238,6 +322,58 @@ function MaterialEditor({
       <Button type="button" variant="outline" size="sm" onClick={add} className="gap-1 w-full">
         <Plus className="w-3.5 h-3.5" /> 링크 추가
       </Button>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────── */
+/*  상세 설명 서식 툴바                              */
+/* ─────────────────────────────────────────────── */
+function RichTextToolbar({ onInsert }: { onInsert: (text: string) => void }) {
+  const shortcuts = [
+    { label: "📌", title: "포인트", text: "📌 " },
+    { label: "✅", title: "완료/가능", text: "✅ " },
+    { label: "❌", title: "불가/주의", text: "❌ " },
+    { label: "💡", title: "팁/참고", text: "💡 " },
+    { label: "⚠️", title: "경고", text: "⚠️ " },
+    { label: "🔹", title: "항목", text: "🔹 " },
+    { label: "🔸", title: "항목(강조)", text: "🔸 " },
+    { label: "📊", title: "통계", text: "📊 " },
+    { label: "💰", title: "수익", text: "💰 " },
+    { label: "🔒", title: "락업", text: "🔒 " },
+    { label: "📅", title: "기간", text: "📅 " },
+    { label: "🌐", title: "네트워크", text: "🌐 " },
+  ];
+  const templates = [
+    { label: "투자방식", text: "\n📌 투자 방식:\n📌 수익 지급:\n📌 원금 회수:\n" },
+    { label: "스펙요약", text: "\n🔹 네트워크: BSC\n🔹 토큰: BBAG/SBAG\n🔹 최소: 100 USDT\n🔹 락업: 30일\n" },
+    { label: "구분선", text: "\n─────────────────\n" },
+  ];
+  return (
+    <div className="flex flex-wrap gap-1 p-2 bg-muted/30 rounded-t-lg border border-b-0 border-border/50">
+      {shortcuts.map((s) => (
+        <button
+          key={s.label}
+          type="button"
+          title={s.title}
+          onClick={() => onInsert(s.text)}
+          className="w-7 h-7 text-sm rounded hover:bg-muted flex items-center justify-center transition-colors"
+        >
+          {s.label}
+        </button>
+      ))}
+      <div className="w-px bg-border/60 mx-0.5 self-stretch" />
+      {templates.map((t) => (
+        <button
+          key={t.label}
+          type="button"
+          title={`${t.label} 템플릿 삽입`}
+          onClick={() => onInsert(t.text)}
+          className="px-2 h-7 text-[10px] rounded border border-border/60 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+        >
+          +{t.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -862,20 +998,48 @@ export const AdminAddPlans = () => {
                       </div>
 
                       {/* ── 섹션 C: 상세 설명 ── */}
-                      <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
-                        <h4 className="text-sm font-semibold flex items-center gap-2">
-                          <Info className="w-4 h-4 text-primary" /> 상세 설명
-                          <span className="text-xs font-normal text-muted-foreground">(세부 정보 팝업 하단에 표시)</span>
-                        </h4>
-                        <Textarea
-                          id="detailDescription"
-                          value={formData.detailDescription}
-                          onChange={(e) => setFormData({ ...formData, detailDescription: e.target.value })}
-                          placeholder={"상세 설명을 입력하세요.\n줄바꿈은 그대로 반영됩니다.\n\n예시:\n📌 투자 방식: BBAG 40% + SBAG 40% + CBAG 20%\n📌 수익 지급: 매일 자동 지급\n📌 원금 회수: 30일 후 가능"}
-                          rows={7}
-                          className="font-mono text-sm"
-                        />
-                        <p className="text-[11px] text-muted-foreground">💡 이모지와 줄바꿈을 활용하여 가독성을 높이세요.</p>
+                      <div className="rounded-xl border border-border/60 bg-muted/10 overflow-hidden">
+                        <div className="px-4 pt-4 pb-2">
+                          <h4 className="text-sm font-semibold flex items-center gap-2">
+                            <Info className="w-4 h-4 text-primary" /> 상세 설명
+                            <span className="text-xs font-normal text-muted-foreground">(세부 정보 팝업 하단에 표시)</span>
+                          </h4>
+                        </div>
+                        {/* 서식 툴바 */}
+                        <div className="px-4">
+                          <RichTextToolbar
+                            onInsert={(text) => {
+                              const textarea = document.getElementById("detailDescription") as HTMLTextAreaElement;
+                              if (textarea) {
+                                const start = textarea.selectionStart;
+                                const end = textarea.selectionEnd;
+                                const newVal = formData.detailDescription.substring(0, start) + text + formData.detailDescription.substring(end);
+                                setFormData({ ...formData, detailDescription: newVal });
+                                // 커서 위치 조정
+                                setTimeout(() => {
+                                  textarea.focus();
+                                  textarea.setSelectionRange(start + text.length, start + text.length);
+                                }, 0);
+                              } else {
+                                setFormData({ ...formData, detailDescription: formData.detailDescription + text });
+                              }
+                            }}
+                          />
+                        </div>
+                        <div className="px-4 pb-4">
+                          <Textarea
+                            id="detailDescription"
+                            value={formData.detailDescription}
+                            onChange={(e) => setFormData({ ...formData, detailDescription: e.target.value })}
+                            placeholder={"위 버튼으로 이모지/서식을 삽입하거나 직접 입력하세요.\n\n예시:\n📌 투자 방식: BBAG 40% + SBAG 40% + CBAG 20%\n📌 수익 지급: 매일 자동 지급\n📌 원금 회수: 30일 후 가능"}
+                            rows={8}
+                            className="font-mono text-sm rounded-t-none border-t-0"
+                          />
+                          <div className="flex items-center justify-between mt-1">
+                            <p className="text-[11px] text-muted-foreground">줄바꿈과 이모지가 그대로 반영됩니다.</p>
+                            <span className="text-[11px] text-muted-foreground">{formData.detailDescription.length}자</span>
+                          </div>
+                        </div>
                       </div>
 
                       {/* ── 섹션 D: 주의사항 / 공지 ── */}
@@ -917,24 +1081,65 @@ export const AdminAddPlans = () => {
 
                     {/* ══════════════ 탭 3: 링크·미디어 ══════════════ */}
                     <TabsContent value="links" className="mt-0 space-y-5">
-                      <div className="grid gap-4 md:grid-cols-2">
+
+                      {/* YouTube */}
+                      <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
+                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                          <Youtube className="w-4 h-4 text-red-500" /> YouTube 영상
+                        </h4>
                         <div className="space-y-2">
-                          <Label htmlFor="youtubeUrl">YouTube URL</Label>
-                          <Input id="youtubeUrl" value={formData.youtubeUrl} onChange={(e) => setFormData({ ...formData, youtubeUrl: e.target.value })} placeholder="https://www.youtube.com/embed/..." />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="telegram">텔레그램 URL</Label>
-                          <Input id="telegram" value={formData.telegram} onChange={(e) => setFormData({ ...formData, telegram: e.target.value })} placeholder="https://t.me/..." />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="twitter">Twitter/X URL</Label>
-                          <Input id="twitter" value={formData.twitter} onChange={(e) => setFormData({ ...formData, twitter: e.target.value })} placeholder="https://twitter.com/..." />
+                          <Label htmlFor="youtubeUrl" className="text-xs">YouTube URL <span className="text-muted-foreground font-normal">(일반 URL 또는 embed URL)</span></Label>
+                          <Input
+                            id="youtubeUrl"
+                            value={formData.youtubeUrl}
+                            onChange={(e) => {
+                              let url = e.target.value;
+                              // 일반 유튜브 URL → embed URL 자동 변환
+                              const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+                              if (match) url = `https://www.youtube.com/embed/${match[1]}`;
+                              setFormData({ ...formData, youtubeUrl: url });
+                            }}
+                            placeholder="https://www.youtube.com/watch?v=... 또는 embed URL"
+                          />
+                          {formData.youtubeUrl && formData.youtubeUrl.includes("embed") && (
+                            <div className="rounded-xl overflow-hidden border border-border/60 bg-black aspect-video">
+                              <iframe
+                                src={formData.youtubeUrl}
+                                className="w-full h-full"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                                title="YouTube preview"
+                              />
+                            </div>
+                          )}
+                          {formData.youtubeUrl && !formData.youtubeUrl.includes("embed") && (
+                            <p className="text-xs text-amber-500">⚠️ YouTube 일반 URL이 자동 변환됩니다. embed URL 형식으로 저장됩니다.</p>
+                          )}
                         </div>
                       </div>
 
-                      <div>
-                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                          <Link className="w-4 h-4 text-primary" /> 참고 자료 링크
+                      {/* SNS */}
+                      <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
+                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                          <Link className="w-4 h-4 text-primary" /> SNS 채널
+                        </h4>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="telegram" className="text-xs">✈️ 텔레그램</Label>
+                            <Input id="telegram" value={formData.telegram} onChange={(e) => setFormData({ ...formData, telegram: e.target.value })} placeholder="https://t.me/..." className="h-8" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="twitter" className="text-xs">🐦 Twitter/X</Label>
+                            <Input id="twitter" value={formData.twitter} onChange={(e) => setFormData({ ...formData, twitter: e.target.value })} placeholder="https://twitter.com/..." className="h-8" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 참고 자료 */}
+                      <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
+                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-primary" /> 참고 자료 링크
+                          <span className="text-xs font-normal text-muted-foreground">백서, 공식문서, 블로그 등</span>
                         </h4>
                         <MaterialEditor materials={materials} onChange={setMaterials} />
                       </div>
