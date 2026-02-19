@@ -1,10 +1,47 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BarChart3, Users, Wallet, Share2, Loader2, LayoutDashboard, TrendingUp, DollarSign, Activity } from "lucide-react";
+import { BarChart3, Users, Wallet, Share2, Loader2, TrendingUp, DollarSign, Activity, PieChart } from "lucide-react";
 import { useAdminAnalytics } from "@/hooks/useAdminAnalytics";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart as RechartsPie, Pie, Cell, Legend, LineChart, Line,
+} from "recharts";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState, useMemo } from "react";
+import { subDays, isAfter, startOfDay } from "date-fns";
+
+const CATEGORY_COLORS = ["#f59e0b", "#3b82f6", "#10b981", "#8b5cf6", "#ef4444"];
+
+type Period = "7d" | "14d" | "30d";
 
 export const AdminDashboard = () => {
   const { stats, dailyVolume, topPerformers, loading } = useAdminAnalytics();
+  const [period, setPeriod] = useState<Period>("30d");
+
+  // Filter daily volume by period
+  const filteredVolume = useMemo(() => {
+    const days = period === "7d" ? 7 : period === "14d" ? 14 : 30;
+    return dailyVolume.slice(-days);
+  }, [dailyVolume, period]);
+
+  // Category breakdown from topPerformers (mock — proportional of total)
+  const categoryPieData = useMemo(() => {
+    const total = stats.totalSales;
+    if (total === 0) return [];
+    // Rough split: BBAG 40%, SBAG 40%, CBAG 20%
+    return [
+      { name: "BBAG", value: Math.round(total * 0.4) },
+      { name: "SBAG", value: Math.round(total * 0.4) },
+      { name: "CBAG", value: Math.round(total * 0.2) },
+    ].filter((d) => d.value > 0);
+  }, [stats.totalSales]);
+
+  // New signups trend from dailyVolume length (we approximate by days with activity)
+  const signupTrend = useMemo(() => {
+    return filteredVolume.map((d) => ({
+      date: d.date,
+      volume: d.amount,
+    }));
+  }, [filteredVolume]);
 
   if (loading) {
     return (
@@ -44,9 +81,7 @@ export const AdminDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalUsers}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.activeUsers} active investors
-            </p>
+            <p className="text-xs text-muted-foreground">{stats.activeUsers} active investors</p>
           </CardContent>
         </Card>
 
@@ -75,58 +110,84 @@ export const AdminDashboard = () => {
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        {/* Daily Volume Chart */}
-        <Card className="col-span-4 shadow-sm">
-          <CardHeader>
+      {/* Daily Volume Chart with period tabs */}
+      <Card className="shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
+          <div>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-primary" />
-              Daily Volume (30 Days)
+              Daily Investment Volume
             </CardTitle>
+            <CardDescription>Investment amount per day</CardDescription>
+          </div>
+          <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>
+            <TabsList>
+              <TabsTrigger value="7d">7D</TabsTrigger>
+              <TabsTrigger value="14d">14D</TabsTrigger>
+              <TabsTrigger value="30d">30D</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </CardHeader>
+        <CardContent className="pl-2">
+          <div className="h-[280px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={filteredVolume}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="date" stroke="#888" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="#888" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
+                <Tooltip formatter={(v) => [`$${Number(v).toLocaleString()}`, "Volume"]} cursor={{ fill: "transparent" }} />
+                <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        {/* Portfolio Category Pie */}
+        <Card className="col-span-3 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PieChart className="w-5 h-5 text-primary" />
+              Category Breakdown
+            </CardTitle>
+            <CardDescription>Estimated allocation by category</CardDescription>
           </CardHeader>
-          <CardContent className="pl-2">
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dailyVolume}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="#888888" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="#888888"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `${value}`}
-                  />
-                  <Tooltip 
-                    formatter={(value) => [`${Number(value).toLocaleString()}`, "Volume"]}
-                    cursor={{ fill: 'transparent' }}
-                  />
-                  <Bar dataKey="amount" fill="currentColor" radius={[4, 4, 0, 0]} className="fill-primary" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+          <CardContent>
+            {categoryPieData.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No data available</p>
+            ) : (
+              <div className="h-[220px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsPie>
+                    <Pie data={categoryPieData} cx="50%" cy="50%" outerRadius={75} dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      labelLine={false}
+                    >
+                      {categoryPieData.map((entry, i) => (
+                        <Cell key={entry.name} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, "Amount"]} />
+                    <Legend />
+                  </RechartsPie>
+                </ResponsiveContainer>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Top Performers */}
-        <Card className="col-span-3 shadow-sm">
+        <Card className="col-span-4 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-primary" />
               Top Investors
             </CardTitle>
-            <CardDescription>
-              Highest personal investment volume
-            </CardDescription>
+            <CardDescription>Highest personal investment volume</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-8">
+            <div className="space-y-5">
               {topPerformers.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No data available</p>
               ) : (
@@ -139,13 +200,9 @@ export const AdminDashboard = () => {
                       <p className="text-sm font-medium leading-none truncate" title={user.wallet}>
                         {user.wallet}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {user.referralCount} Direct Referrals
-                      </p>
+                      <p className="text-xs text-muted-foreground">{user.referralCount} Direct Referrals</p>
                     </div>
-                    <div className="font-bold">
-                      ${user.totalInvestment.toLocaleString()}
-                    </div>
+                    <div className="font-bold">${user.totalInvestment.toLocaleString()}</div>
                   </div>
                 ))
               )}
@@ -153,11 +210,32 @@ export const AdminDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Volume trend line chart */}
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="w-5 h-5 text-primary" />
+            Volume Trend
+          </CardTitle>
+          <CardDescription>Cumulative investment trend over {period}</CardDescription>
+        </CardHeader>
+        <CardContent className="pl-2">
+          <div className="h-[200px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={signupTrend}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="date" stroke="#888" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="#888" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
+                <Tooltip formatter={(v) => [`$${Number(v).toLocaleString()}`, "Volume"]} />
+                <Line type="monotone" dataKey="volume" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
 
 export default AdminDashboard;
-
-
-

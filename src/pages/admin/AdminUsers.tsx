@@ -7,11 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Loader2, ChevronLeft, ChevronRight, Eye, Edit, Plus, Trash2, Save, X, Search, XCircle } from "lucide-react";
-import { getUsersPaginated, getUsersCount, User, updateUserReferrer, searchUsers } from "@/lib/users";
+import { Users, Loader2, ChevronLeft, ChevronRight, Eye, Edit, Plus, Trash2, Save, X, Search, XCircle, Download } from "lucide-react";
+import { getUsersPaginated, getUsersCount, User, updateUserReferrer, searchUsers, getAllUsers } from "@/lib/users";
 import { getAllReferralCounts, getReferralsByReferrer, getReferralByReferred, Referral } from "@/lib/referrals";
 import { getUserNodePurchases, saveNodePurchase, deleteNodePurchase, updateNodePurchase, NodePurchase } from "@/lib/nodePurchases";
-import { getUserInvestments, saveUserInvestment, updateUserInvestment, deleteUserInvestment, UserInvestment } from "@/lib/userInvestments";
+import { getUserInvestments, saveUserInvestment, updateUserInvestment, deleteUserInvestment, UserInvestment, getAllUserInvestments } from "@/lib/userInvestments";
 import { getAllNodes, NodeType } from "@/lib/nodes";
 import { getAllPlans, InvestmentPlan } from "@/lib/plans";
 import { getUserSBAGPositions, confirmSBAGPurchase, getAllSBAGPositions, SBAGPosition, updateSellDelegation } from "@/lib/sbagPositions";
@@ -20,6 +20,54 @@ import { formatAddress } from "@/lib/utils";
 import { QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { format } from "date-fns";
+
+// ── CSV download helpers ─────────────────────────────────────────────────────
+function downloadCSV(rows: string[][], filename: string) {
+  const content = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function exportUsersCSV() {
+  const users = await getAllUsers();
+  const rows = [
+    ["Wallet", "Referral Code", "Referrer Code", "Referrer Wallet", "Registered", "Created At"],
+    ...users.map((u) => [
+      u.walletAddress,
+      u.referralCode,
+      u.referrerCode || "",
+      u.referrerWallet || "",
+      u.isRegistered ? "Yes" : "No",
+      format(new Date(u.createdAt), "yyyy-MM-dd HH:mm"),
+    ]),
+  ];
+  downloadCSV(rows, `users_${format(new Date(), "yyyyMMdd")}.csv`);
+}
+
+async function exportInvestmentsCSV() {
+  const investments = await getAllUserInvestments();
+  const rows = [
+    ["Wallet", "Category", "Project", "Amount", "Token Amount", "Token Value", "P/L", "Date", "Tx Hash"],
+    ...investments.map((inv) => [
+      inv.userId,
+      inv.category,
+      inv.projectName,
+      (inv.amount || 0).toFixed(2),
+      (inv.tokenAmount ?? "").toString(),
+      (inv.tokenValueUSDT ?? "").toString(),
+      (inv.profit ?? "").toString(),
+      format(new Date(inv.investedAt), "yyyy-MM-dd HH:mm"),
+      inv.transactionHash || "",
+    ]),
+  ];
+  downloadCSV(rows, `investments_${format(new Date(), "yyyyMMdd")}.csv`);
+}
 
 const PAGE_SIZE = 20;
 
@@ -516,17 +564,31 @@ export const AdminUsers = () => {
   return (
     <Card className="border-border/60">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Users className="w-4 h-4 text-primary" />
-          User Management System
-        </CardTitle>
-        <CardDescription>
-          {isSearching 
-            ? `Search results • Page ${currentPage + 1}`
-            : totalUsers > 0 
-              ? `${totalUsers.toLocaleString()} total users` 
-              : "Loading users..."} • Page {currentPage + 1}
-        </CardDescription>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-primary" />
+              User Management System
+            </CardTitle>
+            <CardDescription>
+              {isSearching 
+                ? `Search results • Page ${currentPage + 1}`
+                : totalUsers > 0 
+                  ? `${totalUsers.toLocaleString()} total users` 
+                  : "Loading users..."} • Page {currentPage + 1}
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={exportUsersCSV}>
+              <Download className="w-3.5 h-3.5" />
+              Users CSV
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={exportInvestmentsCSV}>
+              <Download className="w-3.5 h-3.5" />
+              Investments CSV
+            </Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         {/* Search Section */}

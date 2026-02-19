@@ -1,4 +1,4 @@
-import { Coins, Wallet, User, Users, Menu, ShoppingCart, BookOpen, Lock, MessageSquare } from "lucide-react";
+import { Coins, Wallet, User, Users, Menu, ShoppingCart, BookOpen, Lock, MessageSquare, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAccount, useDisconnect } from "wagmi";
@@ -7,6 +7,8 @@ import { formatAddress } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { TokenPriceWidget } from "@/components/TokenPriceWidget";
 import { 
   getOrCreateReferralCode, 
   storeReferralFromURL, 
@@ -115,8 +117,14 @@ const Header = () => {
           </span>
         </button>
 
+        {/* Token price widget – desktop only */}
+        <div className="hidden lg:flex flex-1 justify-center">
+          <TokenPriceWidget />
+        </div>
+
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-2 lg:gap-3 flex-shrink-0">
+          <ThemeToggle />
           <LanguageSelector />
           {/* <Button 
             variant="outline" 
@@ -139,6 +147,10 @@ const Header = () => {
           {isConnected && (
             <>
               <NotificationCenter />
+              <Button variant="outline" size="default" className="gap-2" onClick={() => navigate("/earnings")}>
+                <TrendingUp className="w-4 h-4" />
+                Earnings
+              </Button>
               <Button 
                 variant="outline" 
                 size="default" 
@@ -200,6 +212,7 @@ const Header = () => {
 
         {/* Mobile Navigation */}
         <div className="flex md:hidden items-center gap-1 flex-shrink-0">
+          <ThemeToggle />
           <LanguageSelector />
           <Tooltip>
             <TooltipTrigger asChild>

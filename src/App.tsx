@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import { WalletProvider } from "@/components/WalletProvider";
 import { ReferralTracker } from "@/components/ReferralTracker";
 import { LoomxReferralGuard } from "@/components/LoomxReferralGuard";
@@ -36,7 +37,11 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminSupport from "./pages/admin/AdminSupport";
 import AdminTotalEarning from "./pages/admin/AdminTotalEarning";
 import AdminOrganization from "./pages/admin/AdminOrganization";
+import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
 import AdminRouteGuard from "./pages/admin/AdminRouteGuard";
+import Earnings from "./pages/Earnings";
+import InvestmentHistory from "./pages/InvestmentHistory";
+import { StakingMaturityChecker } from "@/components/StakingMaturityChecker";
 
 // QueryClient를 모듈 스코프에서 생성하여 HMR 시에도 인스턴스 유지
 // staleTime 설정으로 불필요한 중복 요청 방지
@@ -50,6 +55,7 @@ const queryClient = new QueryClient({
 });
 
 const App = () => (
+  <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
   <ErrorBoundary>
   {/* BrowserRouter를 최상위로 이동 → 하위 컴포넌트(TermsAgreement, ReferralTracker 등)에서
       useNavigate, useLocation 등 router hooks 안전하게 사용 가능 */}
@@ -64,6 +70,7 @@ const App = () => (
               <UserNoticePopup />
               <ReferralTracker />
               <LoomxReferralGuard />
+              <StakingMaturityChecker />
               <Toaster />
               <Sonner />
               <Routes>
@@ -82,6 +89,7 @@ const App = () => (
                     <Route path="organization" element={<AdminOrganization />} />
                     <Route path="support" element={<AdminSupport />} />
                     <Route path="total-earning" element={<AdminTotalEarning />} />
+                    <Route path="announcements" element={<AdminAnnouncements />} />
                   </Route>
                 </Route>
 
@@ -91,6 +99,8 @@ const App = () => (
                 <Route path="/investment" element={<Investment />} />
                 <Route path="/staking" element={<Staking />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/earnings" element={<Earnings />} />
+                <Route path="/history" element={<InvestmentHistory />} />
                 <Route path="/community" element={<Community />} />
                 <Route path="/introduction" element={<Introduction />} />
                 <Route path="/tutorial" element={<Tutorial />} />
@@ -108,6 +118,10 @@ const App = () => (
     </LanguageProvider>
   </BrowserRouter>
   </ErrorBoundary>
+  </ThemeProvider>
 );
 
 export default App;
+
+// NOTE: ThemeProvider is at the top level; ThemeToggle can be imported
+// anywhere: import { ThemeToggle } from "@/components/ThemeToggle"

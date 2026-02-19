@@ -12,6 +12,7 @@ import { getReferralActivitiesByReferrer, ReferralActivity } from "@/lib/referra
 import { getUserInvestments } from "@/lib/userInvestments";
 import { toast } from "sonner";
 import { Leaderboard } from "@/components/Leaderboard";
+import { ReferralTree } from "@/components/ReferralTree";
 
 interface DirectReferral {
   address: string;
@@ -169,6 +170,22 @@ const Community = () => {
         <div className="mb-6 sm:mb-8">
           <Leaderboard />
         </div>
+
+        {/* Referral Tree Visualisation */}
+        {directReferrals.length > 0 && (
+          <Card className="p-4 sm:p-6 mb-6 sm:mb-8">
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-4">
+              My Referral Network
+            </h2>
+            <ReferralTree
+              rootWallet={address}
+              referrals={directReferrals.map((r) => ({
+                wallet: r.address,
+                personalPerformance: r.personalPerformance,
+              }))}
+            />
+          </Card>
+        )}
 
         {/* Overall Team Performance */}
         <Card className="p-4 sm:p-6 mb-6 sm:mb-8">
