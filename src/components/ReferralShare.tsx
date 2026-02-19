@@ -114,7 +114,7 @@ const ReferralShare = () => {
         </CardTitle>
         <CardDescription className="text-xs">
           {hasSelection
-            ? `선택하신 ${userSelection!.mode === "portfolio" ? "포트폴리오" : "단일상품"}을 포함한 레퍼럴 링크입니다.`
+            ? `선택하신 ${userSelection!.planIds.length}개 상품이 포함된 레퍼럴 링크입니다.`
             : "투자상품을 선택하면 해당 상품이 포함된 링크가 생성됩니다."}
         </CardDescription>
       </CardHeader>
@@ -127,16 +127,11 @@ const ReferralShare = () => {
           <div className="space-y-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">선택된 상품</p>
             <div className="flex flex-wrap gap-2">
-              {selectedPlans.map(p => (
+              {selectedPlans.map((p, idx) => (
                 <div key={p.id} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-background border border-border text-xs">
+                  <span className="font-bold text-primary/70">#{idx + 1}</span>
                   {p.logo && <img src={p.logo} alt={p.label} className="w-4 h-4 object-contain" />}
                   <span className="font-medium">{p.name}</span>
-                  {userSelection?.mode === "portfolio" && (
-                    <span className="text-muted-foreground">
-                      ({userSelection.planIds.indexOf(p.id) === 0 ? "40%" :
-                        userSelection.planIds.indexOf(p.id) === 1 ? "40%" : "20%"})
-                    </span>
-                  )}
                 </div>
               ))}
             </div>
