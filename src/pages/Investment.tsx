@@ -124,7 +124,7 @@ const Investment = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="pt-16 sm:pt-20 pb-12">
+        <main className="pt-[88px] sm:pt-20 pb-12">
           <div className="container mx-auto px-4">
             <div className="animate-pulse space-y-4 mt-8">
               <div className="h-8 bg-secondary rounded w-1/3" />
@@ -140,7 +140,7 @@ const Investment = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-16 sm:pt-20 pb-12">
+      <main className="pt-[88px] sm:pt-20 pb-12">
         <div className="container mx-auto px-4">
           <div className="mb-4 sm:mb-6">
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold text-foreground">

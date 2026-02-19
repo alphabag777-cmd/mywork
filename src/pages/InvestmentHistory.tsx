@@ -117,7 +117,7 @@ const InvestmentHistory = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container mx-auto px-4 pt-24 pb-16 flex flex-col items-center justify-center gap-4">
+        <main className="container mx-auto px-4 pt-[100px] sm:pt-24 pb-16 flex flex-col items-center justify-center gap-4">
           <Wallet className="w-12 h-12 text-muted-foreground" />
           <p className="text-muted-foreground">Connect your wallet to view investment history</p>
         </main>
@@ -129,7 +129,7 @@ const InvestmentHistory = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container mx-auto px-4 pt-24 pb-16 space-y-6">
+      <main className="container mx-auto px-4 pt-[100px] sm:pt-24 pb-16 space-y-6">
         {/* Title */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>

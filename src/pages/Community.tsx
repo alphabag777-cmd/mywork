@@ -140,7 +140,7 @@ const Community = () => {
     return (
       <>
         <Header />
-        <div className="min-h-screen bg-background pt-20 sm:pt-24 lg:pt-32 pb-12 sm:pb-20 px-4">
+        <div className="min-h-screen bg-background pt-[88px] sm:pt-24 lg:pt-32 pb-12 sm:pb-20 px-4">
           <div className="container mx-auto max-w-4xl">
             <Card className="p-6 sm:p-8 text-center">
               <p className="text-muted-foreground">{t.profile.connectWallet}</p>
@@ -155,7 +155,7 @@ const Community = () => {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-background pt-20 sm:pt-24 lg:pt-32 pb-12 sm:pb-20 px-4">
+      <div className="min-h-screen bg-background pt-[88px] sm:pt-24 lg:pt-32 pb-12 sm:pb-20 px-4">
           <div className="container mx-auto max-w-4xl">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8">

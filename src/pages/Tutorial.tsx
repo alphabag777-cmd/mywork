@@ -214,7 +214,7 @@ const Tutorial = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0b0d10] via-[#0b0d10] to-[#0b0d10]">
       <Header />
-      <div className="max-w-[520px] mx-auto px-3.5 py-2 mt-16 sm:mt-20">
+      <div className="max-w-[520px] mx-auto px-3.5 py-2 mt-[88px] sm:mt-20">
         {/* Top Bar */}
         <div className="sticky top-0 z-10 flex items-center justify-between gap-2.5 px-2.5 py-2 pb-2 backdrop-blur-sm bg-[rgba(11,13,16,0.65)] border-b border-white/10">
           <div className="flex flex-col gap-0.5">

@@ -462,7 +462,7 @@ const Cart = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="pt-16 sm:pt-20 pb-12">
+        <main className="pt-[88px] sm:pt-20 pb-12">
           <div className="container mx-auto px-4 text-center">
             <Card className="max-w-md mx-auto mt-12">
               <CardContent className="pt-6">
@@ -481,7 +481,7 @@ const Cart = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-16 sm:pt-20 pb-12">
+      <main className="pt-[88px] sm:pt-20 pb-12">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-7xl mx-auto">
             {/* Left Panel: Cart */}

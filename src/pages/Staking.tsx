@@ -12,7 +12,7 @@ const Staking = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-16 sm:pt-20">
+      <main className="pt-[88px] sm:pt-20">
         <div className="container mx-auto px-4 py-8">
           <div className="flex justify-end mb-4">
             <ROICalculator />

@@ -8,7 +8,7 @@ const Introduction = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#151922] via-[#0b0d10] to-[#0b0d10]">
       <Header />
-      <div className="container max-w-[1200px] mx-auto px-4 sm:px-5 md:px-6 py-10 sm:py-14 md:py-20 lg:py-24 xl:py-28 mt-16 sm:mt-20">
+      <div className="container max-w-[1200px] mx-auto px-4 sm:px-5 md:px-6 py-10 sm:py-14 md:py-20 lg:py-24 xl:py-28 mt-[88px] sm:mt-20">
         {/* HERO */}
         <section className="text-center mb-10 sm:mb-14 md:mb-20 lg:mb-24">
           <h1 

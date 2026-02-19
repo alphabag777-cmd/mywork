@@ -101,7 +101,12 @@ const Header = () => {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
-      <div className="container mx-auto px-3 sm:px-4 h-16 sm:h-20 flex items-center justify-between gap-2">
+      {/* 모바일 전용 가격 ticker 바 – 헤더 맨 위 한 줄 */}
+      <div className="flex md:hidden items-center justify-center gap-4 px-3 py-1 bg-muted/60 border-b border-border/30 text-xs">
+        <TokenPriceWidget compact />
+      </div>
+
+      <div className="container mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-2">
         {/* Logo */}
         <button
           onClick={() => navigate("/")}
@@ -119,7 +124,7 @@ const Header = () => {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-2 lg:gap-3 flex-shrink-0 ml-auto">
-          {/* 토큰 가격 위젯 – 네비 좌측 인라인 배치 */}
+          {/* 토큰 가격 위젯 – 데스크탑 네비 좌측 인라인 배치 */}
           <div className="hidden lg:flex">
             <TokenPriceWidget />
           </div>
@@ -248,6 +253,11 @@ const Header = () => {
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
               <div className="mt-6 flex flex-col gap-3">
+                {/* 토큰 가격 – Sheet 상단 */}
+                <div className="px-1 py-2 rounded-lg bg-muted/50 border border-border/50">
+                  <TokenPriceWidget />
+                </div>
+                <div className="h-px bg-border/50" />
                 <Button 
                   variant="outline" 
                   className="w-full justify-start gap-2" 

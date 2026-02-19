@@ -301,7 +301,7 @@ const Profile = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="pt-16 sm:pt-20 pb-12">
+        <main className="pt-[88px] sm:pt-20 pb-12">
           <div className="container mx-auto px-4 text-center">
             <Card className="max-w-md mx-auto mt-12">
               <CardContent className="pt-6">
@@ -321,7 +321,7 @@ const Profile = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-16 sm:pt-20 pb-12">
+      <main className="pt-[88px] sm:pt-20 pb-12">
         <div className="container mx-auto px-4">
           {/* Profile Header */}
           <div className="mb-8">
