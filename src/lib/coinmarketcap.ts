@@ -1,25 +1,36 @@
 /**
- * Token price fetching – uses Binance public API (no key required).
- * Falls back to CoinMarketCap if VITE_COINMARKETCAP_API_KEY is set.
+ * Token price fetching
  *
- * Binance ticker endpoint:
- *   GET https://api.binance.com/api/v3/ticker/price?symbol=NUMIUSDT
+ * NUMI는 BSC DEX 전용 토큰으로 Binance/CoinGecko 메인 API에 미등록.
+ * GeckoTerminal Public API (무료, 키 불필요) 로 PancakeSwap V3 풀을 직접 조회.
+ *
+ * 우선순위:
+ *   1. GeckoTerminal  – BSC PancakeSwap V3 NUMI/USDT 풀
+ *   2. CoinMarketCap  – VITE_COINMARKETCAP_API_KEY 설정 시만 사용
+ *
+ * Pool:    0x39d2d7bebd1487ffea308fab8a6fe2d737600e1a
+ * Network: bsc
  */
 
-/* ─── Binance ────────────────────────────────────────────────────────── */
-const BINANCE_TICKER = "https://api.binance.com/api/v3/ticker/price";
+/* ─── GeckoTerminal ──────────────────────────────────────────────────── */
+const GT_BASE = "https://api.geckoterminal.com/api/v2";
+const NUMI_NETWORK = "bsc";
+const NUMI_POOL = "0x39d2d7bebd1487ffea308fab8a6fe2d737600e1a";
 
-async function fetchPriceFromBinance(symbol: string): Promise<number | null> {
+async function fetchPriceFromGeckoTerminal(): Promise<number | null> {
   try {
-    const res = await fetch(`${BINANCE_TICKER}?symbol=${symbol}USDT`, {
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) throw new Error(`Binance ${res.status}`);
+    const url = `${GT_BASE}/networks/${NUMI_NETWORK}/pools/${NUMI_POOL}`;
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!res.ok) throw new Error(`GeckoTerminal ${res.status}`);
     const data = await res.json();
-    const price = parseFloat(data.price);
-    return isNaN(price) ? null : price;
+    const price = parseFloat(data?.data?.attributes?.base_token_price_usd ?? "");
+    if (!isNaN(price) && price > 0) {
+      console.info(`[TokenPrice] GeckoTerminal NUMI: $${price}`);
+      return price;
+    }
+    throw new Error("GeckoTerminal: price field missing");
   } catch (err) {
-    console.warn(`Binance price fetch failed for ${symbol}:`, err);
+    console.warn("GeckoTerminal price fetch failed:", err);
     return null;
   }
 }
@@ -56,25 +67,24 @@ export interface CoinMarketCapPrice {
 
 /**
  * Fetch NUMI price.
- * Order: Binance → CoinMarketCap → null (no mock fallback).
+ * Order: GeckoTerminal (BSC pool) → CoinMarketCap → null
  */
 export async function fetchNUMIPrice(): Promise<number | null> {
-  // 1. Try Binance (free, no key)
-  const binancePrice = await fetchPriceFromBinance("NUMI");
-  if (binancePrice !== null) return binancePrice;
+  // 1. GeckoTerminal – BSC PancakeSwap V3 풀 직접 조회 (무료, 키 불필요)
+  const gtPrice = await fetchPriceFromGeckoTerminal();
+  if (gtPrice !== null) return gtPrice;
 
-  // 2. Try CoinMarketCap (needs API key)
+  // 2. CoinMarketCap fallback (API 키 설정 시만)
   const cmcPrice = await fetchPriceFromCMC("NUMI");
   if (cmcPrice !== null) return cmcPrice;
 
-  // 3. No price available
   console.warn("NUMI price unavailable from all sources.");
   return null;
 }
 
 /**
  * Fetch prices for multiple symbols.
- * Uses Binance for each symbol; falls back to CMC if available.
+ * NUMI → GeckoTerminal, others → CMC.
  */
 export async function fetchPrices(
   symbols: string[]
@@ -83,8 +93,10 @@ export async function fetchPrices(
   await Promise.all(
     symbols.map(async (sym) => {
       const price =
-        (await fetchPriceFromBinance(sym)) ?? (await fetchPriceFromCMC(sym));
-      if (price !== null) results[sym] = price;
+        sym.toUpperCase() === "NUMI"
+          ? ((await fetchPriceFromGeckoTerminal()) ?? (await fetchPriceFromCMC(sym)))
+          : (await fetchPriceFromCMC(sym));
+      if (price !== null) results[sym.toUpperCase()] = price;
     })
   );
   return results;
@@ -102,4 +114,8 @@ export async function getCachedNUMIPrice(): Promise<number | null> {
   const price = await fetchNUMIPrice();
   if (price !== null) cachedPrice = { price, timestamp: now };
   return price;
+}
+
+export function clearNUMIPriceCache(): void {
+  cachedPrice = null;
 }
