@@ -3,7 +3,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { ThemeProvider } from "next-themes";
 import { WalletProvider } from "@/components/WalletProvider";
 import { ReferralTracker } from "@/components/ReferralTracker";
 import { LoomxReferralGuard } from "@/components/LoomxReferralGuard";
@@ -55,7 +54,6 @@ const queryClient = new QueryClient({
 });
 
 const App = () => (
-  <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
   <ErrorBoundary>
   {/* BrowserRouter를 최상위로 이동 → 하위 컴포넌트(TermsAgreement, ReferralTracker 등)에서
       useNavigate, useLocation 등 router hooks 안전하게 사용 가능 */}
@@ -118,10 +116,7 @@ const App = () => (
     </LanguageProvider>
   </BrowserRouter>
   </ErrorBoundary>
-  </ThemeProvider>
 );
 
 export default App;
 
-// NOTE: ThemeProvider is at the top level; ThemeToggle can be imported
-// anywhere: import { ThemeToggle } from "@/components/ThemeToggle"
