@@ -281,7 +281,7 @@ const Header = () => {
               <Button 
                 variant="gold" 
                 size="sm" 
-                className="gap-1 px-1.5 sm:px-2 h-8 w-8 sm:w-auto sm:h-auto sm:gap-1.5" 
+                className="gap-1 px-2 h-8 w-auto" 
                 onClick={handleWalletClick}
                 disabled={isSwitching}
               >
@@ -289,16 +289,18 @@ const Header = () => {
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                 ) : isConnected ? (
                   <>
-                    <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    {/* TokenPocket: 탭하면 계정 전환 → 아이콘 힌트 표시 */}
+                    <Wallet className="w-3.5 h-3.5 flex-shrink-0" />
+                    {/* TokenPocket: 계정 전환 힌트 아이콘 */}
                     {isTP && (
-                      <span className="hidden sm:inline text-[10px] opacity-70">⇄</span>
+                      <span className="text-[10px] opacity-70">⇄</span>
                     )}
-                    <span className="hidden sm:inline text-xs">{address ? formatAddress(address, 3) : ""}</span>
+                    {/* 모바일에서도 주소 항상 표시 */}
+                    <span className="text-xs font-mono">{address ? formatAddress(address, 4) : ""}</span>
                   </>
                 ) : (
                   <>
-                    <Coins className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <Coins className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="text-xs">{t.header.connectWallet}</span>
                   </>
                 )}
               </Button>
