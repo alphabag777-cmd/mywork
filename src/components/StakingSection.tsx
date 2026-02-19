@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { getOrCreateReferralCode, wasReferred, storeReferralFromURL } from "@/lib/referral";
 import { trackReferralActivity } from "@/lib/referralActivities";
 import { useTranslate } from "@/hooks/useTranslate";
@@ -28,11 +28,13 @@ import { getAllPlans, InvestmentPlan } from "@/lib/plans";
 import { getFixedAd, getRotatingAds, AdImage } from "@/lib/ads";
 import { getActiveNotice, Notice } from "@/lib/notices";
 import { useCart } from "@/contexts/CartContext";
+import { getUserSelectedPlans, UserSelectedPlans } from "@/lib/userSelectedPlans";
 
 const StakingSection = () => {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [amount, setAmount] = useState<string>("");
   const [allocationCards, setAllocationCards] = useState<InvestmentPlan[]>([]);
   const [fixedAd, setFixedAd] = useState<AdImage | null>(null);
@@ -56,9 +58,17 @@ const StakingSection = () => {
   
   // State for translated plans
   const [translatedPlans, setTranslatedPlans] = useState<InvestmentPlan[]>([]);
+  // User's selected plan state (for filtered display)
+  const [userSelection, setUserSelection] = useState<UserSelectedPlans | null>(null);
 
   // Note: Referral validation pop-up is handled by LoomxReferralGuard component
   // This prevents duplicate pop-ups and ensures consistent behavior
+
+  // Load user's selected plans
+  useEffect(() => {
+    if (!address) { setUserSelection(null); return; }
+    getUserSelectedPlans(address).then(sel => setUserSelection(sel)).catch(() => setUserSelection(null));
+  }, [address]);
 
   // Load plans from Firebase
   useEffect(() => {
@@ -505,15 +515,63 @@ const StakingSection = () => {
         </div>
 
         {/* Allocation Cards Grid */}
-        {allocationCards.length === 0 ? (
-          <div className="text-center py-12 mb-8">
-            <p className="text-muted-foreground text-lg">
-              No investment plans available. Please check back later.
-            </p>
-          </div>
-        ) : (
+        {(() => {
+          // Compute which plans to show
+          const basePlans = translatedPlans.length > 0 ? translatedPlans : allocationCards;
+          // URL ?plans= param overrides user's saved selection (for referral visitors)
+          const urlPlansParam = searchParams.get("plans");
+          const urlPlanIds = urlPlansParam ? urlPlansParam.split(",").map(s => s.trim()).filter(Boolean) : [];
+          // Priority: URL param (referral visitor) > user's saved selection > show all
+          const activePlanIds = urlPlanIds.length > 0
+            ? urlPlanIds
+            : (isConnected && address && userSelection && userSelection.planIds.length > 0)
+              ? userSelection.planIds
+              : [];
+          const visiblePlans = activePlanIds.length > 0
+            ? basePlans.filter(p => activePlanIds.includes(p.id))
+            : basePlans;
+
+          if (allocationCards.length === 0) {
+            return (
+              <div className="text-center py-12 mb-8">
+                <p className="text-muted-foreground text-lg">
+                  No investment plans available. Please check back later.
+                </p>
+              </div>
+            );
+          }
+
+          if (isConnected && address && activePlanIds.length > 0 && visiblePlans.length === 0) {
+            return (
+              <div className="text-center py-12 mb-8">
+                <p className="text-muted-foreground">선택하신 투자상품이 현재 표시 불가 상태입니다.</p>
+                <Button variant="outline" className="mt-4" onClick={() => navigate("/profile")}>
+                  상품 선택 변경
+                </Button>
+              </div>
+            );
+          }
+
+          return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
-          {(translatedPlans.length > 0 ? translatedPlans : allocationCards).map((card, index) => {
+          {/* User selection / referral visitor banner */}
+          {activePlanIds.length > 0 && (
+            <div className="col-span-full flex items-center justify-between px-3 py-2 rounded-xl bg-primary/10 border border-primary/30 mb-2">
+              <span className="text-xs text-muted-foreground">
+                {urlPlanIds.length > 0
+                  ? `🔗 추천인이 선택한 ${visiblePlans.length}개 상품을 보여드립니다`
+                  : userSelection?.mode === "portfolio"
+                    ? `🗂️ 포트폴리오 모드 (${userSelection.planIds.length}개 상품 선택됨)`
+                    : `📌 단일상품 모드 (1개 상품 선택됨)`}
+              </span>
+              {urlPlanIds.length === 0 && isConnected && (
+                <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => navigate("/profile")}>
+                  변경
+                </Button>
+              )}
+            </div>
+          )}
+          {visiblePlans.map((card, index) => {
             return (
               <div 
                 key={card.id}
@@ -630,7 +688,8 @@ const StakingSection = () => {
             );
           })}
         </div>
-        )}
+          );
+        })()}
 
       </div>
       
