@@ -20,7 +20,7 @@ import {
 import { saveUser, updateUserConnection } from "@/lib/users";
 import { saveReferral } from "@/lib/referrals";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { LanguageSelector } from "@/components/LanguageSelector";
+import { LanguageSelector, LanguageSelectorInline } from "@/components/LanguageSelector";
 import { useCart } from "@/contexts/CartContext";
 import {
   Sheet,
@@ -210,7 +210,6 @@ const Header = () => {
 
         {/* Mobile Navigation */}
         <div className="flex md:hidden items-center gap-1 flex-shrink-0">
-          <LanguageSelector />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
@@ -246,6 +245,9 @@ const Header = () => {
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
               <div className="mt-6 flex flex-col gap-3">
+                {/* 언어 선택 – Sheet 상단 인라인 */}
+                <LanguageSelectorInline onSelect={() => setMobileMenuOpen(false)} />
+                <div className="h-px bg-border/50" />
                 {/* 토큰 가격 – Sheet 상단 */}
                 <div className="px-1 py-2 rounded-lg bg-muted/50 border border-border/50">
                   <TokenPriceWidget />
