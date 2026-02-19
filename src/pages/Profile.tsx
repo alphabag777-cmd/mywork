@@ -505,15 +505,17 @@ const Profile = () => {
                 </p>
                 <div className="flex gap-2">
                   <button
-                    className="text-xs text-primary hover:underline"
-                    onClick={handleSelectAll}
+                    type="button"
+                    onPointerUp={handleSelectAll}
+                    className="text-xs text-primary hover:underline touch-manipulation"
                   >
                     전체 선택
                   </button>
                   <span className="text-muted-foreground text-xs">|</span>
                   <button
-                    className="text-xs text-muted-foreground hover:underline"
-                    onClick={handleClearAll}
+                    type="button"
+                    onPointerUp={handleClearAll}
+                    className="text-xs text-muted-foreground hover:underline touch-manipulation"
                   >
                     전체 해제
                   </button>
@@ -531,22 +533,23 @@ const Profile = () => {
                     return (
                       <button
                         key={plan.id}
-                        onClick={() => handlePlanToggle(plan.id)}
-                        className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                        type="button"
+                        onPointerUp={() => handlePlanToggle(plan.id)}
+                        className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all select-none ${
                           isSelected
                             ? "border-primary bg-primary/10"
                             : "border-border hover:border-primary/40 hover:bg-muted/40"
                         }`}
                       >
                         {isSelected ? (
-                          <CheckSquare className="w-5 h-5 text-primary flex-shrink-0" />
+                          <CheckSquare className="w-5 h-5 text-primary flex-shrink-0 pointer-events-none" />
                         ) : (
-                          <Square className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                          <Square className="w-5 h-5 text-muted-foreground flex-shrink-0 pointer-events-none" />
                         )}
                         {plan.logo && (
-                          <img src={plan.logo} alt={plan.label} className="w-8 h-8 object-contain flex-shrink-0" />
+                          <img src={plan.logo} alt={plan.label} className="w-8 h-8 object-contain flex-shrink-0 pointer-events-none" />
                         )}
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 pointer-events-none">
                           <p className="text-sm font-semibold truncate">{plan.name}</p>
                           <p className="text-xs text-muted-foreground truncate">{plan.label}</p>
                           {plan.dailyProfit && (
@@ -554,7 +557,7 @@ const Profile = () => {
                           )}
                         </div>
                         {isSelected && (
-                          <span className="text-xs font-bold text-primary/70 flex-shrink-0 bg-primary/10 px-1.5 py-0.5 rounded">
+                          <span className="text-xs font-bold text-primary/70 flex-shrink-0 bg-primary/10 px-1.5 py-0.5 rounded pointer-events-none">
                             #{posIdx + 1}
                           </span>
                         )}
@@ -578,10 +581,11 @@ const Profile = () => {
                           {plan.logo && <img src={plan.logo} alt={plan.label} className="w-3.5 h-3.5 object-contain" />}
                           <span className="font-medium">{plan.name}</span>
                           <button
-                            onClick={(e) => { e.stopPropagation(); handlePlanToggle(id); }}
-                            className="text-muted-foreground hover:text-red-500 ml-0.5"
+                            type="button"
+                            onPointerUp={(e) => { e.stopPropagation(); handlePlanToggle(id); }}
+                            className="text-muted-foreground hover:text-red-500 active:text-red-500 ml-0.5 p-1 -m-1 touch-manipulation"
                           >
-                            <X className="w-3 h-3" />
+                            <X className="w-3 h-3 pointer-events-none" />
                           </button>
                         </div>
                       );
