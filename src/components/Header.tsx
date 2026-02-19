@@ -1,6 +1,5 @@
 import { Coins, Wallet, User, Users, Menu, ShoppingCart, Lock, MessageSquare, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAccount, useDisconnect, useConnect } from "wagmi";
 import { useWeb3Modal } from "@web3modal/wagmi/react";
 import { formatAddress } from "@/lib/utils";
@@ -11,8 +10,6 @@ import { TokenPriceWidget } from "@/components/TokenPriceWidget";
 import { 
   getOrCreateReferralCode, 
   storeReferralFromURL, 
-  wasReferred,
-  generateReferralLink,
   addDirectReferral,
   getWalletFromURL,
   getReferrerCode
@@ -29,13 +26,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { WalletAddressDialog } from "@/components/WalletAddressDialog";
 
 /** TokenPocket 환경 여부 감지 */
 function isTokenPocketBrowser(): boolean {
   if (typeof window === "undefined") return false;
   const ua = navigator.userAgent || "";
-  // TokenPocket injects window.ethereum.isTokenPocket = true
-  // and UA contains "TokenPocket"
   return (
     ua.includes("TokenPocket") ||
     !!(window as any).ethereum?.isTokenPocket
@@ -48,13 +44,11 @@ async function requestTokenPocketAccountSwitch(): Promise<string | null> {
     const ethereum = (window as any).ethereum;
     if (!ethereum) return null;
 
-    // wallet_requestPermissions triggers account picker in TokenPocket
     await ethereum.request({
       method: "wallet_requestPermissions",
       params: [{ eth_accounts: {} }],
     });
 
-    // After permission granted, get the newly selected account
     const accounts: string[] = await ethereum.request({
       method: "eth_requestAccounts",
     });
@@ -74,68 +68,57 @@ const Header = () => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
+  const [walletDialogOpen, setWalletDialogOpen] = useState(false);
   const { getTotalItems } = useCart();
   const cartItemCount = getTotalItems();
+  const isTP = isTokenPocketBrowser();
 
   // Handle referral tracking when wallet connects
   useEffect(() => {
     if (isConnected && address && address !== null && address !== "0x0000000000000000000000000000000000000000") {
       const saveUserData = async () => {
         try {
-      // Generate or get user's referral code
-      const userReferralCode = getOrCreateReferralCode(address);
-      
-      // Check if user came from a referral link
-      const isReferred = storeReferralFromURL(address);
+          const userReferralCode = getOrCreateReferralCode(address);
+          const isReferred = storeReferralFromURL(address);
           const referrerCode = getReferrerCode();
           const referrerWallet = getWalletFromURL();
-          
-          // Check if user is registered
           const isRegistered = localStorage.getItem("alphabag_referral_registered") === "true";
           
-          // Save user to Firebase
           await saveUser(address, {
             referralCode: userReferralCode,
             referrerCode: referrerCode || null,
             referrerWallet: referrerWallet || null,
             isRegistered,
           });
-          
-          // Update last connected time
           await updateUserConnection(address);
           
-          // If user was referred, save referral to Firebase
           if (isReferred && referrerWallet && referrerWallet.startsWith("0x")) {
             try {
               await saveReferral(referrerWallet, address, referrerCode || "");
-              // Also update local storage for backward compatibility
               addDirectReferral(referrerWallet, address);
             } catch (error) {
               console.error("Error saving referral:", error);
             }
           }
           
-      console.log("Wallet connected:", address);
-      console.log("User referral code:", userReferralCode);
-      console.log("Was referred:", isReferred);
+          console.log("Wallet connected:", address);
+          console.log("User referral code:", userReferralCode);
+          console.log("Was referred:", isReferred);
         } catch (error) {
           console.error("Error saving user data:", error);
         }
       };
-      
       saveUserData();
     }
   }, [isConnected, address]);
 
-  /** 
-   * 일반: 연결 → open(), 연결됨 → disconnect()
-   * TokenPocket 모바일(연결됨): wallet_requestPermissions로 계정 선택 팝업 호출
+  /** 지갑 버튼 클릭 핸들러
+   *  - 미연결: 지갑 선택 모달 오픈
+   *  - 연결됨: WalletAddressDialog 오픈 (주소 확인 → 복사/전환/해제 선택)
    */
   const handleWalletClick = useCallback(async () => {
     if (!isConnected) {
-      // 연결 안 됨 → 지갑 선택 모달 오픈
-      if (isTokenPocketBrowser()) {
-        // TokenPocket 내장 브라우저: injected connector로 직접 연결
+      if (isTP) {
         setIsSwitching(true);
         try {
           const injectedConnector = connectors.find(
@@ -154,23 +137,24 @@ const Header = () => {
       }
       return;
     }
+    // 연결됨 → 주소 확인 Dialog 오픈
+    setWalletDialogOpen(true);
+  }, [isConnected, open, connect, connectors, isTP]);
 
-    // 연결됨 상태
-    if (isTokenPocketBrowser()) {
-      // TokenPocket: 계정 전환 팝업 (wallet_requestPermissions)
-      setIsSwitching(true);
-      try {
-        await requestTokenPocketAccountSwitch();
-        // wagmi는 accountsChanged 이벤트로 자동 업데이트됨
-      } finally {
-        setIsSwitching(false);
-      }
-    } else {
-      disconnect();
+  /** Dialog 내부 "계정 전환" 액션 */
+  const handleAccountSwitch = useCallback(async () => {
+    setIsSwitching(true);
+    try {
+      await requestTokenPocketAccountSwitch();
+    } finally {
+      setIsSwitching(false);
     }
-  }, [isConnected, open, disconnect, connect, connectors]);
+  }, []);
 
-  const isTP = isTokenPocketBrowser();
+  /** Dialog 내부 "연결 해제" 액션 */
+  const handleDisconnect = useCallback(() => {
+    disconnect();
+  }, [disconnect]);
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
@@ -196,9 +180,8 @@ const Header = () => {
           </span>
         </button>
 
-        {/* Desktop Navigation */}
+        {/* ─── Desktop Navigation ─── */}
         <div className="hidden md:flex items-center gap-2 lg:gap-3 flex-shrink-0 ml-auto">
-          {/* 토큰 가격 위젯 – 데스크탑 네비 좌측 인라인 배치 */}
           <div className="hidden lg:flex">
             <TokenPriceWidget />
           </div>
@@ -258,12 +241,25 @@ const Header = () => {
               </Button>
             </>
           )}
-          <Button variant="gold" size="default" className="gap-2" onClick={handleWalletClick}>
-            {isConnected ? (
+          {/* 지갑 버튼 – 클릭 시 항상 Dialog 오픈 (연결 후) */}
+          <Button
+            variant="gold"
+            size="default"
+            className="gap-2"
+            onClick={handleWalletClick}
+            disabled={isSwitching}
+          >
+            {isSwitching ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span className="hidden sm:inline">연결 중...</span>
+              </>
+            ) : isConnected ? (
               <>
                 <Wallet className="w-4 h-4" />
-                <span className="hidden lg:inline">{address ? formatAddress(address) : t.header.connected}</span>
-                <span className="lg:hidden">{address ? formatAddress(address, 4) : ""}</span>
+                {/* 데스크탑: 긴 주소 / 중간: 짧은 주소 */}
+                <span className="hidden lg:inline font-mono">{address ? formatAddress(address) : t.header.connected}</span>
+                <span className="lg:hidden font-mono">{address ? formatAddress(address, 4) : ""}</span>
               </>
             ) : (
               <>
@@ -274,48 +270,35 @@ const Header = () => {
           </Button>
         </div>
 
-        {/* Mobile Navigation */}
+        {/* ─── Mobile Navigation ─── */}
         <div className="flex md:hidden items-center gap-1 flex-shrink-0">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="gold" 
-                size="sm" 
-                className="gap-1 px-2 h-8 w-auto" 
-                onClick={handleWalletClick}
-                disabled={isSwitching}
-              >
-                {isSwitching ? (
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                ) : isConnected ? (
-                  <>
-                    <Wallet className="w-3.5 h-3.5 flex-shrink-0" />
-                    {/* TokenPocket: 계정 전환 힌트 아이콘 */}
-                    {isTP && (
-                      <span className="text-[10px] opacity-70">⇄</span>
-                    )}
-                    {/* 모바일에서도 주소 항상 표시 */}
-                    <span className="text-xs font-mono">{address ? formatAddress(address, 4) : ""}</span>
-                  </>
-                ) : (
-                  <>
-                    <Coins className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span className="text-xs">{t.header.connectWallet}</span>
-                  </>
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              {isConnected && address
-                ? isTP
-                  ? `${address} (탭하여 지갑 변경)`
-                  : address
-                : "Connect Wallet"}
-            </TooltipContent>
-          </Tooltip>
+          {/* 지갑 버튼 */}
+          <Button 
+            variant="gold" 
+            size="sm" 
+            className="gap-1 px-2 h-8 w-auto" 
+            onClick={handleWalletClick}
+            disabled={isSwitching}
+          >
+            {isSwitching ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : isConnected ? (
+              <>
+                <Wallet className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="text-xs font-mono">{address ? formatAddress(address, 4) : ""}</span>
+              </>
+            ) : (
+              <>
+                <Coins className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="text-xs">{t.header.connectWallet}</span>
+              </>
+            )}
+          </Button>
+
+          {/* 햄버거 메뉴 */}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="px-1.5 sm:px-2 h-8 w-8 sm:w-auto sm:h-auto">
+              <Button variant="outline" size="sm" className="px-1.5 h-8 w-8">
                 <Menu className="w-4 h-4" />
               </Button>
             </SheetTrigger>
@@ -324,49 +307,42 @@ const Header = () => {
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
               <div className="mt-6 flex flex-col gap-3">
-                {/* 토큰 가격 – Sheet 상단 */}
+                {/* 토큰 가격 */}
                 <div className="px-1 py-2 rounded-lg bg-muted/50 border border-border/50">
                   <TokenPriceWidget />
                 </div>
                 <div className="h-px bg-border/50" />
 
-                {/* TokenPocket 계정 전환 버튼 */}
-                {isTP && isConnected && (
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start gap-2 border-amber-500/50 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20"
-                    disabled={isSwitching}
-                    onClick={async () => {
+                {/* 연결된 경우 – 지갑 주소 확인 버튼 (Sheet 내) */}
+                {isConnected && address && (
+                  <button
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-amber-400/50 bg-amber-50/50 dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors text-left"
+                    onClick={() => {
                       setMobileMenuOpen(false);
-                      setIsSwitching(true);
-                      try {
-                        await requestTokenPocketAccountSwitch();
-                      } finally {
-                        setIsSwitching(false);
-                      }
+                      setTimeout(() => setWalletDialogOpen(true), 150);
                     }}
                   >
-                    {isSwitching ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Wallet className="w-4 h-4" />
-                    )}
-                    {isSwitching ? "전환 중..." : "본인 지갑 변경"}
-                    {address && (
-                      <span className="ml-auto text-xs text-muted-foreground">
-                        {formatAddress(address, 4)}
+                    <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center flex-shrink-0">
+                      <Wallet className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <span className="text-xs text-muted-foreground">
+                        {isTP ? "TokenPocket 연결됨" : "지갑 연결됨"}
                       </span>
-                    )}
-                  </Button>
+                      <span className="text-sm font-mono font-semibold text-amber-700 dark:text-amber-400 truncate">
+                        {formatAddress(address, 6)}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground border border-border/50 rounded px-1.5 py-0.5">
+                      상세
+                    </span>
+                  </button>
                 )}
 
                 <Button 
                   variant="outline" 
                   className="w-full justify-start gap-2" 
-                  onClick={() => {
-                    navigate("/staking");
-                    setMobileMenuOpen(false);
-                  }}
+                  onClick={() => { navigate("/staking"); setMobileMenuOpen(false); }}
                 >
                   <Lock className="w-4 h-4" />
                   Staking
@@ -376,10 +352,7 @@ const Header = () => {
                     <Button 
                       variant="outline" 
                       className="w-full justify-start gap-2 relative" 
-                      onClick={() => {
-                        navigate("/cart");
-                        setMobileMenuOpen(false);
-                      }}
+                      onClick={() => { navigate("/cart"); setMobileMenuOpen(false); }}
                     >
                       <ShoppingCart className="w-4 h-4" />
                       Cart
@@ -392,10 +365,7 @@ const Header = () => {
                     <Button 
                       variant="outline" 
                       className="w-full justify-start gap-2" 
-                      onClick={() => {
-                        navigate("/community");
-                        setMobileMenuOpen(false);
-                      }}
+                      onClick={() => { navigate("/community"); setMobileMenuOpen(false); }}
                     >
                       <Users className="w-4 h-4" />
                       {t.community.title}
@@ -403,10 +373,7 @@ const Header = () => {
                     <Button 
                       variant="outline" 
                       className="w-full justify-start gap-2" 
-                      onClick={() => {
-                        navigate("/support");
-                        setMobileMenuOpen(false);
-                      }}
+                      onClick={() => { navigate("/support"); setMobileMenuOpen(false); }}
                     >
                       <MessageSquare className="w-4 h-4" />
                       Support
@@ -414,10 +381,7 @@ const Header = () => {
                     <Button 
                       variant="outline"  
                       className="w-full justify-start gap-2" 
-                      onClick={() => {
-                        navigate("/profile");
-                        setMobileMenuOpen(false);
-                      }}
+                      onClick={() => { navigate("/profile"); setMobileMenuOpen(false); }}
                     >
                       <User className="w-4 h-4" />
                       Profile
@@ -434,6 +398,19 @@ const Header = () => {
           </Sheet>
         </div>
       </div>
+
+      {/* ─── 지갑 주소 확인 Dialog (PC/모바일 공통) ─── */}
+      {isConnected && address && (
+        <WalletAddressDialog
+          open={walletDialogOpen}
+          onOpenChange={setWalletDialogOpen}
+          address={address}
+          isTokenPocket={isTP}
+          isSwitching={isSwitching}
+          onSwitch={handleAccountSwitch}
+          onDisconnect={handleDisconnect}
+        />
+      )}
     </header>
   );
 };
