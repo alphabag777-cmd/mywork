@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* ============================
    사업별 브랜드 색상 커스터마이징
    site.config.ts 에서 CSS 변수로 주입됩니다
