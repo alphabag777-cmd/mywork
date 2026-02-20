@@ -1,8 +1,6 @@
 /**
  * PlanSelector — 투자상품 선택 독립 컴포넌트
- *
- * Profile.tsx에서 완전히 분리되어, 자체 상태만 관리합니다.
- * 이 컴포넌트가 크래시해도 Profile의 나머지 섹션에 영향 없음.
+ * Profile.tsx에서 완전히 분리, 자체 상태만 관리
  */
 
 import { useState, useEffect } from "react";
@@ -35,7 +33,6 @@ export default function PlanSelector() {
   const [isDirty, setIsDirty] = useState(false);
   const [isLoadingPlans, setIsLoadingPlans] = useState(true);
 
-  // 상품 목록 로드
   useEffect(() => {
     setIsLoadingPlans(true);
     getAllPlans()
@@ -44,7 +41,6 @@ export default function PlanSelector() {
       .finally(() => setIsLoadingPlans(false));
   }, []);
 
-  // 저장된 선택 로드
   useEffect(() => {
     if (!address) return;
     getUserSelectedPlans(address)
@@ -57,7 +53,6 @@ export default function PlanSelector() {
       .catch(console.error);
   }, [address]);
 
-  // 토글 — 단순 추가/제거, 제한 없음
   const toggle = (planId: string) => {
     setIsDirty(true);
     setSelectedIds((prev) =>
@@ -92,6 +87,11 @@ export default function PlanSelector() {
 
   if (!isConnected || !address) return null;
 
+  // 선택된 상품 중 실제로 존재하는 것만 필터 (null 반환 완전 제거)
+  const selectedPlansOrdered = selectedIds
+    .map((id) => ({ id, plan: allPlans.find((p) => p.id === id) }))
+    .filter((item): item is { id: string; plan: InvestmentPlan } => item.plan !== undefined);
+
   return (
     <Card className="mb-8 border-primary/30">
       <CardHeader>
@@ -105,6 +105,7 @@ export default function PlanSelector() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
+
         {/* 헤더: 선택 수 + 전체선택/해제 */}
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold text-foreground">
@@ -150,83 +151,80 @@ export default function PlanSelector() {
                   type="button"
                   onClick={() => toggle(plan.id)}
                   style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-                  className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all w-full ${
-                    selected ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
-                  }`}
+                  className={[
+                    "flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all w-full",
+                    selected
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/50",
+                  ].join(" ")}
                 >
-                  <span className="flex-shrink-0 pointer-events-none">
-                    {selected ? (
-                      <CheckSquare className="w-5 h-5 text-primary" />
-                    ) : (
-                      <Square className="w-5 h-5 text-muted-foreground" />
-                    )}
+                  {/* 체크 아이콘 — 항상 렌더링, 조건부 숨김 없음 */}
+                  <span className="flex-shrink-0 pointer-events-none w-5 h-5">
+                    {selected
+                      ? <CheckSquare className="w-5 h-5 text-primary" />
+                      : <Square className="w-5 h-5 text-muted-foreground" />}
                   </span>
-                  {plan.logo && (
-                    <img
-                      src={plan.logo}
-                      alt=""
-                      aria-hidden="true"
-                      className="w-8 h-8 object-contain flex-shrink-0 pointer-events-none"
-                    />
-                  )}
+
+                  {/* 로고 — 없으면 placeholder */}
+                  <span className="w-8 h-8 flex-shrink-0 flex items-center justify-center pointer-events-none">
+                    {plan.logo
+                      ? <img src={plan.logo} alt="" aria-hidden="true" className="w-8 h-8 object-contain" />
+                      : <span className="w-8 h-8 rounded-full bg-muted" />}
+                  </span>
+
+                  {/* 텍스트 */}
                   <span className="flex-1 min-w-0 pointer-events-none text-left">
                     <span className="block text-sm font-semibold truncate">{plan.name}</span>
                     <span className="block text-xs text-muted-foreground truncate">{plan.label}</span>
-                    {plan.dailyProfit && (
-                      <span className="block text-xs text-primary font-medium mt-0.5">
-                        {plan.dailyProfit}
-                      </span>
-                    )}
+                    {plan.dailyProfit
+                      ? <span className="block text-xs text-primary font-medium mt-0.5">{plan.dailyProfit}</span>
+                      : null}
                   </span>
-                  {selected && (
-                    <span className="text-xs font-bold text-primary/70 flex-shrink-0 bg-primary/10 px-1.5 py-0.5 rounded pointer-events-none">
-                      #{order + 1}
-                    </span>
-                  )}
+
+                  {/* 순서 뱃지 — 항상 같은 크기 공간 */}
+                  <span className="w-8 flex-shrink-0 text-right pointer-events-none">
+                    {selected
+                      ? <span className="text-xs font-bold text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded">#{order + 1}</span>
+                      : null}
+                  </span>
                 </button>
               );
             })}
           </div>
         )}
 
-        {/* 선택 순서 미리보기 */}
-        {selectedIds.length > 0 && (
+        {/* 선택 순서 미리보기 — null 반환 완전 제거 */}
+        {selectedPlansOrdered.length > 0 && (
           <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
             <p className="text-xs font-semibold text-muted-foreground mb-2">
               선택 순서 (레퍼럴 링크에 포함됨)
             </p>
             <div className="flex flex-wrap gap-2">
-              {selectedIds.map((id, idx) => {
-                const plan = allPlans.find((p) => p.id === id);
-                if (!plan) return null;
-                return (
-                  <div
-                    key={id}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-background border border-border text-xs"
+              {selectedPlansOrdered.map(({ id, plan }, idx) => (
+                <div
+                  key={id}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-background border border-border text-xs"
+                >
+                  <span className="font-bold text-primary">#{idx + 1}</span>
+                  <span className="w-3.5 h-3.5 flex-shrink-0 flex items-center justify-center">
+                    {plan.logo
+                      ? <img src={plan.logo} alt="" className="w-3.5 h-3.5 object-contain" />
+                      : null}
+                  </span>
+                  <span className="font-medium">{plan.name}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggle(id);
+                    }}
+                    style={{ touchAction: "manipulation" }}
+                    className="text-muted-foreground hover:text-red-500 active:text-red-500 ml-0.5 p-1.5 -m-1 rounded"
                   >
-                    <span className="font-bold text-primary">#{idx + 1}</span>
-                    {plan.logo && (
-                      <img
-                        src={plan.logo}
-                        alt=""
-                        className="w-3.5 h-3.5 object-contain pointer-events-none"
-                      />
-                    )}
-                    <span className="font-medium">{plan.name}</span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggle(id);
-                      }}
-                      style={{ touchAction: "manipulation" }}
-                      className="text-muted-foreground hover:text-red-500 active:text-red-500 ml-0.5 p-1.5 -m-1 rounded"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                );
-              })}
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -240,28 +238,23 @@ export default function PlanSelector() {
           style={{ touchAction: "manipulation" }}
         >
           {isSaving ? (
-            <>
-              <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> 저장 중…
-            </>
+            <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />저장 중…</>
           ) : isDirty ? (
-            <>
-              <Save className="w-4 h-4 mr-2" /> 선택 저장하기
-            </>
+            <><Save className="w-4 h-4 mr-2" />선택 저장하기</>
           ) : (
-            <>
-              <Check className="w-4 h-4 mr-2" /> 저장됨
-            </>
+            <><Check className="w-4 h-4 mr-2" />저장됨</>
           )}
         </Button>
 
         {/* 저장 상태 안내 */}
         {userSelection && !isDirty && (
-          <div className="text-xs text-muted-foreground text-center">
+          <p className="text-xs text-muted-foreground text-center">
             {userSelection.planIds.length > 0
               ? `✅ ${userSelection.planIds.length}개 상품 저장됨 — 메인화면과 레퍼럴 링크에 반영`
               : "아직 선택된 상품이 없습니다. 상품을 선택하고 저장하세요."}
-          </div>
+          </p>
         )}
+
       </CardContent>
     </Card>
   );
