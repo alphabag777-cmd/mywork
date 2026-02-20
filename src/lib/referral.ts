@@ -214,7 +214,7 @@ export function getReferrerWallet(): string | null {
  * Format: https://alpha-bag.com/?referral=0x...
  */
 export function generateReferralLink(baseUrl?: string, address?: string | null): string {
-  const url = baseUrl || (typeof window !== "undefined" ? window.location.origin : "https://alphabag.net");
+  const url = baseUrl || (typeof window !== "undefined" ? window.location.origin : "");
   
   // Use wallet address directly in the referral parameter
   if (address && address !== "0x0000000000000000000000000000000000000000" && address.startsWith("0x")) {

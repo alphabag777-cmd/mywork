@@ -174,3 +174,12 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(45 93% 56% / 0.5);
 }
+
+/* ── 모바일 하단 탭바 여백 ──────────────────────────
+   md(768px) 미만에서 BottomNav(h-16 = 4rem) + safe-area 높이만큼
+   페이지 콘텐츠 하단에 여백 추가 */
+@media (max-width: 767px) {
+  body {
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+  }
+}

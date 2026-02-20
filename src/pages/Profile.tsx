@@ -426,7 +426,9 @@ const Profile = () => {
   // ── Referral link / code (UI-only, fast) ──
   useEffect(() => {
     if (isConnected && address) {
-      setReferralLink(generateReferralLink("https://alphabag.net", address));
+      // 도메인 하드코딩 제거 — 항상 현재 origin 사용
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      setReferralLink(generateReferralLink(origin, address));
       const code = getOrCreateReferralCode(address);
       setReferralCode(code ? `AB-REF-${code}` : "AB-REF-9X27K3");
       setReferrerWallet(getReferrerWallet());

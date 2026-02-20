@@ -41,6 +41,7 @@ import AdminCompanyApplications from "./pages/admin/AdminCompanyApplications";
 import AdminRouteGuard from "./pages/admin/AdminRouteGuard";
 import InvestmentHistory from "./pages/InvestmentHistory";
 import { StakingMaturityChecker } from "@/components/StakingMaturityChecker";
+import BottomNav from "@/components/BottomNav";
 
 // QueryClient를 모듈 스코프에서 생성하여 HMR 시에도 인스턴스 유지
 // staleTime 설정으로 불필요한 중복 요청 방지
@@ -109,6 +110,8 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
               <Footer />
+              {/* 모바일 하단 탭바 — md 이상에서 자동 숨김 */}
+              <BottomNav />
             </TooltipProvider>
           </QueryClientProvider>
         </CartProvider>
