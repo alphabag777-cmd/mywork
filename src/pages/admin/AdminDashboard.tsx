@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BarChart3, Users, Wallet, Share2, Loader2, TrendingUp, DollarSign, Activity, PieChart } from "lucide-react";
+import { BarChart3, Users, Share2, Loader2, TrendingUp, DollarSign, Activity, PieChart } from "lucide-react";
 import { useAdminAnalytics } from "@/hooks/useAdminAnalytics";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -7,14 +7,14 @@ import {
 } from "recharts";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useMemo } from "react";
-import { subDays, isAfter, startOfDay } from "date-fns";
+import { subDays, startOfDay } from "date-fns";
 
 const CATEGORY_COLORS = ["#f59e0b", "#3b82f6", "#10b981", "#8b5cf6", "#ef4444"];
 
 type Period = "7d" | "14d" | "30d";
 
 export const AdminDashboard = () => {
-  const { stats, dailyVolume, topPerformers, loading } = useAdminAnalytics();
+  const { stats, dailyVolume, topPerformers, categoryBreakdown, loading } = useAdminAnalytics();
   const [period, setPeriod] = useState<Period>("30d");
 
   // Filter daily volume by period
@@ -23,17 +23,9 @@ export const AdminDashboard = () => {
     return dailyVolume.slice(-days);
   }, [dailyVolume, period]);
 
-  // Category breakdown from topPerformers (mock — proportional of total)
-  const categoryPieData = useMemo(() => {
-    const total = stats.totalSales;
-    if (total === 0) return [];
-    // Rough split: BBAG 40%, SBAG 40%, CBAG 20%
-    return [
-      { name: "BBAG", value: Math.round(total * 0.4) },
-      { name: "SBAG", value: Math.round(total * 0.4) },
-      { name: "CBAG", value: Math.round(total * 0.2) },
-    ].filter((d) => d.value > 0);
-  }, [stats.totalSales]);
+  // Category breakdown — 실제 Firebase 데이터 사용
+  // (useAdminAnalytics에서 category 필드로 집계)
+  const categoryPieData = categoryBreakdown;
 
   // New signups trend from dailyVolume length (we approximate by days with activity)
   const signupTrend = useMemo(() => {
@@ -151,7 +143,7 @@ export const AdminDashboard = () => {
               <PieChart className="w-5 h-5 text-primary" />
               Category Breakdown
             </CardTitle>
-            <CardDescription>Estimated allocation by category</CardDescription>
+            <CardDescription>Investment allocation by category (live data)</CardDescription>
           </CardHeader>
           <CardContent>
             {categoryPieData.length === 0 ? (

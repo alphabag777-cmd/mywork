@@ -11,60 +11,85 @@ import {
 } from "@/components/ui/select";
 import {
   History, Download, RefreshCw, Search, Filter, ExternalLink, Wallet,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
-import { getUserInvestments, UserInvestment, InvestmentCategory } from "@/lib/userInvestments";
+import { getUserInvestments, UserInvestment } from "@/lib/userInvestments";
 import { format, subDays, isAfter } from "date-fns";
 
-// ─── CSV helper ───────────────────────────────────────────────────────────────
+// ─── Timestamp 안전 변환 (Firestore Timestamp / number / string / Date 모두 처리) ─
+function toSafeDate(val: any): Date | null {
+  try {
+    if (!val) return null;
+    if (typeof val === "object" && "seconds" in val) return new Date(val.seconds * 1000);
+    if (typeof val === "object" && "toMillis" in val)  return new Date(val.toMillis());
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+  } catch { return null; }
+}
+
+function safeFormat(val: any, fmt: string, fallback = "-"): string {
+  try {
+    const d = toSafeDate(val);
+    return d ? format(d, fmt) : fallback;
+  } catch { return fallback; }
+}
+
+// ─── CSV 내보내기 ──────────────────────────────────────────────────────────────
 function downloadCSV(data: UserInvestment[], filename: string) {
   const headers = ["Date", "Category", "Project", "Amount (USDT)", "Token Amount", "Token Value (USDT)", "P/L", "Tx Hash"];
   const rows = data.map((inv) => [
-    format(new Date(inv.investedAt), "yyyy-MM-dd HH:mm"),
+    safeFormat(inv.investedAt, "yyyy-MM-dd HH:mm"),
     inv.category,
     inv.projectName,
     (inv.amount || 0).toFixed(2),
-    (inv.tokenAmount ?? "").toString(),
+    (inv.tokenAmount  ?? "").toString(),
     (inv.tokenValueUSDT ?? "").toString(),
-    (inv.profit ?? "").toString(),
+    (inv.profit       ?? "").toString(),
     inv.transactionHash || "",
   ]);
-  const csvContent = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+  const csvContent = [headers, ...rows]
+    .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
 
+// ─── 상수 ──────────────────────────────────────────────────────────────────────
+const PAGE_SIZE = 20;
+
 type PeriodFilter = "all" | "7d" | "30d" | "90d";
 const PERIOD_OPTIONS: { label: string; value: PeriodFilter }[] = [
-  { label: "All Time", value: "all" },
-  { label: "Last 7 days", value: "7d" },
-  { label: "Last 30 days", value: "30d" },
-  { label: "Last 90 days", value: "90d" },
+  { label: "All Time",    value: "all" },
+  { label: "Last 7 days", value: "7d"  },
+  { label: "Last 30 days",value: "30d" },
+  { label: "Last 90 days",value: "90d" },
 ];
-const CATEGORY_OPTIONS: { label: string; value: string }[] = [
-  { label: "All Categories", value: "all" },
-  { label: "BBAG", value: "BBAG" },
-  { label: "SBAG", value: "SBAG" },
-  { label: "CBAG", value: "CBAG" },
+const CATEGORY_OPTIONS = [
+  { label: "All Categories", value: "all"  },
+  { label: "BBAG",           value: "BBAG" },
+  { label: "SBAG",           value: "SBAG" },
+  { label: "CBAG",           value: "CBAG" },
 ];
-
 const CATEGORY_COLORS: Record<string, string> = {
   BBAG: "bg-yellow-500/20 text-yellow-700 border-yellow-400/50",
   SBAG: "bg-blue-500/20 text-blue-700 border-blue-400/50",
   CBAG: "bg-green-500/20 text-green-700 border-green-400/50",
 };
 
+// ─── 컴포넌트 ──────────────────────────────────────────────────────────────────
 const InvestmentHistory = () => {
   const { address, isConnected } = useAccount();
-  const [investments, setInvestments] = useState<UserInvestment[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [investments, setInvestments]     = useState<UserInvestment[]>([]);
+  const [loading, setLoading]             = useState(false);
+  const [searchQuery, setSearchQuery]     = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("all");
+  const [periodFilter, setPeriodFilter]   = useState<PeriodFilter>("all");
+  const [page, setPage]                   = useState(1);
 
   const load = useCallback(async () => {
     if (!address) return;
@@ -72,6 +97,7 @@ const InvestmentHistory = () => {
     try {
       const data = await getUserInvestments(address);
       setInvestments(data);
+      setPage(1); // 새로 로드하면 첫 페이지로
     } catch (e) {
       console.error(e);
     } finally {
@@ -81,36 +107,41 @@ const InvestmentHistory = () => {
 
   useEffect(() => { load(); }, [load]);
 
+  // 필터가 바뀌면 첫 페이지로
+  useEffect(() => { setPage(1); }, [searchQuery, categoryFilter, periodFilter]);
+
   const filtered = useMemo(() => {
     let result = [...investments];
 
-    // Period filter
     if (periodFilter !== "all") {
-      const days = periodFilter === "7d" ? 7 : periodFilter === "30d" ? 30 : 90;
+      const days   = periodFilter === "7d" ? 7 : periodFilter === "30d" ? 30 : 90;
       const cutoff = subDays(new Date(), days);
-      result = result.filter((inv) => isAfter(new Date(inv.investedAt), cutoff));
+      result = result.filter((inv) => {
+        const d = toSafeDate(inv.investedAt);
+        return d ? isAfter(d, cutoff) : false;
+      });
     }
 
-    // Category filter
     if (categoryFilter !== "all") {
       result = result.filter((inv) => inv.category === categoryFilter);
     }
 
-    // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
         (inv) =>
           inv.projectName?.toLowerCase().includes(q) ||
           inv.transactionHash?.toLowerCase().includes(q) ||
-          inv.category?.toLowerCase().includes(q)
+          inv.category?.toLowerCase().includes(q),
       );
     }
 
     return result;
   }, [investments, periodFilter, categoryFilter, searchQuery]);
 
-  const totalFiltered = filtered.reduce((s, i) => s + (i.amount || 0), 0);
+  const totalFiltered   = filtered.reduce((s, i) => s + (i.amount || 0), 0);
+  const totalPages      = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginatedItems  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   if (!isConnected) {
     return (
@@ -128,7 +159,8 @@ const InvestmentHistory = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 pt-[100px] sm:pt-24 pb-16 space-y-6">
-        {/* Title */}
+
+        {/* 타이틀 + 버튼 */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -141,9 +173,7 @@ const InvestmentHistory = () => {
           </div>
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
+              variant="outline" size="sm" className="gap-2"
               onClick={() => downloadCSV(filtered, `investments_${format(new Date(), "yyyyMMdd")}.csv`)}
               disabled={filtered.length === 0}
             >
@@ -157,7 +187,7 @@ const InvestmentHistory = () => {
           </div>
         </div>
 
-        {/* Filters */}
+        {/* 필터 */}
         <Card>
           <CardContent className="pt-4 pb-4">
             <div className="flex flex-wrap items-center gap-3">
@@ -195,17 +225,22 @@ const InvestmentHistory = () => {
           </CardContent>
         </Card>
 
-        {/* Summary */}
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">{filtered.length}</span> records found
-          <span className="font-medium text-foreground">${totalFiltered.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span> total
+        {/* 요약 */}
+        <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
+          <span><span className="font-medium text-foreground">{filtered.length}</span> records found</span>
+          <span><span className="font-medium text-foreground">${totalFiltered.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span> total</span>
+          {totalPages > 1 && (
+            <span className="ml-auto text-xs">
+              Page <span className="font-medium text-foreground">{page}</span> / {totalPages}
+            </span>
+          )}
         </div>
 
-        {/* Timeline */}
+        {/* 타임라인 */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Timeline</CardTitle>
-            <CardDescription>Sorted newest first</CardDescription>
+            <CardDescription>Sorted newest first · {PAGE_SIZE} per page</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -220,57 +255,102 @@ const InvestmentHistory = () => {
                 <p>No investments match your filters</p>
               </div>
             ) : (
-              <div className="relative">
-                {/* Timeline line */}
-                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
-                <div className="space-y-4 pl-12">
-                  {filtered.map((inv) => (
-                    <div key={inv.id} className="relative">
-                      {/* Dot */}
-                      <div className="absolute -left-8 top-4 w-3 h-3 rounded-full border-2 border-primary bg-background" />
-                      <div className="p-4 rounded-lg bg-muted/40 border border-border/50 hover:bg-muted/70 transition-colors">
-                        <div className="flex items-start justify-between gap-3 flex-wrap">
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <Badge
-                              variant="outline"
-                              className={`text-xs font-mono ${CATEGORY_COLORS[inv.category] || ""}`}
-                            >
-                              {inv.category}
-                            </Badge>
-                            <div>
-                              <p className="text-sm font-medium">{inv.projectName}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {format(new Date(inv.investedAt), "yyyy-MM-dd HH:mm")}
+              <>
+                <div className="relative">
+                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+                  <div className="space-y-4 pl-12">
+                    {paginatedItems.map((inv) => (
+                      <div key={inv.id} className="relative">
+                        <div className="absolute -left-8 top-4 w-3 h-3 rounded-full border-2 border-primary bg-background" />
+                        <div className="p-4 rounded-lg bg-muted/40 border border-border/50 hover:bg-muted/70 transition-colors">
+                          <div className="flex items-start justify-between gap-3 flex-wrap">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <Badge
+                                variant="outline"
+                                className={`text-xs font-mono ${CATEGORY_COLORS[inv.category] || ""}`}
+                              >
+                                {inv.category}
+                              </Badge>
+                              <div>
+                                <p className="text-sm font-medium">{inv.projectName}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {safeFormat(inv.investedAt, "yyyy-MM-dd HH:mm")}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-bold">
+                                ${(inv.amount || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} USDT
                               </p>
+                              {inv.profit !== undefined && (
+                                <p className={`text-xs font-medium ${(inv.profit ?? 0) >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                  {(inv.profit ?? 0) >= 0 ? "+" : ""}{(inv.profit ?? 0).toFixed(2)} P/L
+                                </p>
+                              )}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm font-bold">
-                              ${(inv.amount || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} USDT
-                            </p>
-                            {inv.profit !== undefined && (
-                              <p className={`text-xs font-medium ${inv.profit >= 0 ? "text-green-500" : "text-red-500"}`}>
-                                {inv.profit >= 0 ? "+" : ""}{inv.profit.toFixed(2)} P/L
-                              </p>
-                            )}
-                          </div>
+                          {inv.transactionHash && (
+                            <a
+                              href={`https://bscscan.com/tx/${inv.transactionHash}`}
+                              target="_blank" rel="noopener noreferrer"
+                              className="mt-2 flex items-center gap-1 text-xs text-primary hover:underline w-fit"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              {inv.transactionHash.slice(0, 12)}...{inv.transactionHash.slice(-8)}
+                            </a>
+                          )}
                         </div>
-                        {inv.transactionHash && (
-                          <a
-                            href={`https://bscscan.com/tx/${inv.transactionHash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-2 flex items-center gap-1 text-xs text-primary hover:underline w-fit"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                            {inv.transactionHash.slice(0, 12)}...{inv.transactionHash.slice(-8)}
-                          </a>
-                        )}
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+
+                {/* 페이지네이션 */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline" size="sm"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="gap-1"
+                    >
+                      <ChevronLeft className="w-4 h-4" /> Prev
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                        .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                          if (idx > 0 && (arr[idx - 1] as number) + 1 < p) acc.push("...");
+                          acc.push(p);
+                          return acc;
+                        }, [])
+                        .map((item, idx) =>
+                          item === "..." ? (
+                            <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground text-sm">…</span>
+                          ) : (
+                            <Button
+                              key={item}
+                              variant={page === item ? "default" : "outline"}
+                              size="sm"
+                              className="w-8 h-8 p-0 text-xs"
+                              onClick={() => setPage(item as number)}
+                            >
+                              {item}
+                            </Button>
+                          )
+                        )}
+                    </div>
+                    <Button
+                      variant="outline" size="sm"
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                      className="gap-1"
+                    >
+                      Next <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>

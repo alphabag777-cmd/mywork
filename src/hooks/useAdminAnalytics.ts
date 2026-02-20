@@ -14,11 +14,17 @@ export interface Performer {
   referralCount: number;
 }
 
+export interface CategoryBreakdown {
+  name: string;
+  value: number;
+}
+
 // ─── In-memory cache (5-minute TTL) ───────────────────────────────────────────
 interface CacheEntry {
   stats: ReturnType<typeof buildEmptyStats>;
   dailyVolume: DailyVolume[];
   topPerformers: Performer[];
+  categoryBreakdown: CategoryBreakdown[];
   fetchedAt: number; // epoch ms
 }
 
@@ -34,6 +40,7 @@ export const useAdminAnalytics = () => {
   const [stats, setStats] = useState(buildEmptyStats());
   const [dailyVolume, setDailyVolume] = useState<DailyVolume[]>([]);
   const [topPerformers, setTopPerformers] = useState<Performer[]>([]);
+  const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -43,6 +50,7 @@ export const useAdminAnalytics = () => {
         setStats(_cache.stats);
         setDailyVolume(_cache.dailyVolume);
         setTopPerformers(_cache.topPerformers);
+        setCategoryBreakdown(_cache.categoryBreakdown);
         setLoading(false);
         return;
       }
@@ -111,15 +119,28 @@ export const useAdminAnalytics = () => {
           .sort((a, b) => b.totalInvestment - a.totalInvestment)
           .slice(0, 5);
 
-        // ── 4. Update state + cache ───────────────────────────────────────
+        // ── 4. Category breakdown (실제 데이터) ───────────────────────────
+        const catMap = new Map<string, number>();
+        investments.forEach((inv) => {
+          const cat = (inv.category || "Other").trim();
+          catMap.set(cat, (catMap.get(cat) || 0) + (inv.amount || 0));
+        });
+        const nextCategoryBreakdown: CategoryBreakdown[] = Array.from(catMap.entries())
+          .map(([name, value]) => ({ name, value: Math.round(value) }))
+          .filter((d) => d.value > 0)
+          .sort((a, b) => b.value - a.value);
+
+        // ── 5. Update state + cache ───────────────────────────────────────
         setStats(nextStats);
         setDailyVolume(nextDailyVolume);
         setTopPerformers(nextTopPerformers);
+        setCategoryBreakdown(nextCategoryBreakdown);
 
         _cache = {
           stats: nextStats,
           dailyVolume: nextDailyVolume,
           topPerformers: nextTopPerformers,
+          categoryBreakdown: nextCategoryBreakdown,
           fetchedAt: Date.now(),
         };
       } catch (error) {
@@ -132,5 +153,5 @@ export const useAdminAnalytics = () => {
     fetchData();
   }, []);
 
-  return { stats, dailyVolume, topPerformers, loading };
+  return { stats, dailyVolume, topPerformers, categoryBreakdown, loading };
 };
