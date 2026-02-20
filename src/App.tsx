@@ -40,6 +40,8 @@ import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
 import AdminCompanyApplications from "./pages/admin/AdminCompanyApplications";
 import AdminRouteGuard from "./pages/admin/AdminRouteGuard";
 import InvestmentHistory from "./pages/InvestmentHistory";
+import Promo from "./pages/Promo";
+import PromoDetail from "./pages/PromoDetail";
 import { StakingMaturityChecker } from "@/components/StakingMaturityChecker";
 import BottomNav from "@/components/BottomNav";
 
@@ -105,6 +107,9 @@ const App = () => (
                 <Route path="/tutorial" element={<Tutorial />} />
                 <Route path="/support" element={<Support />} />
                 <Route path="/company-registration" element={<CompanyRegistration />} />
+                {/* 홍보 페이지 */}
+                <Route path="/promo" element={<Promo />} />
+                <Route path="/promo/:planId" element={<PromoDetail />} />
 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />

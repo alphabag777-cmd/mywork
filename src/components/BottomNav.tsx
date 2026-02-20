@@ -15,9 +15,9 @@ import {
   Home,
   Lock,
   Users,
-  History,
   User,
   Wallet,
+  Megaphone,
 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 
@@ -34,24 +34,24 @@ export default function BottomNav() {
   const { open } = useWeb3Modal();
   const location  = useLocation();
   const navigate  = useNavigate();
-  const { getTotalItems } = useCart();
-  const cartCount = getTotalItems();
+  void useCart(); // cart context 유지 (향후 badge 복원용)
 
   // 관리자 페이지에서는 숨김
   if (location.pathname.startsWith("/admin")) return null;
 
   /* ── 탭 정의 ── */
   const connectedTabs: TabItem[] = [
-    { label: "홈",     icon: Home,    path: "/" },
-    { label: "스테이킹", icon: Lock,  path: "/staking" },
-    { label: "커뮤니티", icon: Users, path: "/community" },
-    { label: "내역",   icon: History, path: "/history", badge: cartCount > 0 ? cartCount : undefined },
-    { label: "프로필", icon: User,    path: "/profile" },
+    { label: "홈",     icon: Home,        path: "/" },
+    { label: "스테이킹", icon: Lock,       path: "/staking" },
+    { label: "홍보",   icon: Megaphone,   path: "/promo" },
+    { label: "커뮤니티", icon: Users,      path: "/community" },
+    { label: "프로필", icon: User,         path: "/profile" },
   ];
 
   const disconnectedTabs: TabItem[] = [
-    { label: "홈",     icon: Home,   path: "/" },
-    { label: "스테이킹", icon: Lock, path: "/staking" },
+    { label: "홈",     icon: Home,        path: "/" },
+    { label: "홍보",   icon: Megaphone,   path: "/promo" },
+    { label: "스테이킹", icon: Lock,      path: "/staking" },
     {
       label: "지갑연결",
       icon: Wallet,
