@@ -15,11 +15,25 @@ const metadata = {
   icons: [typeof window !== "undefined" ? `${window.location.origin}/logo.png` : "https://alphabag-investment.com/logo.png"],
 };
 
+// BSC 공개 RPC URL 목록 (thirdweb CORS 에러 우회)
+const BSC_RPC_URLS = [
+  "https://bsc-dataseed1.binance.org",
+  "https://bsc-dataseed2.binance.org",
+  "https://bsc-dataseed3.binance.org",
+  "https://bsc-dataseed4.binance.org",
+  "https://bsc-dataseed1.defibit.io",
+  "https://bsc-dataseed2.defibit.io",
+];
+
 // Create wagmiConfig
 export const config = createConfig({
   chains: [bsc], // BSC Mainnet
   transports: {
-    [bsc.id]: http(),
+    [bsc.id]: http(BSC_RPC_URLS[0], {
+      batch: true,
+      retryCount: 3,
+      retryDelay: 1000,
+    }),
   },
   connectors: [
     walletConnect({ projectId, metadata, showQrModal: false }),
