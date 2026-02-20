@@ -24,9 +24,6 @@ import {
   BarChart3,
   PieChart,
   AlertCircle,
-  CheckSquare,
-  Square,
-  PackageCheck,
 } from "lucide-react";
 import { generateReferralLink, getReferrerWallet, getOrCreateReferralCode } from "@/lib/referral";
 import { toast } from "sonner";
@@ -53,10 +50,8 @@ import { updateNodeReferralCode } from "@/lib/userReferralCodes";
 import { useProfileData } from "@/hooks/useProfileData";
 import type { UserNode } from "@/hooks/useProfileData";
 import type { USDTTransfer } from "@/lib/walletTransfers";
-import type { InvestmentPlan } from "@/lib/plans";
-import { getAllPlans } from "@/lib/plans";
-import { getUserSelectedPlans, saveUserSelectedPlans, UserSelectedPlans } from "@/lib/userSelectedPlans";
 import ReferralShare from "@/components/ReferralShare";
+import PlanSelector from "@/components/PlanSelector";
 
 const EARNINGS_COLORS: Record<string, string> = {
   BBAG: "#f59e0b",
@@ -410,67 +405,7 @@ const Profile = () => {
 
   const { eTotalInvested, eTotalProfit, eTotalTokenVal, eStakingPrincipal, eStakingDaily, ePieData, eBarData, toSafeDate } = earningsComputed;
 
-  // ── Plan Selection State ──
-  const [allPlans, setAllPlans] = useState<InvestmentPlan[]>([]);
-  const [userSelection, setUserSelection] = useState<UserSelectedPlans | null>(null);
-  const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
-  const [isSavingSelection, setIsSavingSelection] = useState(false);
-  const [planSelectionDirty, setPlanSelectionDirty] = useState(false);
-
-  // Load all plans + user's current selection
-  useEffect(() => {
-    getAllPlans().then(setAllPlans).catch(console.error);
-  }, []);
-
-  useEffect(() => {
-    if (!address) return;
-    getUserSelectedPlans(address).then(sel => {
-      if (sel) {
-        setUserSelection(sel);
-        setSelectedPlanIds(sel.planIds);
-      }
-    }).catch(console.error);
-  }, [address]);
-
-  // 자유 다중 선택 토글 — 개수 제한 없음
-  const handlePlanToggle = useCallback((planId: string) => {
-    setPlanSelectionDirty(true);
-    setSelectedPlanIds(prev =>
-      prev.includes(planId)
-        ? prev.filter(id => id !== planId)
-        : [...prev, planId]
-    );
-  }, []);
-
-  // 터치/클릭 공용 핸들러 — touch-action: manipulation 으로 300ms 지연 없음
-  const makeTouchHandlers = useCallback((planId: string) => ({
-    onClick: () => handlePlanToggle(planId),
-  }), [handlePlanToggle]);
-
-  // 전체 선택 / 전체 해제
-  const handleSelectAll = () => {
-    setPlanSelectionDirty(true);
-    setSelectedPlanIds(allPlans.map(p => p.id));
-  };
-  const handleClearAll = () => {
-    setPlanSelectionDirty(true);
-    setSelectedPlanIds([]);
-  };
-
-  const handleSaveSelection = async () => {
-    if (!address) return;
-    setIsSavingSelection(true);
-    try {
-      const saved = await saveUserSelectedPlans(address, "multi", selectedPlanIds);
-      setUserSelection(saved);
-      setPlanSelectionDirty(false);
-      toast.success("투자상품 선택이 저장되었습니다!");
-    } catch {
-      toast.error("저장 실패. 잠시 후 다시 시도해주세요.");
-    } finally {
-      setIsSavingSelection(false);
-    }
-  };
+  // Plan Selection → PlanSelector 컴포넌트로 완전 분리됨
 
   // ── Not connected ──
   if (!isConnected || !address) {
@@ -521,156 +456,8 @@ const Profile = () => {
             </div>
           </div>
 
-          {/* ── 투자상품 선택 섹션 ── */}
-          <Card className="mb-8 border-primary/30">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <PackageCheck className="w-5 h-5 text-primary" />
-                내 투자상품 선택
-              </CardTitle>
-              <CardDescription>
-                홍보하고 싶은 투자상품을 자유롭게 선택하세요. 선택한 상품만 메인 화면에 표시되며, 레퍼럴 링크도 해당 상품들로 연결됩니다.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-
-              {/* 선택 현황 헤더 */}
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-foreground">
-                  상품 선택
-                  {selectedPlanIds.length > 0 && (
-                    <span className="ml-2 px-2 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-bold">
-                      {selectedPlanIds.length}개 선택됨
-                    </span>
-                  )}
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSelectAll}
-                    style={{ touchAction: "manipulation" }}
-                    className="text-xs text-primary hover:underline active:underline"
-                  >
-                    전체 선택
-                  </button>
-                  <span className="text-muted-foreground text-xs">|</span>
-                  <button
-                    type="button"
-                    onClick={handleClearAll}
-                    style={{ touchAction: "manipulation" }}
-                    className="text-xs text-muted-foreground hover:underline active:underline"
-                  >
-                    전체 해제
-                  </button>
-                </div>
-              </div>
-
-              {/* Plan list — 제한 없는 다중 선택 */}
-              {allPlans.length === 0 ? (
-                <p className="text-sm text-muted-foreground">투자상품을 불러오는 중…</p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {allPlans.map((plan) => {
-                    const isSelected = selectedPlanIds.includes(plan.id);
-                    const posIdx = selectedPlanIds.indexOf(plan.id);
-                    const planId = plan.id;
-                    return (
-                      <div
-                        key={planId}
-                        role="checkbox"
-                        aria-checked={isSelected}
-                        tabIndex={0}
-                        {...makeTouchHandlers(planId)}
-                        onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handlePlanToggle(planId); }}
-                        style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent", cursor: "pointer", userSelect: "none" }}
-                        className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all select-none ${
-                          isSelected
-                            ? "border-primary bg-primary/10"
-                            : "border-border"
-                        }`}
-                      >
-                        <span className="pointer-events-none flex-shrink-0">
-                          {isSelected ? (
-                            <CheckSquare className="w-5 h-5 text-primary" />
-                          ) : (
-                            <Square className="w-5 h-5 text-muted-foreground" />
-                          )}
-                        </span>
-                        {plan.logo && (
-                          <img src={plan.logo} alt="" aria-hidden="true" className="w-8 h-8 object-contain flex-shrink-0 pointer-events-none" />
-                        )}
-                        <div className="flex-1 min-w-0 pointer-events-none">
-                          <p className="text-sm font-semibold truncate">{plan.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{plan.label}</p>
-                          {plan.dailyProfit && (
-                            <p className="text-xs text-primary font-medium mt-0.5">{plan.dailyProfit}</p>
-                          )}
-                        </div>
-                        {isSelected && (
-                          <span className="text-xs font-bold text-primary/70 flex-shrink-0 bg-primary/10 px-1.5 py-0.5 rounded pointer-events-none">
-                            #{posIdx + 1}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* 선택된 상품 순서 미리보기 */}
-              {selectedPlanIds.length > 0 && (
-                <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">선택 순서 (레퍼럴 링크에 포함됨)</p>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedPlanIds.map((id, idx) => {
-                      const plan = allPlans.find(p => p.id === id);
-                      if (!plan) return null;
-                      return (
-                        <div key={id} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-background border border-border text-xs">
-                          <span className="font-bold text-primary">#{idx + 1}</span>
-                          {plan.logo && <img src={plan.logo} alt={plan.label} className="w-3.5 h-3.5 object-contain" />}
-                          <span className="font-medium">{plan.name}</span>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); handlePlanToggle(id); }}
-                            style={{ touchAction: "manipulation" }}
-                            className="text-muted-foreground hover:text-red-500 active:text-red-500 ml-0.5 p-2 -m-1"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Save button */}
-              <Button
-                variant="gold"
-                className="w-full"
-                onClick={handleSaveSelection}
-                disabled={isSavingSelection}
-              >
-                {isSavingSelection ? (
-                  <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> 저장 중…</>
-                ) : planSelectionDirty ? (
-                  <><Save className="w-4 h-4 mr-2" /> 선택 저장하기</>
-                ) : (
-                  <><Check className="w-4 h-4 mr-2" /> 저장됨</>
-                )}
-              </Button>
-
-              {/* 저장 상태 안내 */}
-              {userSelection && !planSelectionDirty && (
-                <div className="text-xs text-muted-foreground text-center">
-                  {userSelection.planIds.length > 0
-                    ? `✅ ${userSelection.planIds.length}개 상품 저장됨 — 메인화면과 레퍼럴 링크에 반영`
-                    : "아직 선택된 상품이 없습니다. 상품을 선택하고 저장하세요."}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* ── 투자상품 선택 섹션 (독립 컴포넌트) ── */}
+          <PlanSelector />
 
           {/* ── 레퍼럴 공유 섹션 (선택된 상품 포함) ── */}
           <ReferralShare />
