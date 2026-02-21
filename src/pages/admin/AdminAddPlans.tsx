@@ -605,19 +605,26 @@ export const AdminAddPlans = () => {
     const tags = formData.tags.split(",").map((t) => t.trim()).filter(Boolean);
     const isSelfCollection = formData.category === "SELF_COLLECTION";
 
-    // 셀프컬렉션: wallet1 = 100%, wallet2/3 = 0 강제 설정
-    const wallet1Percent = isSelfCollection ? 100 : (parseFloat(formData.wallet1Percentage) || 0);
-    const wallet2Percent = isSelfCollection ? 0 : (parseFloat(formData.wallet2Percentage) || 0);
-    const wallet3Percent = isSelfCollection ? 0 : (parseFloat(formData.wallet3Percentage) || 0);
+    // 지갑 주소 실제 입력 여부 확인
+    const hasW1addr = !!formData.wallet1.trim() || formData.useUserAddress1;
+    const hasW2addr = !!formData.wallet2.trim() || formData.useUserAddress2;
+    const hasW3addr = !!formData.wallet3.trim() || formData.useUserAddress3;
 
-    if (!isSelfCollection && wallet1Percent + wallet2Percent + wallet3Percent > 100) {
+    // 셀프컬렉션 OR 지갑1만 있는 경우: wallet1 = 100%, wallet2/3 = 0 강제
+    const isSingleWallet = isSelfCollection || (!hasW2addr && !hasW3addr);
+
+    const wallet1Percent = isSingleWallet ? 100 : (parseFloat(formData.wallet1Percentage) || 0);
+    const wallet2Percent = (isSingleWallet || !hasW2addr) ? 0 : (parseFloat(formData.wallet2Percentage) || 0);
+    const wallet3Percent = (isSingleWallet || !hasW3addr) ? 0 : (parseFloat(formData.wallet3Percentage) || 0);
+
+    if (!isSingleWallet && wallet1Percent + wallet2Percent + wallet3Percent > 100) {
       toast.error("Total wallet percentages cannot exceed 100%");
       return;
     }
 
-    // 셀프컬렉션: wallet1 주소 필수 체크
-    if (isSelfCollection && !formData.wallet1.trim() && !formData.useUserAddress1) {
-      toast.error("셀프컬렉션: 지갑 1 주소를 입력해주세요.");
+    // 지갑1 주소 필수 체크 (셀프컬렉션이거나 단일지갑인 경우)
+    if (isSingleWallet && !hasW1addr) {
+      toast.error("지갑 1 주소를 입력해주세요. (투자금 수신 지갑)");
       return;
     }
     const planData = {
@@ -1309,6 +1316,19 @@ export const AdminAddPlans = () => {
                       ) : (
                         /* ── 일반 모드: 3지갑 배분 ── */
                         <>
+                          {/* 지갑주소 없을 때 단일 100% 안내 */}
+                          {!formData.wallet1.trim() && !formData.useUserAddress1 && (
+                            <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                              <span className="text-lg">💡</span>
+                              <div>
+                                <p className="text-sm font-semibold text-blue-400">지갑 주소 미입력 상태</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  지갑 1 주소를 입력하면 배분이 적용됩니다.<br/>
+                                  단일 지갑만 사용하려면 상단에서 <strong className="text-amber-500">셀프컬렉션</strong>을 선택하세요.
+                                </p>
+                              </div>
+                            </div>
+                          )}
                           <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border border-border/50">
                             <Wallet className="w-4 h-4 text-primary flex-shrink-0" />
                             <div>
