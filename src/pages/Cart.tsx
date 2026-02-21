@@ -140,8 +140,8 @@ const Cart = () => {
       ? (selectedProject ? items.find(item => item.plan.id === selectedProject)?.plan : items[0].plan)
       : null;
 
-    // If plan exists but doesn't have wallet data, try to reload from Firestore
-    if (plan && (!plan.wallet1 || !plan.wallet2 || !plan.wallet3)) {
+    // If plan exists but doesn't have wallet1 data, try to reload from Firestore
+    if (plan && !plan.wallet1 && !plan.useUserAddress1) {
       console.log("Plan missing wallet data, reloading from Firestore...");
       try {
         const freshPlan = await getPlanById(plan.id);
@@ -182,23 +182,16 @@ const Cart = () => {
       itemsLength: items.length,
     });
 
-    // Check if plan has wallet addresses configured
-    // Wallet can be either a fixed address or use user address flag
-    // If using user address, ensure address is available
+    // Check if plan has at least wallet1 configured
+    // wallet2/wallet3 are optional — if empty, wallet1 receives 100%
     const hasWallet1 = (plan?.wallet1 && plan.wallet1.trim() !== "") || (plan?.useUserAddress1 && address);
     const hasWallet2 = (plan?.wallet2 && plan.wallet2.trim() !== "") || (plan?.useUserAddress2 && address);
     const hasWallet3 = (plan?.wallet3 && plan.wallet3.trim() !== "") || (plan?.useUserAddress3 && address);
-    const hasP1 = plan?.wallet1Percentage !== undefined && plan.wallet1Percentage > 0;
-    const hasP2 = plan?.wallet2Percentage !== undefined && plan.wallet2Percentage > 0;
-    const hasP3 = plan?.wallet3Percentage !== undefined && plan.wallet3Percentage > 0;
-    
+
     console.log("Wallet configuration check:", {
       hasWallet1,
       hasWallet2,
       hasWallet3,
-      hasP1,
-      hasP2,
-      hasP3,
       wallet1Value: plan?.wallet1,
       wallet2Value: plan?.wallet2,
       wallet3Value: plan?.wallet3,
@@ -206,20 +199,37 @@ const Cart = () => {
       p2Value: plan?.wallet2Percentage,
       p3Value: plan?.wallet3Percentage,
     });
-    
-    if (plan && hasWallet1 && hasWallet2 && hasWallet3 && hasP1 && hasP2 && hasP3) {
-      
+
+    if (plan && hasWallet1) {
       // Determine wallet addresses (use user address if flag is set)
-      const wallet1Address = plan.useUserAddress1 ? address : plan.wallet1;
-      const wallet2Address = plan.useUserAddress2 ? address : plan.wallet2;
-      const wallet3Address = plan.useUserAddress3 ? address : plan.wallet3;
-      
-      // Validate wallet addresses
-      if (!wallet1Address || !wallet2Address || !wallet3Address) {
-        toast.error("Wallet addresses not configured properly");
-        return;
+      const wallet1Address = plan.useUserAddress1 ? address! : plan.wallet1!;
+
+      // wallet2/wallet3: fall back to wallet1 if empty → full amount goes to wallet1
+      const wallet2Address = hasWallet2
+        ? (plan.useUserAddress2 ? address! : plan.wallet2!)
+        : wallet1Address;
+      const wallet3Address = hasWallet3
+        ? (plan.useUserAddress3 ? address! : plan.wallet3!)
+        : wallet1Address;
+
+      // Compute percentages: if wallet2/wallet3 are absent, wallet1 gets 100%
+      let p1 = plan.wallet1Percentage ?? 0;
+      let p2 = hasWallet2 ? (plan.wallet2Percentage ?? 0) : 0;
+      let p3 = hasWallet3 ? (plan.wallet3Percentage ?? 0) : 0;
+
+      // Auto-assign 100% to wallet1 when wallet2 & wallet3 are both absent
+      if (!hasWallet2 && !hasWallet3) {
+        p1 = 100;
+        p2 = 0;
+        p3 = 0;
       }
-      
+
+      // If percentages are all 0 (misconfigured), default wallet1 to 100%
+      if (p1 === 0 && p2 === 0 && p3 === 0) {
+        p1 = 100;
+      }
+
+      // Validate wallet addresses
       if (!isAddress(wallet1Address) || !isAddress(wallet2Address) || !isAddress(wallet3Address)) {
         toast.error("Invalid wallet addresses in plan configuration");
         return;
@@ -233,30 +243,25 @@ const Cart = () => {
         return;
       }
 
-      // Use investSplit with plan's wallet addresses and percentages
-      // If we reach here, approval is not needed
-      // wallet addresses are already determined above
+      // Use investSplit with resolved addresses and percentages
       try {
         console.log("Calling investSplit directly (no approval needed):", {
           amount: investAmountWei.toString(),
           wallet1: wallet1Address,
           wallet2: wallet2Address,
           wallet3: wallet3Address,
-          useUser1: plan.useUserAddress1,
-          useUser2: plan.useUserAddress2,
-          useUser3: plan.useUserAddress3,
-          p1: plan.wallet1Percentage,
-          p2: plan.wallet2Percentage,
-          p3: plan.wallet3Percentage,
+          p1,
+          p2,
+          p3,
         });
         investSplit(
           investAmountWei,
           wallet1Address as `0x${string}`,
           wallet2Address as `0x${string}`,
           wallet3Address as `0x${string}`,
-          plan.wallet1Percentage,
-          plan.wallet2Percentage,
-          plan.wallet3Percentage
+          p1,
+          p2,
+          p3
         );
       } catch (error: any) {
         console.error("Error calling investSplit:", error);
@@ -265,15 +270,10 @@ const Cart = () => {
       return;
     }
 
-    // Fallback to old invest method if no plan or no wallet addresses
-    console.log("Falling back to legacy invest method - plan wallet check failed:", {
+    // Fallback to old invest method if wallet1 is not configured
+    console.log("Falling back to legacy invest method - wallet1 not configured:", {
       hasPlan: !!plan,
-      hasWallet1: !!plan?.wallet1,
-      hasWallet2: !!plan?.wallet2,
-      hasWallet3: !!plan?.wallet3,
-      hasP1: plan?.wallet1Percentage !== undefined,
-      hasP2: plan?.wallet2Percentage !== undefined,
-      hasP3: plan?.wallet3Percentage !== undefined,
+      hasWallet1: !!(plan?.wallet1 || plan?.useUserAddress1),
     });
     // Check if approval is needed
     if (needsApproval && usdtToken) {
@@ -397,56 +397,42 @@ const Cart = () => {
     if (isApproveSuccess && pendingInvestRef.current) {
       const { plan, amount } = pendingInvestRef.current;
       
-      // Check if plan has wallet addresses configured
-      // Wallet can be either a fixed address or use user address flag
-      // If using user address, ensure address is available
+      // Resolve wallet addresses (same logic as handleInvest)
       const hasWallet1 = (plan?.wallet1 && plan.wallet1.trim() !== "") || (plan?.useUserAddress1 && address);
       const hasWallet2 = (plan?.wallet2 && plan.wallet2.trim() !== "") || (plan?.useUserAddress2 && address);
       const hasWallet3 = (plan?.wallet3 && plan.wallet3.trim() !== "") || (plan?.useUserAddress3 && address);
-      const hasP1 = plan?.wallet1Percentage !== undefined && plan.wallet1Percentage > 0;
-      const hasP2 = plan?.wallet2Percentage !== undefined && plan.wallet2Percentage > 0;
-      const hasP3 = plan?.wallet3Percentage !== undefined && plan.wallet3Percentage > 0;
-      
-      // Determine wallet addresses (use user address if flag is set)
-      const wallet1Address = plan.useUserAddress1 ? address : plan.wallet1;
-      const wallet2Address = plan.useUserAddress2 ? address : plan.wallet2;
-      const wallet3Address = plan.useUserAddress3 ? address : plan.wallet3;
-      
-      if (plan && hasWallet1 && hasWallet2 && hasWallet3 && hasP1 && hasP2 && hasP3 &&
-          wallet1Address && wallet2Address && wallet3Address &&
-          isAddress(wallet1Address) && isAddress(wallet2Address) && isAddress(wallet3Address)) {
-        // Use investSplit
-        // Determine wallet addresses (use user address if flag is set)
-        const wallet1Address = plan.useUserAddress1 ? address : plan.wallet1;
-        const wallet2Address = plan.useUserAddress2 ? address : plan.wallet2;
-        const wallet3Address = plan.useUserAddress3 ? address : plan.wallet3;
-        
-        if (!wallet1Address || !wallet2Address || !wallet3Address) {
-          toast.error("Wallet addresses not configured properly");
-          pendingInvestRef.current = null;
-          return;
-        }
-        
+
+      const wallet1Address = plan.useUserAddress1 ? address! : plan.wallet1!;
+      const wallet2Address = hasWallet2
+        ? (plan.useUserAddress2 ? address! : plan.wallet2!)
+        : wallet1Address;
+      const wallet3Address = hasWallet3
+        ? (plan.useUserAddress3 ? address! : plan.wallet3!)
+        : wallet1Address;
+
+      let p1 = plan.wallet1Percentage ?? 0;
+      let p2 = hasWallet2 ? (plan.wallet2Percentage ?? 0) : 0;
+      let p3 = hasWallet3 ? (plan.wallet3Percentage ?? 0) : 0;
+
+      if (!hasWallet2 && !hasWallet3) { p1 = 100; p2 = 0; p3 = 0; }
+      if (p1 === 0 && p2 === 0 && p3 === 0) { p1 = 100; }
+
+      if (hasWallet1 && wallet1Address && isAddress(wallet1Address) && isAddress(wallet2Address) && isAddress(wallet3Address)) {
         console.log("Calling investSplit after approval:", {
           amount: amount.toString(),
           wallet1: wallet1Address,
           wallet2: wallet2Address,
           wallet3: wallet3Address,
-          useUser1: plan.useUserAddress1,
-          useUser2: plan.useUserAddress2,
-          useUser3: plan.useUserAddress3,
-          p1: plan.wallet1Percentage,
-          p2: plan.wallet2Percentage,
-          p3: plan.wallet3Percentage,
+          p1, p2, p3,
         });
         investSplit(
           amount,
           wallet1Address as `0x${string}`,
           wallet2Address as `0x${string}`,
           wallet3Address as `0x${string}`,
-          plan.wallet1Percentage,
-          plan.wallet2Percentage,
-          plan.wallet3Percentage
+          p1,
+          p2,
+          p3
         );
         pendingInvestRef.current = null;
       } else {
@@ -585,23 +571,61 @@ const Cart = () => {
                 {/* Allocation Section */}
                 <div>
                   <h3 className="text-sm font-semibold text-foreground mb-3">Allocation</h3>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="card-metallic rounded-lg p-3 border-2 border-border/50 text-center">
-                      <p className="text-xs text-muted-foreground mb-1">Allocation B BAG</p>
-                      <p className="text-xs text-muted-foreground mb-1">(Promising Projects)</p>
-                      <p className="text-lg font-bold text-primary">40%</p>
-                    </div>
-                    <div className="card-metallic rounded-lg p-3 border-2 border-border/50 text-center">
-                      <p className="text-xs text-muted-foreground mb-1">Allocation S BAG</p>
-                      <p className="text-xs text-muted-foreground mb-1">(Binance Alpha)</p>
-                      <p className="text-lg font-bold text-primary">40%</p>
-                    </div>
-                    <div className="card-metallic rounded-lg p-3 border-2 border-border/50 text-center">
-                      <p className="text-xs text-muted-foreground mb-1">Allocation C BAG</p>
-                      <p className="text-xs text-muted-foreground mb-1">(Insurance)</p>
-                      <p className="text-lg font-bold text-primary">20%</p>
-                    </div>
-                  </div>
+                  {(() => {
+                    const activePlan = items.length > 0
+                      ? (selectedProject ? items.find(i => i.plan.id === selectedProject)?.plan : items[0].plan)
+                      : null;
+
+                    // No plan in cart → show empty placeholder
+                    if (!activePlan) {
+                      return (
+                        <div className="card-metallic rounded-lg p-3 border-2 border-border/50 text-center">
+                          <p className="text-xs text-muted-foreground">Add a plan to see allocation</p>
+                        </div>
+                      );
+                    }
+
+                    const hasW2 = !!(activePlan.wallet2 && activePlan.wallet2.trim() !== "") || !!activePlan.useUserAddress2;
+                    const hasW3 = !!(activePlan.wallet3 && activePlan.wallet3.trim() !== "") || !!activePlan.useUserAddress3;
+                    const isSelfCol = activePlan.category === "SELF_COLLECTION" || (!hasW2 && !hasW3);
+
+                    // Compute effective percentages
+                    let p1 = isSelfCol ? 100 : (activePlan.wallet1Percentage ?? 0);
+                    let p2 = hasW2 ? (activePlan.wallet2Percentage ?? 0) : 0;
+                    let p3 = hasW3 ? (activePlan.wallet3Percentage ?? 0) : 0;
+                    // Safety: if all 0 and multi-wallet → show as-is (admin should fix)
+                    if (!isSelfCol && p1 === 0 && p2 === 0 && p3 === 0) { p1 = 100; }
+
+                    const cols = isSelfCol ? "grid-cols-1" : hasW3 ? "grid-cols-3" : "grid-cols-2";
+
+                    return (
+                      <div className={`grid gap-3 ${cols}`}>
+                        <div className={`card-metallic rounded-lg p-3 border-2 text-center ${isSelfCol ? "border-amber-500/50" : "border-border/50"}`}>
+                          <p className="text-xs text-muted-foreground mb-1">
+                            {isSelfCol ? "셀프컬렉션" : "Allocation B BAG"}
+                          </p>
+                          <p className="text-xs text-muted-foreground mb-1">
+                            {isSelfCol ? "(Single Wallet 100%)" : "(Promising Projects)"}
+                          </p>
+                          <p className={`text-lg font-bold ${isSelfCol ? "text-amber-500" : "text-primary"}`}>{p1}%</p>
+                        </div>
+                        {hasW2 && (
+                          <div className="card-metallic rounded-lg p-3 border-2 border-border/50 text-center">
+                            <p className="text-xs text-muted-foreground mb-1">Allocation S BAG</p>
+                            <p className="text-xs text-muted-foreground mb-1">(Binance Alpha)</p>
+                            <p className="text-lg font-bold text-primary">{p2}%</p>
+                          </div>
+                        )}
+                        {hasW3 && (
+                          <div className="card-metallic rounded-lg p-3 border-2 border-border/50 text-center">
+                            <p className="text-xs text-muted-foreground mb-1">Allocation C BAG</p>
+                            <p className="text-xs text-muted-foreground mb-1">(Insurance)</p>
+                            <p className="text-lg font-bold text-primary">{p3}%</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Current Pick */}

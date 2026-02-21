@@ -65,11 +65,11 @@ const NodeSection = () => {
         const nodes = await getAllNodes();
         setNodeTypes(nodes);
         
-        // Translate nodes if needed
+        // Translate only description — name is always shown in original (no translation)
         const translated = await Promise.all(
           nodes.map(async (node) => ({
             ...node,
-            name: await translate(node.name),
+            // name intentionally NOT translated — keep original text always
             description: await translate(node.description || ''),
           }))
         );

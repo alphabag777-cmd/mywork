@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-export type InvestmentCategory = "BBAG" | "SBAG" | "CBAG";
+export type InvestmentCategory = "BBAG" | "SBAG" | "CBAG" | "SELF_COLLECTION";
 
 export interface UserInvestment {
   id: string;
@@ -90,10 +90,11 @@ function toFirestore(investment: Partial<UserInvestment>): any {
 
 /**
  * Extract category from project name
- * Looks for BBAG, SBAG, or CBAG in the name
+ * Looks for BBAG, SBAG, CBAG, or SELF_COLLECTION in the name
  */
 export function extractCategoryFromName(projectName: string): InvestmentCategory {
   const nameUpper = projectName.toUpperCase();
+  if (nameUpper.includes("SELF_COLLECTION") || nameUpper.includes("셀프콜렉션")) return "SELF_COLLECTION";
   if (nameUpper.includes("+SBAG+") || nameUpper.includes("SBAG")) {
     if (nameUpper.includes("CBAG")) return "CBAG";
     return "SBAG";
@@ -192,6 +193,7 @@ export async function getUserInvestmentsByCategory(userId: string): Promise<Reco
     BBAG: [],
     SBAG: [],
     CBAG: [],
+    SELF_COLLECTION: [],
   };
   
   investments.forEach((investment) => {
