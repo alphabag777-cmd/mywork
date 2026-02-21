@@ -158,8 +158,8 @@ const Header = () => {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
-      {/* 모바일 전용 상단 바 – 가격 ticker + 언어 선택 */}
-      <div className="flex md:hidden items-center justify-between gap-2 px-3 py-1 bg-muted/60 border-b border-border/30 text-xs">
+      {/* 모바일 전용 상단 바 – 가격 ticker + 언어 선택 (크게) */}
+      <div className="flex md:hidden items-center justify-between gap-2 px-3 py-2 bg-muted/60 border-b border-border/30">
         <TokenPriceWidget compact />
         <LanguageSelectorBar />
       </div>

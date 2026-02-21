@@ -15,13 +15,14 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY) as Language;
-      if (stored && (stored === 'en' || stored === 'zh' || stored === 'ko')) {
+      if (stored && (stored === 'en' || stored === 'zh' || stored === 'ko' || stored === 'ja')) {
         return stored;
       }
       // Detect browser language
       const browserLang = navigator.language.toLowerCase();
       if (browserLang.startsWith('zh')) return 'zh';
       if (browserLang.startsWith('ko')) return 'ko';
+      if (browserLang.startsWith('ja')) return 'ja';
     }
     return 'en';
   });
