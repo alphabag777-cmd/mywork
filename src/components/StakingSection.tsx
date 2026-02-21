@@ -60,6 +60,8 @@ const StakingSection = () => {
   const [translatedPlans, setTranslatedPlans] = useState<InvestmentPlan[]>([]);
   // User's selected plan state (for filtered display)
   const [userSelection, setUserSelection] = useState<UserSelectedPlans | null>(null);
+  // Category tab filter: null = all, otherwise filter by category
+  const [activeCategory, setActiveCategory] = useState<"ABAG" | "BBAG" | "CBAG" | "SELF_COLLECTION" | null>(null);
 
   // Note: Referral validation pop-up is handled by LoomxReferralGuard component
   // This prevents duplicate pop-ups and ensures consistent behavior
@@ -77,12 +79,11 @@ const StakingSection = () => {
         const plans = await getAllPlans();
         setAllocationCards(plans);
         
-        // Translate plans if needed
+        // Translate only description/focus/tags — NOT name/label (keep original English)
         const translated = await Promise.all(
           plans.map(async (plan) => ({
             ...plan,
-            name: await translate(plan.name),
-            label: await translate(plan.label),
+            // name & label intentionally NOT translated — always show original text
             description: await translate(plan.description),
             focus: await translate(plan.focus),
             quickActionsDescription: await translate(plan.quickActionsDescription || ''),
@@ -514,6 +515,42 @@ const StakingSection = () => {
           </Button>
         </div>
 
+        {/* Category Tabs */}
+        {(() => {
+          const basePlans = translatedPlans.length > 0 ? translatedPlans : allocationCards;
+          const hasSelfCollection = basePlans.some(p => p.category === "SELF_COLLECTION");
+          const hasAbag = basePlans.some(p => p.category === "ABAG");
+          const hasBbag = basePlans.some(p => p.category === "BBAG");
+          const hasCbag = basePlans.some(p => p.category === "CBAG");
+          // Show tabs only if there are any categorised plans
+          if (!hasAbag && !hasBbag && !hasCbag && !hasSelfCollection) return null;
+          const tabs: { key: "ABAG"|"BBAG"|"CBAG"|"SELF_COLLECTION"|null; label: string }[] = [
+            { key: null, label: "전체" },
+            ...(hasAbag ? [{ key: "ABAG" as const, label: "A BAG" }] : []),
+            ...(hasBbag ? [{ key: "BBAG" as const, label: "B BAG" }] : []),
+            ...(hasCbag ? [{ key: "CBAG" as const, label: "C BAG" }] : []),
+            ...(hasSelfCollection ? [{ key: "SELF_COLLECTION" as const, label: "셀프컬렉션" }] : []),
+          ];
+          return (
+            <div className="flex items-center justify-center gap-2 mb-6 flex-wrap">
+              {tabs.map(tab => (
+                <button
+                  key={String(tab.key)}
+                  type="button"
+                  onClick={() => setActiveCategory(tab.key)}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                    activeCategory === tab.key
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          );
+        })()}
+
         {/* Allocation Cards Grid */}
         {(() => {
           // Compute which plans to show
@@ -527,9 +564,14 @@ const StakingSection = () => {
             : (isConnected && address && userSelection && userSelection.planIds.length > 0)
               ? userSelection.planIds
               : [];
-          const visiblePlans = activePlanIds.length > 0
-            ? basePlans.filter(p => activePlanIds.includes(p.id))
-            : basePlans;
+          const visiblePlans = (() => {
+            const bySelection = activePlanIds.length > 0
+              ? basePlans.filter(p => activePlanIds.includes(p.id))
+              : basePlans;
+            // Apply category tab filter
+            if (activeCategory === null) return bySelection;
+            return bySelection.filter(p => p.category === activeCategory);
+          })();
 
           if (allocationCards.length === 0) {
             return (
@@ -585,13 +627,19 @@ const StakingSection = () => {
                   />
                 </div>
 
-                {/* Top Section: BINANCE Alpha + Badge and DAILY PROFIT Button */}
+                {/* Top Section: category badge + status badge */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 mb-3 sm:mb-4">
                   <div className="bg-secondary/50 border border-border rounded-full px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs text-muted-foreground">
-                    <span className="font-semibold text-primary">{t.staking.binanceAlpha}</span>
-                    <span className="mx-1">•</span>
-                    <span className="hidden sm:inline">{t.staking.insuranceHedge} • {t.staking.chooseLikeCart}</span>
-                    <span className="sm:hidden">{t.staking.insuranceHedge}</span>
+                    {card.category === "SELF_COLLECTION" ? (
+                      <span className="font-semibold text-amber-500">셀프컬렉션</span>
+                    ) : (
+                      <>
+                        <span className="font-semibold text-primary">{t.staking.binanceAlpha}</span>
+                        <span className="mx-1">•</span>
+                        <span className="hidden sm:inline">{t.staking.insuranceHedge} • {t.staking.chooseLikeCart}</span>
+                        <span className="sm:hidden">{t.staking.insuranceHedge}</span>
+                      </>
+                    )}
                   </div>
                   <div className="bg-primary/20 border border-primary/50 rounded-full px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1 sm:gap-1.5">
                     <div className="w-1 sm:w-1.5 h-1 sm:h-1.5 rounded-full bg-primary"></div>
@@ -604,12 +652,26 @@ const StakingSection = () => {
                   <h3 className="font-display text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-foreground mb-2 break-words">
                     {card.name}
                   </h3>
-                  {/* Allocation Breakdown - 40% 40% 20% */}
-                  <div className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1 sm:py-2 bg-red-500/10 border-2 border-red-500/30 rounded-full">
-                    <span className="text-sm sm:text-base lg:text-lg font-bold text-red-500">40%</span>
-                    <span className="text-sm sm:text-base lg:text-lg font-bold text-red-500">40%</span>
-                    <span className="text-sm sm:text-base lg:text-lg font-bold text-red-500">20%</span>
-                  </div>
+                  {/* Allocation Breakdown - dynamic per plan */}
+                  {(() => {
+                    const hasW2 = !!(card.wallet2 && card.wallet2.trim()) || !!card.useUserAddress2;
+                    const hasW3 = !!(card.wallet3 && card.wallet3.trim()) || !!card.useUserAddress3;
+                    // Self-collection: category flag OR single wallet only
+                    const isSelfCol = card.category === "SELF_COLLECTION" || (!hasW2 && !hasW3);
+                    const p1 = isSelfCol ? 100 : (card.wallet1Percentage ?? 0);
+                    const p2 = hasW2 ? (card.wallet2Percentage ?? 0) : 0;
+                    const p3 = hasW3 ? (card.wallet3Percentage ?? 0) : 0;
+                    const color = isSelfCol ? "text-amber-500" : "text-red-500";
+                    const border = isSelfCol ? "border-amber-500/30 bg-amber-500/10" : "border-red-500/30 bg-red-500/10";
+                    return (
+                      <div className={`inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1 sm:py-2 border-2 ${border} rounded-full`}>
+                        <span className={`text-sm sm:text-base lg:text-lg font-bold ${color}`}>{p1}%</span>
+                        {hasW2 && <span className={`text-sm sm:text-base lg:text-lg font-bold ${color}`}>{p2}%</span>}
+                        {hasW3 && <span className={`text-sm sm:text-base lg:text-lg font-bold ${color}`}>{p3}%</span>}
+                        {isSelfCol && <span className="text-[10px] text-amber-500 font-semibold ml-1">셀프</span>}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Daily Profit */}

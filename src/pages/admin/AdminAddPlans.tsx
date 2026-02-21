@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { InvestmentPlan, PlanStatus, getAllPlans, savePlan, deletePlan, updatePlanOrder } from "@/lib/plans";
+import { InvestmentPlan, PlanStatus, PlanCategory, getAllPlans, savePlan, deletePlan, updatePlanOrder } from "@/lib/plans";
 import { ImageUpload } from "@/components/ImageUpload";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -488,6 +488,8 @@ export const AdminAddPlans = () => {
     totalCapacity: "",
     currentParticipants: "",
     noticeText: "",
+    // 카테고리 (투자 상품 분류)
+    category: "" as "" | PlanCategory,
     // 지갑
     wallet1: "", wallet1Percentage: "0", useUserAddress1: false,
     wallet1TokenConversionRate: "0", wallet1TokenPrice: "0",
@@ -527,6 +529,7 @@ export const AdminAddPlans = () => {
       totalCapacity: "",
       currentParticipants: "",
       noticeText: "",
+      category: "" as "" | PlanCategory,
       wallet1: "", wallet1Percentage: "0", useUserAddress1: false,
       wallet1TokenConversionRate: "0", wallet1TokenPrice: "0",
       wallet2: "", wallet2Percentage: "0", useUserAddress2: false,
@@ -574,6 +577,7 @@ export const AdminAddPlans = () => {
         totalCapacity: plan.totalCapacity || "",
         currentParticipants: plan.currentParticipants || "",
         noticeText: plan.noticeText || "",
+        category: (plan.category || "") as "" | PlanCategory,
         wallet1: plan.wallet1 || "", wallet1Percentage: plan.wallet1Percentage?.toString() || "0",
         useUserAddress1: plan.useUserAddress1 || false,
         wallet1TokenConversionRate: plan.wallet1TokenConversionRate?.toString() || "0",
@@ -599,11 +603,21 @@ export const AdminAddPlans = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const tags = formData.tags.split(",").map((t) => t.trim()).filter(Boolean);
-    const wallet1Percent = parseFloat(formData.wallet1Percentage) || 0;
-    const wallet2Percent = parseFloat(formData.wallet2Percentage) || 0;
-    const wallet3Percent = parseFloat(formData.wallet3Percentage) || 0;
-    if (wallet1Percent + wallet2Percent + wallet3Percent > 100) {
+    const isSelfCollection = formData.category === "SELF_COLLECTION";
+
+    // 셀프컬렉션: wallet1 = 100%, wallet2/3 = 0 강제 설정
+    const wallet1Percent = isSelfCollection ? 100 : (parseFloat(formData.wallet1Percentage) || 0);
+    const wallet2Percent = isSelfCollection ? 0 : (parseFloat(formData.wallet2Percentage) || 0);
+    const wallet3Percent = isSelfCollection ? 0 : (parseFloat(formData.wallet3Percentage) || 0);
+
+    if (!isSelfCollection && wallet1Percent + wallet2Percent + wallet3Percent > 100) {
       toast.error("Total wallet percentages cannot exceed 100%");
+      return;
+    }
+
+    // 셀프컬렉션: wallet1 주소 필수 체크
+    if (isSelfCollection && !formData.wallet1.trim() && !formData.useUserAddress1) {
+      toast.error("셀프컬렉션: 지갑 1 주소를 입력해주세요.");
       return;
     }
     const planData = {
@@ -631,6 +645,8 @@ export const AdminAddPlans = () => {
       totalCapacity: formData.totalCapacity,
       currentParticipants: formData.currentParticipants,
       noticeText: formData.noticeText,
+      // 카테고리
+      category: (formData.category || undefined) as PlanCategory | undefined,
       // 지갑
       wallet1: formData.wallet1.trim(), wallet1Percentage: wallet1Percent,
       useUserAddress1: formData.useUserAddress1,
@@ -761,7 +777,22 @@ export const AdminAddPlans = () => {
                       <TableCell className="font-medium">{plan.name}</TableCell>
                       <TableCell>{plan.label}</TableCell>
                       <TableCell>
-                        <span className="px-2 py-1 text-xs font-semibold bg-primary/20 text-primary border border-primary/50 rounded-full">{plan.status || "Daily profit"}</span>
+                        <div className="flex flex-col gap-1">
+                          <span className="px-2 py-1 text-xs font-semibold bg-primary/20 text-primary border border-primary/50 rounded-full">{plan.status || "Daily profit"}</span>
+                          {plan.category && (
+                            <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border ${
+                              plan.category === "SELF_COLLECTION"
+                                ? "bg-amber-500/20 text-amber-500 border-amber-500/50"
+                                : plan.category === "ABAG"
+                                ? "bg-blue-500/20 text-blue-500 border-blue-500/50"
+                                : plan.category === "BBAG"
+                                ? "bg-green-500/20 text-green-500 border-green-500/50"
+                                : "bg-purple-500/20 text-purple-500 border-purple-500/50"
+                            }`}>
+                              {plan.category === "SELF_COLLECTION" ? "셀프컬렉션" : plan.category}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>{plan.dailyProfit}</TableCell>
                       <TableCell>
@@ -831,6 +862,57 @@ export const AdminAddPlans = () => {
           </DialogHeader>
 
           <form onSubmit={handleSubmit}>
+            {/* ══ 카테고리 선택 배너 (최상단, 항상 노출) ══ */}
+            <div className="px-6 pt-4 pb-2">
+              <div className={`flex items-center gap-3 p-3 rounded-xl border-2 ${
+                formData.category === 'SELF_COLLECTION'
+                  ? 'border-amber-500 bg-amber-500/10'
+                  : 'border-primary/40 bg-primary/5'
+              }`}>
+                <div className="flex-1">
+                  <Label htmlFor="category-top" className="text-sm font-bold text-foreground">📂 상품 유형 (카테고리) *</Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(v) => {
+                      const cat = v as "" | PlanCategory;
+                      setFormData({ ...formData, category: cat,
+                        // 셀프컬렉션 선택 시 wallet1Percentage 자동 100 설정
+                        wallet1Percentage: cat === 'SELF_COLLECTION' ? '100' : formData.wallet1Percentage,
+                        wallet2Percentage: cat === 'SELF_COLLECTION' ? '0' : formData.wallet2Percentage,
+                        wallet3Percentage: cat === 'SELF_COLLECTION' ? '0' : formData.wallet3Percentage,
+                      });
+                      // 셀프컬렉션 선택 시 지갑 배분 탭으로 자동 이동
+                      if (cat === 'SELF_COLLECTION') setActiveTab('wallet');
+                    }}
+                  >
+                    <SelectTrigger id="category-top" className={`mt-1 ${
+                      formData.category === 'SELF_COLLECTION' ? 'border-amber-500 text-amber-500 font-bold' : ''
+                    }`}>
+                      <SelectValue placeholder="▼ 카테고리를 먼저 선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">미지정 (기존 방식)</SelectItem>
+                      <SelectItem value="ABAG">A BAG</SelectItem>
+                      <SelectItem value="BBAG">B BAG</SelectItem>
+                      <SelectItem value="CBAG">C BAG</SelectItem>
+                      <SelectItem value="SELF_COLLECTION">🎯 셀프컬렉션 (단일상품 100%)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {formData.category === 'SELF_COLLECTION' && (
+                  <div className="flex flex-col items-center justify-center bg-amber-500 text-white rounded-xl px-4 py-2 text-center min-w-[80px]">
+                    <span className="text-2xl font-black">100%</span>
+                    <span className="text-[10px] font-semibold">지갑1 전송</span>
+                  </div>
+                )}
+              </div>
+              {formData.category === 'SELF_COLLECTION' && (
+                <div className="mt-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/40 text-xs text-amber-600">
+                  ✅ <strong>셀프컬렉션 설정 방법:</strong> 아래 &quot;지갑 배분&quot; 탭에서 지갑 1 주소만 입력하세요. 투자금 100%가 해당 주소로 전송됩니다.
+                </div>
+              )}
+            </div>
+
             <div className={`flex gap-0 ${showPreview ? "divide-x divide-border/50" : ""}`}>
               {/* ── 메인 편집 영역 ── */}
               <div className={showPreview ? "flex-1 min-w-0" : "w-full"}>
@@ -853,10 +935,13 @@ export const AdminAddPlans = () => {
                         <span>링크·미디어</span>
                         {materials.length > 0 && <span className="text-[9px] text-green-500">✓ {materials.length}개</span>}
                       </TabsTrigger>
-                      <TabsTrigger value="wallet" className="flex flex-col gap-0.5 py-2 text-xs">
+                      <TabsTrigger value="wallet" className={`flex flex-col gap-0.5 py-2 text-xs ${formData.category === 'SELF_COLLECTION' ? 'text-amber-500' : ''}`}>
                         <Wallet className="w-4 h-4" />
                         <span>지갑 배분</span>
-                        {walletTotal > 0 && <span className="text-[9px] text-blue-500">{walletTotal.toFixed(0)}%</span>}
+                        {formData.category === 'SELF_COLLECTION'
+                          ? <span className="text-[9px] text-amber-500 font-bold">100% 🎯</span>
+                          : walletTotal > 0 && <span className="text-[9px] text-blue-500">{walletTotal.toFixed(0)}%</span>
+                        }
                       </TabsTrigger>
                     </TabsList>
                   </div>
@@ -902,6 +987,18 @@ export const AdminAddPlans = () => {
                           <Label htmlFor="recommendedAmount">권장 금액 (USDT)</Label>
                           <Input id="recommendedAmount" type="number" value={formData.recommendedAmount} onChange={(e) => setFormData({ ...formData, recommendedAmount: e.target.value })} placeholder="1000" />
                         </div>
+                        {/* 카테고리는 상단 배너로 이동됨 — 여기서는 현재 선택 표시만 */}
+                        {formData.category && (
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">현재 카테고리</Label>
+                            <div className={`px-3 py-2 rounded-lg text-sm font-semibold ${
+                              formData.category === 'SELF_COLLECTION' ? 'bg-amber-500/20 text-amber-500' : 'bg-primary/10 text-primary'
+                            }`}>
+                              {formData.category === 'SELF_COLLECTION' ? '🎯 셀프컬렉션 (단일 100%)' : formData.category}
+                              <span className="text-xs font-normal ml-2 opacity-70">— 상단에서 변경</span>
+                            </div>
+                          </div>
+                        )}
                         <div className="space-y-2">
                           <ImageUpload value={formData.logo} onChange={(url) => setFormData({ ...formData, logo: url })} label="플랜 로고 *" folder="alphabag/plans" maxSizeMB={2} />
                         </div>
@@ -1147,66 +1244,133 @@ export const AdminAddPlans = () => {
 
                     {/* ══════════════ 탭 4: 지갑 배분 ══════════════ */}
                     <TabsContent value="wallet" className="mt-0 space-y-4">
-                      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border border-border/50">
-                        <Wallet className="w-4 h-4 text-primary flex-shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium">투자 금액 배분 설정</p>
-                          <p className="text-xs text-muted-foreground">현재 합계: <strong className={walletTotal > 100 ? "text-destructive" : walletTotal === 100 ? "text-green-500" : "text-foreground"}>{walletTotal.toFixed(1)}%</strong></p>
-                        </div>
-                      </div>
 
-                      <div className="grid gap-4 md:grid-cols-2">
-                        {[1, 2].map((num) => {
-                          const wKey = `wallet${num}` as "wallet1" | "wallet2";
-                          const pKey = `wallet${num}Percentage` as "wallet1Percentage" | "wallet2Percentage";
-                          const uKey = `useUserAddress${num}` as "useUserAddress1" | "useUserAddress2";
-                          const rKey = `wallet${num}TokenConversionRate` as "wallet1TokenConversionRate" | "wallet2TokenConversionRate";
-                          const tKey = `wallet${num}TokenPrice` as "wallet1TokenPrice" | "wallet2TokenPrice";
-                          const tokenName = num === 1 ? "BBAG" : "SBAG";
-                          return (
-                            <div key={num} className="space-y-3 p-4 border border-border/60 rounded-xl bg-muted/20">
-                              <div className="flex items-center justify-between">
-                                <Label className="text-sm font-semibold">지갑 {num} <span className="text-muted-foreground font-normal">({tokenName})</span></Label>
-                                <div className="flex items-center gap-2">
-                                  <Checkbox id={uKey} checked={formData[uKey] as boolean} onCheckedChange={(c) => setFormData({ ...formData, [uKey]: c === true, [wKey]: c ? "" : formData[wKey] })} />
-                                  <Label htmlFor={uKey} className="text-xs text-muted-foreground cursor-pointer">투자자 주소 사용</Label>
-                                </div>
-                              </div>
-                              <Input value={formData[wKey] as string} onChange={(e) => setFormData({ ...formData, [wKey]: e.target.value, [uKey]: false })} placeholder={formData[uKey] ? "투자자 지갑 주소 사용됨" : "0x..."} className="font-mono text-sm" disabled={formData[uKey] as boolean} />
+                      {/* ── 셀프컬렉션 모드: 지갑1에 100% 고정 ── */}
+                      {formData.category === "SELF_COLLECTION" ? (
+                        <div className="space-y-4">
+                          {/* 안내 배너 */}
+                          <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/40">
+                            <span className="text-xl flex-shrink-0">🎯</span>
+                            <div>
+                              <p className="text-sm font-semibold text-amber-500">셀프컬렉션 모드 — 단일 지갑 100%</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                투자금 전액(100%)이 아래 지갑 1 주소로 전송됩니다.<br />
+                                지갑 2, 지갑 3은 사용하지 않습니다.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* 지갑 1 — 100% 고정 */}
+                          <div className="space-y-3 p-4 border-2 border-amber-500/50 rounded-xl bg-amber-500/5">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-sm font-semibold text-amber-500">
+                                🎯 지갑 1 <span className="text-muted-foreground font-normal">(수신 지갑)</span>
+                              </Label>
                               <div className="flex items-center gap-2">
-                                <Input type="number" min="0" max="100" step="0.1" value={formData[pKey] as string} onChange={(e) => setFormData({ ...formData, [pKey]: e.target.value })} placeholder="0" className="w-24" />
-                                <span className="text-sm text-muted-foreground">%</span>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/30">
-                                <div className="space-y-1">
-                                  <Label className="text-xs text-muted-foreground">{tokenName} 전환율 (USDT당 토큰수)</Label>
-                                  <Input type="number" min="0" step="0.01" value={formData[rKey] as string} onChange={(e) => setFormData({ ...formData, [rKey]: e.target.value })} placeholder="예: 2" className="text-sm" />
-                                </div>
-                                <div className="space-y-1">
-                                  <Label className="text-xs text-muted-foreground">{tokenName} 토큰 가격 (USDT)</Label>
-                                  <Input type="number" min="0" step="0.0001" value={formData[tKey] as string} onChange={(e) => setFormData({ ...formData, [tKey]: e.target.value })} placeholder="예: 0.5" className="text-sm" />
-                                </div>
+                                <Checkbox
+                                  id="useUserAddress1_self"
+                                  checked={formData.useUserAddress1}
+                                  onCheckedChange={(c) =>
+                                    setFormData({ ...formData, useUserAddress1: c === true, wallet1: c ? "" : formData.wallet1, wallet1Percentage: "100" })
+                                  }
+                                />
+                                <Label htmlFor="useUserAddress1_self" className="text-xs text-muted-foreground cursor-pointer">
+                                  투자자 주소 사용
+                                </Label>
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
+                            <Input
+                              value={formData.wallet1}
+                              onChange={(e) =>
+                                setFormData({ ...formData, wallet1: e.target.value, useUserAddress1: false, wallet1Percentage: "100" })
+                              }
+                              placeholder={formData.useUserAddress1 ? "투자자 지갑 주소 사용됨" : "0x... (수신 지갑 주소)"}
+                              className="font-mono text-sm border-amber-500/40 focus:border-amber-500"
+                              disabled={formData.useUserAddress1}
+                            />
+                            {/* 100% 고정 표시 */}
+                            <div className="flex items-center gap-3 p-2 rounded-lg bg-amber-500/10">
+                              <div className="flex items-center gap-2">
+                                <span className="text-2xl font-bold text-amber-500">100%</span>
+                                <span className="text-xs text-muted-foreground">(자동 설정 — 변경 불가)</span>
+                              </div>
+                            </div>
+                            {/* hidden input: wallet1Percentage 항상 100으로 유지 */}
+                          </div>
 
-                      {/* 지갑 3 */}
-                      <div className="space-y-3 p-4 border border-border/60 rounded-xl bg-muted/20">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-sm font-semibold">지갑 3 <span className="text-muted-foreground font-normal">(CBAG 등 기타)</span></Label>
-                          <div className="flex items-center gap-2">
-                            <Checkbox id="useUserAddress3" checked={formData.useUserAddress3} onCheckedChange={(c) => setFormData({ ...formData, useUserAddress3: c === true, wallet3: c ? "" : formData.wallet3 })} />
-                            <Label htmlFor="useUserAddress3" className="text-xs text-muted-foreground cursor-pointer">투자자 주소 사용</Label>
+                          {/* 지갑 2, 3 비활성화 표시 */}
+                          <div className="p-3 rounded-xl border border-border/30 bg-muted/10 text-center">
+                            <p className="text-xs text-muted-foreground">
+                              ✅ 셀프컬렉션은 지갑 2 · 지갑 3을 사용하지 않습니다
+                            </p>
                           </div>
                         </div>
-                        <Input value={formData.wallet3} onChange={(e) => setFormData({ ...formData, wallet3: e.target.value, useUserAddress3: false })} placeholder={formData.useUserAddress3 ? "투자자 지갑 주소 사용됨" : "0x..."} className="font-mono text-sm" disabled={formData.useUserAddress3} />
-                        <div className="flex items-center gap-2">
-                          <Input type="number" min="0" max="100" step="0.1" value={formData.wallet3Percentage} onChange={(e) => setFormData({ ...formData, wallet3Percentage: e.target.value })} placeholder="0" className="w-24" />
-                          <span className="text-sm text-muted-foreground">%</span>
-                        </div>
-                      </div>
+
+                      ) : (
+                        /* ── 일반 모드: 3지갑 배분 ── */
+                        <>
+                          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border border-border/50">
+                            <Wallet className="w-4 h-4 text-primary flex-shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium">투자 금액 배분 설정</p>
+                              <p className="text-xs text-muted-foreground">현재 합계: <strong className={walletTotal > 100 ? "text-destructive" : walletTotal === 100 ? "text-green-500" : "text-foreground"}>{walletTotal.toFixed(1)}%</strong></p>
+                            </div>
+                          </div>
+
+                          <div className="grid gap-4 md:grid-cols-2">
+                            {[1, 2].map((num) => {
+                              const wKey = `wallet${num}` as "wallet1" | "wallet2";
+                              const pKey = `wallet${num}Percentage` as "wallet1Percentage" | "wallet2Percentage";
+                              const uKey = `useUserAddress${num}` as "useUserAddress1" | "useUserAddress2";
+                              const rKey = `wallet${num}TokenConversionRate` as "wallet1TokenConversionRate" | "wallet2TokenConversionRate";
+                              const tKey = `wallet${num}TokenPrice` as "wallet1TokenPrice" | "wallet2TokenPrice";
+                              const tokenName = num === 1 ? "BBAG" : "SBAG";
+                              return (
+                                <div key={num} className="space-y-3 p-4 border border-border/60 rounded-xl bg-muted/20">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-sm font-semibold">지갑 {num} <span className="text-muted-foreground font-normal">({tokenName})</span></Label>
+                                    <div className="flex items-center gap-2">
+                                      <Checkbox id={uKey} checked={formData[uKey] as boolean} onCheckedChange={(c) => setFormData({ ...formData, [uKey]: c === true, [wKey]: c ? "" : formData[wKey] })} />
+                                      <Label htmlFor={uKey} className="text-xs text-muted-foreground cursor-pointer">투자자 주소 사용</Label>
+                                    </div>
+                                  </div>
+                                  <Input value={formData[wKey] as string} onChange={(e) => setFormData({ ...formData, [wKey]: e.target.value, [uKey]: false })} placeholder={formData[uKey] ? "투자자 지갑 주소 사용됨" : "0x..."} className="font-mono text-sm" disabled={formData[uKey] as boolean} />
+                                  <div className="flex items-center gap-2">
+                                    <Input type="number" min="0" max="100" step="0.1" value={formData[pKey] as string} onChange={(e) => setFormData({ ...formData, [pKey]: e.target.value })} placeholder="0" className="w-24" />
+                                    <span className="text-sm text-muted-foreground">%</span>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/30">
+                                    <div className="space-y-1">
+                                      <Label className="text-xs text-muted-foreground">{tokenName} 전환율 (USDT당 토큰수)</Label>
+                                      <Input type="number" min="0" step="0.01" value={formData[rKey] as string} onChange={(e) => setFormData({ ...formData, [rKey]: e.target.value })} placeholder="예: 2" className="text-sm" />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label className="text-xs text-muted-foreground">{tokenName} 토큰 가격 (USDT)</Label>
+                                      <Input type="number" min="0" step="0.0001" value={formData[tKey] as string} onChange={(e) => setFormData({ ...formData, [tKey]: e.target.value })} placeholder="예: 0.5" className="text-sm" />
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* 지갑 3 */}
+                          <div className="space-y-3 p-4 border border-border/60 rounded-xl bg-muted/20">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-sm font-semibold">지갑 3 <span className="text-muted-foreground font-normal">(CBAG 등 기타)</span></Label>
+                              <div className="flex items-center gap-2">
+                                <Checkbox id="useUserAddress3" checked={formData.useUserAddress3} onCheckedChange={(c) => setFormData({ ...formData, useUserAddress3: c === true, wallet3: c ? "" : formData.wallet3 })} />
+                                <Label htmlFor="useUserAddress3" className="text-xs text-muted-foreground cursor-pointer">투자자 주소 사용</Label>
+                              </div>
+                            </div>
+                            <Input value={formData.wallet3} onChange={(e) => setFormData({ ...formData, wallet3: e.target.value, useUserAddress3: false })} placeholder={formData.useUserAddress3 ? "투자자 지갑 주소 사용됨" : "0x..."} className="font-mono text-sm" disabled={formData.useUserAddress3} />
+                            <div className="flex items-center gap-2">
+                              <Input type="number" min="0" max="100" step="0.1" value={formData.wallet3Percentage} onChange={(e) => setFormData({ ...formData, wallet3Percentage: e.target.value })} placeholder="0" className="w-24" />
+                              <span className="text-sm text-muted-foreground">%</span>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </TabsContent>
                   </div>
 

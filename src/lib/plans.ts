@@ -18,6 +18,9 @@ import { db } from "./firebase";
 
 export type PlanStatus = "Display Node" | "ICO" | "Daily profit" | "Trading";
 
+/** 플랜 카테고리 (투자 상품 분류) */
+export type PlanCategory = "ABAG" | "BBAG" | "CBAG" | "SELF_COLLECTION";
+
 export interface InvestmentPlan {
   id: string;
   name: string;
@@ -69,6 +72,7 @@ export interface InvestmentPlan {
   totalCapacity?: string;                         // 총 모집 한도 (e.g. "10,000 USDT")
   currentParticipants?: string;                   // 현재 참여자 수
   noticeText?: string;                            // 주의사항 / 공지 (빨간 경고 박스로 표시)
+  category?: PlanCategory;                         // 플랜 카테고리: ABAG, BBAG, CBAG, SELF_COLLECTION
   createdAt: number;
   updatedAt: number;
 }
@@ -139,6 +143,7 @@ function fromFirestore(docData: any, id: string): InvestmentPlan {
     totalCapacity: docData.totalCapacity || "",
     currentParticipants: docData.currentParticipants || "",
     noticeText: docData.noticeText || "",
+    category: docData.category || undefined, // undefined = legacy plan (ABAG/BBAG/CBAG mixed)
     sortOrder: docData.sortOrder !== undefined ? docData.sortOrder : 999999, // Default to high number if not set
     createdAt: timestampToNumber(docData.createdAt),
     updatedAt: timestampToNumber(docData.updatedAt),
@@ -183,6 +188,7 @@ function toFirestore(plan: Partial<InvestmentPlan>): any {
     totalCapacity: plan.totalCapacity || "",
     currentParticipants: plan.currentParticipants || "",
     noticeText: plan.noticeText || "",
+    category: plan.category || null, // null = legacy plan
     sortOrder: plan.sortOrder !== undefined ? plan.sortOrder : 999999,
     wallet1: plan.wallet1 || "",
     wallet1Percentage: plan.wallet1Percentage !== undefined ? plan.wallet1Percentage : 0,
