@@ -489,7 +489,7 @@ export const AdminAddPlans = () => {
     currentParticipants: "",
     noticeText: "",
     // 카테고리 (투자 상품 분류)
-    category: "" as "" | PlanCategory,
+    category: "NONE" as "NONE" | PlanCategory,
     // 지갑
     wallet1: "", wallet1Percentage: "0", useUserAddress1: false,
     wallet1TokenConversionRate: "0", wallet1TokenPrice: "0",
@@ -529,7 +529,7 @@ export const AdminAddPlans = () => {
       totalCapacity: "",
       currentParticipants: "",
       noticeText: "",
-      category: "" as "" | PlanCategory,
+      category: "NONE" as "NONE" | PlanCategory,
       wallet1: "", wallet1Percentage: "0", useUserAddress1: false,
       wallet1TokenConversionRate: "0", wallet1TokenPrice: "0",
       wallet2: "", wallet2Percentage: "0", useUserAddress2: false,
@@ -577,7 +577,7 @@ export const AdminAddPlans = () => {
         totalCapacity: plan.totalCapacity || "",
         currentParticipants: plan.currentParticipants || "",
         noticeText: plan.noticeText || "",
-        category: (plan.category || "") as "" | PlanCategory,
+        category: (plan.category || "NONE") as "NONE" | PlanCategory,
         wallet1: plan.wallet1 || "", wallet1Percentage: plan.wallet1Percentage?.toString() || "0",
         useUserAddress1: plan.useUserAddress1 || false,
         wallet1TokenConversionRate: plan.wallet1TokenConversionRate?.toString() || "0",
@@ -645,8 +645,8 @@ export const AdminAddPlans = () => {
       totalCapacity: formData.totalCapacity,
       currentParticipants: formData.currentParticipants,
       noticeText: formData.noticeText,
-      // 카테고리
-      category: (formData.category || undefined) as PlanCategory | undefined,
+      // 카테고리 (NONE은 미지정으로 처리)
+      category: (formData.category === "NONE" ? undefined : formData.category) as PlanCategory | undefined,
       // 지갑
       wallet1: formData.wallet1.trim(), wallet1Percentage: wallet1Percent,
       useUserAddress1: formData.useUserAddress1,
@@ -874,7 +874,7 @@ export const AdminAddPlans = () => {
                   <Select
                     value={formData.category}
                     onValueChange={(v) => {
-                      const cat = v as "" | PlanCategory;
+                      const cat = v as "NONE" | PlanCategory;
                       setFormData({ ...formData, category: cat,
                         // 셀프컬렉션 선택 시 wallet1Percentage 자동 100 설정
                         wallet1Percentage: cat === 'SELF_COLLECTION' ? '100' : formData.wallet1Percentage,
@@ -891,7 +891,7 @@ export const AdminAddPlans = () => {
                       <SelectValue placeholder="▼ 카테고리를 먼저 선택하세요" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">미지정 (기존 방식)</SelectItem>
+                      <SelectItem value="NONE">미지정 (기존 방식)</SelectItem>
                       <SelectItem value="ABAG">A BAG</SelectItem>
                       <SelectItem value="BBAG">B BAG</SelectItem>
                       <SelectItem value="CBAG">C BAG</SelectItem>
@@ -988,7 +988,7 @@ export const AdminAddPlans = () => {
                           <Input id="recommendedAmount" type="number" value={formData.recommendedAmount} onChange={(e) => setFormData({ ...formData, recommendedAmount: e.target.value })} placeholder="1000" />
                         </div>
                         {/* 카테고리는 상단 배너로 이동됨 — 여기서는 현재 선택 표시만 */}
-                        {formData.category && (
+                        {formData.category && formData.category !== "NONE" && (
                           <div className="space-y-1">
                             <Label className="text-xs text-muted-foreground">현재 카테고리</Label>
                             <div className={`px-3 py-2 rounded-lg text-sm font-semibold ${
