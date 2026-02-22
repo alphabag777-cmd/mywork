@@ -73,6 +73,7 @@ export interface InvestmentPlan {
   currentParticipants?: string;                   // 현재 참여자 수
   noticeText?: string;                            // 주의사항 / 공지 (빨간 경고 박스로 표시)
   category?: PlanCategory;                         // 플랜 카테고리: ABAG, BBAG, CBAG, SELF_COLLECTION
+  pdfFiles?: Array<{ title: string; url: string }>; // PDF 첨부 파일 목록
   createdAt: number;
   updatedAt: number;
 }
@@ -144,6 +145,7 @@ function fromFirestore(docData: any, id: string): InvestmentPlan {
     currentParticipants: docData.currentParticipants || "",
     noticeText: docData.noticeText || "",
     category: docData.category || undefined, // undefined = legacy plan (ABAG/BBAG/CBAG mixed)
+    pdfFiles: docData.pdfFiles || [],
     sortOrder: docData.sortOrder !== undefined ? docData.sortOrder : 999999, // Default to high number if not set
     createdAt: timestampToNumber(docData.createdAt),
     updatedAt: timestampToNumber(docData.updatedAt),
@@ -189,6 +191,7 @@ function toFirestore(plan: Partial<InvestmentPlan>): any {
     currentParticipants: plan.currentParticipants || "",
     noticeText: plan.noticeText || "",
     category: plan.category || null, // null = legacy plan
+    pdfFiles: plan.pdfFiles || [],
     sortOrder: plan.sortOrder !== undefined ? plan.sortOrder : 999999,
     wallet1: plan.wallet1 || "",
     wallet1Percentage: plan.wallet1Percentage !== undefined ? plan.wallet1Percentage : 0,

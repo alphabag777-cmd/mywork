@@ -21,10 +21,20 @@ export default defineConfig({
     commonjsOptions: {
       transformMixedEsModules: true,
     },
+    chunkSizeWarningLimit: 3000,
     rollupOptions: {
+      maxParallelFileOps: 2,
       output: {
-        manualChunks: {
-          walletconnect: ["@web3modal/wagmi"],
+        manualChunks(id) {
+          if (id.includes('node_modules/@walletconnect') || id.includes('node_modules/@web3modal') || id.includes('node_modules/wagmi') || id.includes('node_modules/viem')) {
+            return 'web3';
+          }
+          if (id.includes('node_modules/firebase')) {
+            return 'firebase';
+          }
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            return 'react-vendor';
+          }
         },
       },
     },

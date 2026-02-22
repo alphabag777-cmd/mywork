@@ -42,11 +42,11 @@ export function TokenPriceWidget({ compact = false }: Props) {
 
   const priceNode =
     loading && price === null ? (
-      <Skeleton className={compact ? "h-4 w-14" : "h-3.5 w-12"} />
+      <Skeleton className={compact ? "h-5 w-20" : "h-3.5 w-12"} />
     ) : price === null || price === "n/a" ? (
-      <span className={`${compact ? "text-sm" : "text-[11px]"} font-bold text-muted-foreground`}>N/A</span>
+      <span className={`${compact ? "text-base" : "text-[11px]"} font-bold text-muted-foreground`}>N/A</span>
     ) : (
-      <span className={`${compact ? "text-sm" : "text-[11px]"} font-bold text-foreground`}>
+      <span className={`${compact ? "text-base" : "text-[11px]"} font-bold text-foreground`}>
         ${price.toFixed(4)}
       </span>
     );
@@ -54,14 +54,14 @@ export function TokenPriceWidget({ compact = false }: Props) {
   /* ── compact (모바일 헤더 상단 — 크게) ── */
   if (compact) {
     return (
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs font-bold text-primary">NUMI</span>
+      <div className="flex items-center gap-2">
+        <span className="text-base font-bold text-primary">NUMI</span>
         {priceNode}
         <a href={NUMI_LINK} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
-          <ExternalLink className="w-3 h-3" />
+          <ExternalLink className="w-4 h-4" />
         </a>
         <button onClick={refresh} disabled={loading} className="text-muted-foreground hover:text-foreground disabled:opacity-40" aria-label="Refresh">
-          <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
         </button>
       </div>
     );

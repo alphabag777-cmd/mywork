@@ -62,6 +62,42 @@ export async function uploadImageToCloudinary(
 }
 
 /**
+ * Upload PDF (auto resource type) to Cloudinary
+ * - resource_type "auto" lets Cloudinary detect PDF correctly
+ * - /image/upload endpoint with fl_attachment=false delivers inline for viewing
+ */
+export async function uploadPdfToCloudinary(
+  file: File,
+  folder?: string
+): Promise<{ secure_url: string; public_id: string; original_filename: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", cloudinaryConfig.uploadPreset);
+  // Use image endpoint — Cloudinary handles PDFs as image resource type for unsigned presets
+  // This allows fl_inline / Google Viewer fallback for browser viewing
+  if (folder) formData.append("folder", folder);
+
+  const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/image/upload`;
+
+  try {
+    const response = await fetch(uploadUrl, { method: "POST", body: formData });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || "PDF 업로드 실패");
+    }
+    const data = await response.json();
+    return {
+      secure_url: data.secure_url,
+      public_id: data.public_id,
+      original_filename: data.original_filename || file.name,
+    };
+  } catch (error) {
+    console.error("Cloudinary PDF upload error:", error);
+    throw error;
+  }
+}
+
+/**
  * Delete image from Cloudinary
  */
 export async function deleteImageFromCloudinary(publicId: string): Promise<boolean> {

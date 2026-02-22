@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ExternalLink, ChevronLeft, ChevronRight, X, AlertTriangle, Globe, Coins, Lock, DollarSign, Clock, RefreshCw, Percent, FileText, ShieldCheck, Users, BarChart3 } from "lucide-react";
+import { ExternalLink, ChevronLeft, ChevronRight, X, AlertTriangle, Globe, Coins, Lock, DollarSign, Clock, RefreshCw, Percent, FileText, ShieldCheck, Users, BarChart3, Eye, Download } from "lucide-react";
 import { useState, useCallback } from "react";
 import { useAccount } from "wagmi";
 import { toast } from "sonner";
@@ -46,6 +46,7 @@ interface ProjectDetailsProps {
     totalCapacity?: string;
     currentParticipants?: string;
     noticeText?: string;
+    pdfFiles?: Array<{ title: string; url: string }>;
   };
 }
 
@@ -278,6 +279,22 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
   const shortContract = (addr: string) =>
     addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr;
 
+  /* ── YouTube URL → embed URL 변환 ── */
+  const getYoutubeEmbedUrl = (url: string): string | null => {
+    if (!url) return null;
+    // 이미 embed URL인 경우
+    if (url.includes('youtube.com/embed/')) return url;
+    // youtu.be 단축 URL
+    const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+    if (shortMatch) return `https://www.youtube.com/embed/${shortMatch[1]}`;
+    // 일반 youtube.com/watch?v= URL
+    const watchMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+    if (watchMatch) return `https://www.youtube.com/embed/${watchMatch[1]}`;
+    return null;
+  };
+
+  const youtubeEmbedUrl = project.youtubeUrl ? getYoutubeEmbedUrl(project.youtubeUrl) : null;
+
   const hasSpecChips =
     project.network || project.tokenSymbol || project.lockupPeriod || project.minInvestment ||
     project.investmentPeriod || project.profitCycle || project.feeInfo;
@@ -311,11 +328,7 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
                   <span className="text-xs font-semibold text-primary">{t.staking.dailyProfit}: {project.dailyProfit || "N/A"}</span>
                 </div>
                 {project.riskLevel && <RiskBadge level={project.riskLevel} />}
-                {project.auditInfo && (
-                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border border-green-300 bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-400 dark:border-green-800">
-                    <ShieldCheck className="w-3 h-3" /> {project.auditInfo}
-                  </span>
-                )}
+                {/* auditInfo는 왼쪽 패널 전용 섹션에서만 표시 — 배지 중복 제거 */}
               </div>
 
               {/* 프로젝트명 */}
@@ -378,6 +391,36 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
                 </div>
               )}
 
+              {/* 감사(Audit) 정보 — 전체 내용 표시 */}
+              {project.auditInfo && (
+                <div className="p-3 rounded-xl bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShieldCheck className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                    <span className="text-sm font-semibold text-green-700 dark:text-green-400">감사(Audit) 정보</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {project.auditInfo.split('\n').map((line, i) => {
+                      const trimmed = line.trim();
+                      if (!trimmed) return null;
+                      // 번호 목록 패턴 감지 (예: "1. 공식 라이센스...")
+                      const isNumbered = /^\d+\./.test(trimmed);
+                      return (
+                        <div key={i} className={`text-xs text-green-800 dark:text-green-300 leading-relaxed ${isNumbered ? 'flex gap-1.5' : ''}`}>
+                          {isNumbered ? (
+                            <>
+                              <span className="font-bold flex-shrink-0">{trimmed.match(/^\d+\./)?.[0]}</span>
+                              <span>{trimmed.replace(/^\d+\.\s*/, '')}</span>
+                            </>
+                          ) : (
+                            <span>{trimmed}</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* 간략 설명 */}
               <p className="text-sm text-muted-foreground leading-relaxed">
                 {getTranslated("description")}
@@ -409,6 +452,24 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
             {/* ── 오른쪽: 세부 정보 + Quick Actions ── */}
             <div className="space-y-5">
 
+              {/* YouTube 영상 */}
+              {youtubeEmbedUrl && (
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-1.5">
+                    <span className="text-red-500">▶</span> YouTube 영상
+                  </h4>
+                  <div className="relative w-full rounded-xl overflow-hidden border border-border/50" style={{paddingBottom: '56.25%'}}>
+                    <iframe
+                      src={youtubeEmbedUrl}
+                      title="YouTube video"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="absolute inset-0 w-full h-full"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* 하이라이트 카드 */}
               {project.highlights && project.highlights.length > 0 && (
                 <div>
@@ -424,6 +485,58 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
                   <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
                     {project.detailDescription}
                   </p>
+                </div>
+              )}
+
+              {/* PDF 첨부 파일 목록 */}
+              {project.pdfFiles && project.pdfFiles.length > 0 && (
+                <div className="p-3 rounded-xl bg-muted/30 border border-border/60">
+                  <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-red-500" /> 📄 첨부 자료 ({project.pdfFiles.length}개)
+                  </h4>
+                  <div className="space-y-2">
+                    {project.pdfFiles.map((pdf, i) => (
+                      <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-background/60 border border-border/40 hover:border-primary/40 transition-colors">
+                        <FileText className="w-4 h-4 text-red-500 flex-shrink-0" />
+                        <span className="text-xs font-medium text-foreground flex-1 truncate">{pdf.title || `문서 ${i + 1}`}</span>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {/* 보기: Google Docs Viewer로 열기 (CORS 우회) */}
+                          <button
+                            type="button"
+                            onClick={() => window.open(`https://docs.google.com/viewer?url=${encodeURIComponent(pdf.url)}&embedded=false`, "_blank", "noopener,noreferrer")}
+                            className="flex items-center gap-1 px-2 py-1 rounded text-xs bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" /> 보기
+                          </button>
+                          {/* 저장: fetch로 blob 다운로드 (cross-origin download 속성 우회) */}
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                const res = await fetch(pdf.url);
+                                if (!res.ok) throw new Error("다운로드 실패");
+                                const blob = await res.blob();
+                                const blobUrl = URL.createObjectURL(blob);
+                                const a = document.createElement("a");
+                                a.href = blobUrl;
+                                a.download = (pdf.title || `문서_${i + 1}`) + ".pdf";
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(blobUrl);
+                              } catch {
+                                // fetch 실패 시 직접 링크로 폴백
+                                window.open(pdf.url, "_blank", "noopener,noreferrer");
+                              }
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 rounded text-xs bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors font-medium cursor-pointer"
+                          >
+                            <Download className="w-3 h-3" /> 저장
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

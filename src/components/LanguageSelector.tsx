@@ -80,24 +80,20 @@ export function LanguageSelectorBar() {
   const { language, setLanguage } = useLanguage();
 
   return (
-    <div className="flex items-center gap-0.5">
-      {languages.map((lang, idx) => (
-        <span key={lang.code} className="flex items-center">
-          <button
-            onClick={() => setLanguage(lang.code)}
-            className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded transition-colors text-xs font-medium ${
-              language === lang.code
-                ? 'bg-primary/20 text-primary font-bold'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <span className="text-sm">{lang.flag}</span>
-            <span>{lang.nativeName}</span>
-          </button>
-          {idx < languages.length - 1 && (
-            <span className="text-border/50 text-[10px] mx-0.5">|</span>
-          )}
-        </span>
+    <div className="flex items-center gap-1 flex-wrap justify-end">
+      {languages.map((lang) => (
+        <button
+          key={lang.code}
+          onClick={() => setLanguage(lang.code)}
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-full transition-colors text-sm font-medium border ${
+            language === lang.code
+              ? 'bg-primary text-primary-foreground border-primary font-bold shadow-sm'
+              : 'text-muted-foreground hover:text-foreground border-border/40 hover:border-border'
+          }`}
+        >
+          <span className="text-base leading-none">{lang.flag}</span>
+          <span className="leading-none">{lang.nativeName}</span>
+        </button>
       ))}
     </div>
   );

@@ -15,6 +15,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { InvestmentPlan, PlanStatus, PlanCategory, getAllPlans, savePlan, deletePlan, updatePlanOrder } from "@/lib/plans";
 import { ImageUpload } from "@/components/ImageUpload";
+import { PdfUpload } from "@/components/PdfUpload";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -250,7 +251,7 @@ function DetailImageEditor({
               onChange={(url) => { if (url) onChange([...images, { url, caption: "" }]); }}
               label="이미지 추가 (클릭하여 업로드)"
               folder="alphabag/plans/detail"
-              maxSizeMB={5}
+              maxSizeMB={10}
             />
           ) : (
             <div className="space-y-2">
@@ -500,6 +501,7 @@ export const AdminAddPlans = () => {
   const [highlights, setHighlights] = useState<HighlightRow[]>([]);
   const [detailImages, setDetailImages] = useState<DetailImageItem[]>([]);
   const [materials, setMaterials] = useState<MaterialRow[]>([]);
+  const [pdfFiles, setPdfFiles] = useState<Array<{ title: string; url: string }>>([]);
 
   useEffect(() => { loadPlans(); }, []);
 
@@ -539,6 +541,7 @@ export const AdminAddPlans = () => {
     setHighlights([]);
     setDetailImages([]);
     setMaterials([]);
+    setPdfFiles([]);
     setEditingPlan(null);
     setActiveTab("basic");
     setShowPreview(false);
@@ -592,6 +595,7 @@ export const AdminAddPlans = () => {
       setHighlights(plan.highlights || []);
       setDetailImages(normalizeImages(plan.detailImages as any[] || []));
       setMaterials(plan.materials || []);
+      setPdfFiles(plan.pdfFiles || []);
     } else {
       resetForm();
     }
@@ -635,6 +639,7 @@ export const AdminAddPlans = () => {
       tags, quickActionsDescription: formData.quickActionsDescription,
       youtubeUrl: formData.youtubeUrl, telegram: formData.telegram, twitter: formData.twitter,
       materials,
+      pdfFiles,
       recommendedAmount: formData.recommendedAmount,
       // 세부 정보
       detailDescription: formData.detailDescription,
@@ -1246,6 +1251,20 @@ export const AdminAddPlans = () => {
                           <span className="text-xs font-normal text-muted-foreground">백서, 공식문서, 블로그 등</span>
                         </h4>
                         <MaterialEditor materials={materials} onChange={setMaterials} />
+                      </div>
+
+                      {/* PDF 첨부 파일 */}
+                      <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
+                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-red-500" /> PDF 첨부 파일
+                          <span className="text-xs font-normal text-muted-foreground">계약서, 백서, 인증서 등 (최대 10MB)</span>
+                        </h4>
+                        <PdfUpload
+                          files={pdfFiles}
+                          onChange={setPdfFiles}
+                          folder="alphabag/plans/pdf"
+                          maxSizeMB={10}
+                        />
                       </div>
                     </TabsContent>
 
