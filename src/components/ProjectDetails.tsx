@@ -2,11 +2,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ExternalLink, ChevronLeft, ChevronRight, X, AlertTriangle, Globe, Coins, Lock, DollarSign, Clock, RefreshCw, Percent, FileText, ShieldCheck, Users, BarChart3, Eye, Download } from "lucide-react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useAccount } from "wagmi";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { wasReferred } from "@/lib/referral";
+import { translateContent } from "@/lib/translator";
 
 interface ProjectDetailsProps {
   open: boolean;
@@ -198,34 +199,68 @@ function SpecChip({ icon, label, value }: { icon: React.ReactNode; label: string
 /* ══════════════════════════════════════════════════ */
 const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) => {
   const { address, isConnected } = useAccount();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+
+  /* ── 동적 번역 상태 ── */
+  const [txDescription, setTxDescription] = useState(project.description || "");
+  const [txFocus, setTxFocus] = useState(project.focus || "");
+  const [txDetailDescription, setTxDetailDescription] = useState(project.detailDescription || "");
+  const [txAuditInfo, setTxAuditInfo] = useState(project.auditInfo || "");
+  const [txQuickActionsDesc, setTxQuickActionsDesc] = useState(project.quickActionsDescription || "");
+  const [txHighlights, setTxHighlights] = useState<Array<{title:string; value:string; icon?:string}>>(project.highlights || []);
+  const [txNoticeText, setTxNoticeText] = useState(project.noticeText || "");
+  const prevLangRef = useRef(language);
+
+  useEffect(() => {
+    // 언어 변경 또는 팝업 열릴 때 번역 실행
+    let cancelled = false;
+    const run = async () => {
+      const [desc, focus, detail, audit, qaDesc, notice] = await Promise.all([
+        translateContent(project.description || "", language),
+        translateContent(project.focus || "", language),
+        translateContent(project.detailDescription || "", language),
+        translateContent(project.auditInfo || "", language),
+        translateContent(project.quickActionsDescription || "", language),
+        translateContent(project.noticeText || "", language),
+      ]);
+      if (cancelled) return;
+      setTxDescription(desc);
+      setTxFocus(focus);
+      setTxDetailDescription(detail);
+      setTxAuditInfo(audit);
+      setTxQuickActionsDesc(qaDesc);
+      setTxNoticeText(notice);
+      // highlights 번역
+      if (project.highlights && project.highlights.length > 0) {
+        const txd = await Promise.all(
+          project.highlights.map(async (h) => ({
+            ...h,
+            title: await translateContent(h.title || "", language),
+            value: await translateContent(h.value || "", language),
+          }))
+        );
+        if (!cancelled) setTxHighlights(txd);
+      } else {
+        setTxHighlights([]);
+      }
+    };
+    run();
+    prevLangRef.current = language;
+    return () => { cancelled = true; };
+  }, [language, open, project.id]);
   const [referralDialogOpen, setReferralDialogOpen] = useState(false);
   const [referralCodeInput, setReferralCodeInput] = useState("");
 
   /* ── 이미지 정규화 ── */
   const normalizedImages = normalizeImages(project.detailImages);
 
-  /* ── i18n 헬퍼 ── */
+  /* ── i18n 헬퍼: 번역된 state 반환 ── */
   const getTranslated = useCallback((field: "focus" | "description" | "quickActionsDescription") => {
-    const map: Record<string, Record<string, string | undefined>> = {
-      bbagmaxfi: {
-        focus: t.projects.maxfiProject?.focus,
-        description: t.projects.maxfiProject?.description,
-        quickActionsDescription: t.projects.maxfiProject?.quickActionsDescription,
-      },
-      bbagroomx: {
-        focus: t.projects.roomx?.focus,
-        description: t.projects.roomx?.description,
-        quickActionsDescription: t.projects.roomx?.quickActionsDescription,
-      },
-      bbagcodexfield: {
-        focus: t.projects.codexfield?.focus,
-        description: t.projects.codexfield?.description,
-        quickActionsDescription: t.projects.codexfield?.quickActionsDescription,
-      },
-    };
-    return map[project.id]?.[field] || project[field] || "";
-  }, [project, t]);
+    if (field === "description") return txDescription;
+    if (field === "focus") return txFocus;
+    if (field === "quickActionsDescription") return txQuickActionsDesc;
+    return "";
+  }, [txDescription, txFocus, txQuickActionsDesc]);
 
   const getTranslatedTag = (tag: string) => {
     const tl = tag.toLowerCase();
@@ -305,10 +340,10 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
         <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto p-4 sm:p-6">
 
           {/* ── 주의사항 배너 (최상단) ── */}
-          {project.noticeText && (
+          {txNoticeText && (
             <div className="flex gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-sm text-red-600 dark:text-red-400 mb-2">
               <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <p className="leading-relaxed whitespace-pre-line">{project.noticeText}</p>
+              <p className="leading-relaxed whitespace-pre-line">{txNoticeText}</p>
             </div>
           )}
 
@@ -392,17 +427,16 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
               )}
 
               {/* 감사(Audit) 정보 — 전체 내용 표시 */}
-              {project.auditInfo && (
+              {txAuditInfo && (
                 <div className="p-3 rounded-xl bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
                   <div className="flex items-center gap-2 mb-2">
                     <ShieldCheck className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                    <span className="text-sm font-semibold text-green-700 dark:text-green-400">감사(Audit) 정보</span>
+                    <span className="text-sm font-semibold text-green-700 dark:text-green-400">{t.projectDetails.auditInfo ?? "감사(Audit) 정보"}</span>
                   </div>
                   <div className="space-y-1.5">
-                    {project.auditInfo.split('\n').map((line, i) => {
+                    {txAuditInfo.split('\n').map((line, i) => {
                       const trimmed = line.trim();
                       if (!trimmed) return null;
-                      // 번호 목록 패턴 감지 (예: "1. 공식 라이센스...")
                       const isNumbered = /^\d+\./.test(trimmed);
                       return (
                         <div key={i} className={`text-xs text-green-800 dark:text-green-300 leading-relaxed ${isNumbered ? 'flex gap-1.5' : ''}`}>
@@ -456,7 +490,7 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
               {youtubeEmbedUrl && (
                 <div>
                   <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-1.5">
-                    <span className="text-red-500">▶</span> YouTube 영상
+                    <span className="text-red-500">▶</span> {t.projectDetails.youtubeVideo ?? "YouTube 영상"}
                   </h4>
                   <div className="relative w-full rounded-xl overflow-hidden border border-border/50" style={{paddingBottom: '56.25%'}}>
                     <iframe
@@ -471,19 +505,19 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
               )}
 
               {/* 하이라이트 카드 */}
-              {project.highlights && project.highlights.length > 0 && (
+              {txHighlights.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-semibold text-foreground mb-2">📊 핵심 지표</h4>
-                  <HighlightCards highlights={project.highlights} />
+                  <h4 className="text-sm font-semibold text-foreground mb-2">📊 {t.projectDetails.keyMetrics ?? "핵심 지표"}</h4>
+                  <HighlightCards highlights={txHighlights} />
                 </div>
               )}
 
               {/* 상세 설명 */}
-              {project.detailDescription && (
+              {txDetailDescription && (
                 <div className="p-4 rounded-xl bg-muted/30 border border-border/60">
-                  <h4 className="text-sm font-semibold mb-2">📋 상세 정보</h4>
+                  <h4 className="text-sm font-semibold mb-2">📋 {t.projectDetails.detailInfo ?? "상세 정보"}</h4>
                   <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
-                    {project.detailDescription}
+                    {txDetailDescription}
                   </p>
                 </div>
               )}
@@ -500,15 +534,15 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
                         <FileText className="w-4 h-4 text-red-500 flex-shrink-0" />
                         <span className="text-xs font-medium text-foreground flex-1 truncate">{pdf.title || `문서 ${i + 1}`}</span>
                         <div className="flex items-center gap-1 flex-shrink-0">
-                          {/* 보기: Google Docs Viewer로 열기 (CORS 우회) */}
+                          {/* 보기: Firebase Storage URL은 직접 열기 가능 */}
                           <button
                             type="button"
-                            onClick={() => window.open(`https://docs.google.com/viewer?url=${encodeURIComponent(pdf.url)}&embedded=false`, "_blank", "noopener,noreferrer")}
+                            onClick={() => window.open(pdf.url, "_blank", "noopener,noreferrer")}
                             className="flex items-center gap-1 px-2 py-1 rounded text-xs bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium cursor-pointer"
                           >
                             <Eye className="w-3 h-3" /> 보기
                           </button>
-                          {/* 저장: fetch로 blob 다운로드 (cross-origin download 속성 우회) */}
+                          {/* 저장: fetch blob 다운로드 */}
                           <button
                             type="button"
                             onClick={async () => {
@@ -525,7 +559,6 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
                                 document.body.removeChild(a);
                                 URL.revokeObjectURL(blobUrl);
                               } catch {
-                                // fetch 실패 시 직접 링크로 폴백
                                 window.open(pdf.url, "_blank", "noopener,noreferrer");
                               }
                             }}
@@ -564,7 +597,7 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
               {/* 참고 자료 링크 */}
               {project.materials && project.materials.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-semibold mb-2">🔗 참고 자료</h4>
+                  <h4 className="text-sm font-semibold mb-2">🔗 {t.projectDetails.referenceMaterials ?? "참고 자료"}</h4>
                   <div className="flex flex-col gap-1.5">
                     {project.materials.map((m, i) => (
                       <a

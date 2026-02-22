@@ -17,7 +17,6 @@ import NotFound from "./pages/NotFound";
 import Investment from "./pages/Investment";
 import Staking from "./pages/Staking";
 import Profile from "./pages/Profile";
-import Community from "./pages/Community";
 import Cart from "./pages/Cart";
 import Introduction from "./pages/Introduction";
 import Tutorial from "./pages/Tutorial";
@@ -44,6 +43,8 @@ import Promo from "./pages/Promo";
 import PromoDetail from "./pages/PromoDetail";
 import { StakingMaturityChecker } from "@/components/StakingMaturityChecker";
 import BottomNav from "@/components/BottomNav";
+import { OnboardingGuide } from "@/components/OnboardingGuide";
+import AdminEventBanners from "./pages/admin/AdminEventBanners";
 
 // QueryClient를 모듈 스코프에서 생성하여 HMR 시에도 인스턴스 유지
 // staleTime 설정으로 불필요한 중복 요청 방지
@@ -72,6 +73,7 @@ const App = () => (
               <ReferralTracker />
               <LoomxReferralGuard />
               <StakingMaturityChecker />
+              <OnboardingGuide />
               <Toaster />
               <Sonner />
               <Routes>
@@ -91,6 +93,7 @@ const App = () => (
                     <Route path="support" element={<AdminSupport />} />
                     <Route path="total-earning" element={<AdminTotalEarning />} />
                     <Route path="announcements" element={<AdminAnnouncements />} />
+                    <Route path="event-banners" element={<AdminEventBanners />} />
                     <Route path="company-applications" element={<AdminCompanyApplications />} />
                   </Route>
                 </Route>
@@ -102,7 +105,7 @@ const App = () => (
                 <Route path="/staking" element={<Staking />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/history" element={<InvestmentHistory />} />
-                <Route path="/community" element={<Community />} />
+                <Route path="/community" element={<Profile />} />
                 <Route path="/introduction" element={<Introduction />} />
                 <Route path="/tutorial" element={<Tutorial />} />
                 <Route path="/support" element={<Support />} />

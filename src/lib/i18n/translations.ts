@@ -186,6 +186,11 @@ export interface Translations {
     resources: string;
     video: string;
     blog: string;
+    keyMetrics?: string;
+    detailInfo?: string;
+    auditInfo?: string;
+    youtubeVideo?: string;
+    referenceMaterials?: string;
   };
   profile: {
     title: string;
@@ -573,9 +578,11 @@ export const translations: Record<Language, Translations> = {
       resources: 'Resources',
       video: 'Video',
       blog: 'Blog',
-    },
-    projects: {
-      viewDetails: 'View details',
+      keyMetrics: 'Key Metrics',
+      detailInfo: 'Detail Information',
+      auditInfo: 'Audit Information',
+      youtubeVideo: 'YouTube Video',
+      referenceMaterials: 'Reference Materials',
       goToDApp: 'Go directly to this project\'s DApp',
       minInvestment: 'Minimum investment: $250',
       bbagb: 'B-BAGB',
@@ -999,6 +1006,11 @@ export const translations: Record<Language, Translations> = {
       resources: '资源',
       video: '视频',
       blog: '博客',
+      keyMetrics: '核心指标',
+      detailInfo: '详细信息',
+      auditInfo: '审计信息',
+      youtubeVideo: 'YouTube 视频',
+      referenceMaterials: '参考资料',
     },
     projects: {
       viewDetails: '查看详情',
@@ -1466,6 +1478,11 @@ export const translations: Record<Language, Translations> = {
       resources: '리소스',
       video: '비디오',
       blog: '블로그',
+      keyMetrics: '핵심 지표',
+      detailInfo: '상세 정보',
+      auditInfo: '감사(Audit) 정보',
+      youtubeVideo: 'YouTube 영상',
+      referenceMaterials: '참고 자료',
     },
     profile: {
       title: '프로필',
@@ -1851,6 +1868,11 @@ export const translations: Record<Language, Translations> = {
       resources: 'リソース',
       video: '動画',
       blog: 'ブログ',
+      keyMetrics: '主要指標',
+      detailInfo: '詳細情報',
+      auditInfo: '監査情報',
+      youtubeVideo: 'YouTube 動画',
+      referenceMaterials: '参考資料',
     },
     projects: {
       viewDetails: '詳細を見る',

@@ -24,6 +24,7 @@ import {
   BarChart3,
   PieChart,
   AlertCircle,
+  Crown,
 } from "lucide-react";
 import { generateReferralLink, getReferrerWallet, getOrCreateReferralCode } from "@/lib/referral";
 import { toast } from "sonner";
@@ -52,6 +53,13 @@ import type { UserNode } from "@/hooks/useProfileData";
 import type { USDTTransfer } from "@/lib/walletTransfers";
 import ReferralShare from "@/components/ReferralShare";
 import PlanSelector from "@/components/PlanSelector";
+import ReferralDashboard from "@/components/ReferralDashboard";
+import { InvestmentCertificateButton } from "@/components/InvestmentCertificate";
+import { getReferralsByReferrer } from "@/lib/referrals";
+import { getReferralActivitiesByReferrer, ReferralActivity } from "@/lib/referralActivities";
+import { Leaderboard } from "@/components/Leaderboard";
+import { ReferralTree } from "@/components/ReferralTree";
+import { formatAddress } from "@/lib/utils";
 
 const EARNINGS_COLORS: Record<string, string> = {
   BBAG: "#f59e0b",
@@ -366,6 +374,77 @@ const Profile = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
 
+  // ── Community state ──
+  interface DirectReferral {
+    address: string;
+    level: string;
+    directPush: { current: number; required: number };
+    personalPerformance: number;
+    communityPerformance: number;
+    thirtySky: number;
+    totalTeamPerformance: number;
+    totalTeamMembers: number;
+  }
+  const [teamPerformance, setTeamPerformance] = useState({
+    marketLevel: "W S0", teamNode: 0, personalPerformance: 0,
+    regionalPerformance: 0, communityPerformance: 0, thirtySky: 0,
+    totalTeamPerformance: 0, totalTeamMembers: 0,
+  });
+  const [directReferrals, setDirectReferrals] = useState<DirectReferral[]>([]);
+  const [referredUsers, setReferredUsers] = useState<Array<{ wallet: string; joinedAt: number }>>([]);
+  const [referralActivities, setReferralActivities] = useState<ReferralActivity[]>([]);
+  const [isLoadingTeam, setIsLoadingTeam] = useState(false);
+  const [copiedCommunity, setCopiedCommunity] = useState<Record<string, boolean>>({});
+
+  const handleCopyCommunity = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedCommunity((prev) => ({ ...prev, [key]: true }));
+    setTimeout(() => setCopiedCommunity((prev) => ({ ...prev, [key]: false })), 2000);
+  };
+
+  const loadTeamData = useCallback(async () => {
+    if (!address) return;
+    setIsLoadingTeam(true);
+    try {
+      const normalizedAddress = address.toLowerCase();
+      const [referrals, activities] = await Promise.all([
+        getReferralsByReferrer(normalizedAddress),
+        getReferralActivitiesByReferrer(normalizedAddress),
+      ]);
+      const users = referrals.map((ref) => ({ wallet: ref.referredWallet, joinedAt: ref.createdAt }));
+      setReferredUsers(users);
+      setReferralActivities(activities);
+      const referralInvestments = await Promise.all(
+        users.map((u) => getUserInvestments(u.wallet).catch(() => []))
+      );
+      let totalPersonalPerformance = 0;
+      const builtDirectReferrals: DirectReferral[] = users.map((user, idx) => {
+        const investments = referralInvestments[idx];
+        const personalPerf = investments.reduce((sum: number, inv: any) => sum + (inv.amount || 0), 0);
+        totalPersonalPerformance += personalPerf;
+        return {
+          address: user.wallet, level: "Direct",
+          directPush: { current: 0, required: 1 },
+          personalPerformance: personalPerf, communityPerformance: 0,
+          thirtySky: 0, totalTeamPerformance: personalPerf, totalTeamMembers: 1,
+        };
+      });
+      setDirectReferrals(builtDirectReferrals);
+      setTeamPerformance((prev) => ({
+        ...prev, teamNode: users.length, totalTeamMembers: users.length,
+        totalTeamPerformance: totalPersonalPerformance,
+      }));
+    } catch (error) {
+      console.error("Failed to load team data:", error);
+    } finally {
+      setIsLoadingTeam(false);
+    }
+  }, [address]);
+
+  useEffect(() => {
+    if (isConnected && address) loadTeamData();
+  }, [address, isConnected, loadTeamData]);
+
   // ── Earnings state ──
   const [earningsInvestments, setEarningsInvestments] = useState<any[]>([]);
   const [earningsStakes, setEarningsStakes] = useState<any[]>([]);
@@ -628,7 +707,7 @@ const Profile = () => {
                   <User className="w-8 h-8 text-primary" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-display font-bold text-foreground">Community</h1>
+                  <h1 className="text-3xl font-display font-bold text-foreground">{t.profile.title || "Profile"}</h1>
                 </div>
               </div>
               <Button
@@ -645,6 +724,9 @@ const Profile = () => {
 
           {/* ── 투자상품 선택 섹션 (독립 컴포넌트) ── */}
           <PlanSelector />
+
+          {/* ── 추천 보상 현황판 ── */}
+          <ReferralDashboard />
 
           {/* ── 레퍼럴 공유 섹션 (선택된 상품 포함) ── */}
           <ReferralShare />
@@ -973,6 +1055,196 @@ const Profile = () => {
             </CardContent>
           </Card>
 
+          {/* ══════════════════════════════════════════════════════
+              커뮤니티 섹션 (구 Community 페이지 통합)
+          ══════════════════════════════════════════════════════ */}
+
+          {/* Leaderboard */}
+          <div className="mb-8">
+            <Leaderboard />
+          </div>
+
+          {/* Referral Tree */}
+          {directReferrals.length > 0 && (
+            <Card className="p-4 sm:p-6 mb-8">
+              <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Crown className="w-5 h-5 text-yellow-500" /> My Referral Network
+              </h2>
+              <ReferralTree
+                rootWallet={address}
+                referrals={directReferrals.map((r) => ({
+                  wallet: r.address,
+                  personalPerformance: r.personalPerformance,
+                }))}
+              />
+            </Card>
+          )}
+
+          {/* Overall Team Performance */}
+          <Card className="p-4 sm:p-6 mb-8">
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <h2 className="text-lg sm:text-xl font-semibold text-foreground">
+                {t.community.overallTeamPerformance}
+              </h2>
+              <Button variant="outline" size="icon" onClick={loadTeamData} disabled={isLoadingTeam}
+                className="shrink-0 h-8 w-8 sm:h-9 sm:w-9">
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingTeam ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {[
+                { label: t.community.marketLevel,          value: teamPerformance.marketLevel },
+                { label: t.community.teamNode,             value: String(teamPerformance.teamNode) },
+                { label: t.community.personalPerformance,  value: `$${teamPerformance.personalPerformance.toFixed(2)}` },
+                { label: t.community.regionalPerformance,  value: `$${teamPerformance.regionalPerformance.toFixed(2)}` },
+                { label: `${t.community.communityPerformance} / ${t.community.thirtySky}`,
+                  value: `$${teamPerformance.communityPerformance.toFixed(2)} / $${teamPerformance.thirtySky.toFixed(2)}` },
+                { label: t.community.totalTeamPerformance, value: `$${teamPerformance.totalTeamPerformance.toFixed(2)}` },
+                { label: t.community.totalTeamMembers,     value: String(teamPerformance.totalTeamMembers) },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex justify-between items-center py-2 border-b border-border/50 last:border-0">
+                  <span className="text-muted-foreground text-sm">{label}</span>
+                  <span className="text-foreground font-medium text-sm">{value}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* My Share (직접 추천 목록) */}
+          <Card className="p-4 sm:p-6 mb-8">
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-4 sm:mb-6">
+              {t.community.myShare}
+            </h2>
+            {directReferrals.length === 0 ? (
+              <div className="text-center py-10">
+                <Share2 className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-40" />
+                <p className="text-muted-foreground">{t.community.noDirectReferrals}</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {directReferrals.map((referral, index) => (
+                  <div key={index} className="border border-border rounded-lg p-3 sm:p-4 space-y-3">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
+                      <span className="text-foreground font-medium font-mono text-xs sm:text-sm">
+                        {formatAddress(referral.address)}
+                      </span>
+                      <span className="text-muted-foreground text-xs sm:text-sm">{referral.level}</span>
+                    </div>
+                    <div className="space-y-2 pl-4 border-l-2 border-border/50">
+                      {[
+                        { label: t.community.numberOfDirectPush, value: `${referral.directPush.current}/${referral.directPush.required}` },
+                        { label: t.community.personalPerformance, value: `$${referral.personalPerformance.toFixed(2)}` },
+                        { label: `${t.community.communityPerformance} / ${t.community.thirtySky}`,
+                          value: `$${referral.communityPerformance.toFixed(2)} / $${referral.thirtySky.toFixed(2)}` },
+                        { label: t.community.totalTeamPerformance, value: `$${referral.totalTeamPerformance.toFixed(2)}` },
+                        { label: t.community.totalNumberOfTeamMembers, value: String(referral.totalTeamMembers) },
+                      ].map(({ label, value }) => (
+                        <div key={label} className="flex justify-between items-center">
+                          <span className="text-muted-foreground text-sm">{label}</span>
+                          <span className="text-foreground font-medium text-sm">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Referred Users */}
+          <Card className="mb-8 border-border/50">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Share2 className="w-5 h-5 text-primary" />
+                    My Referred Users
+                  </CardTitle>
+                  <CardDescription>
+                    Users who joined using your referral link ({referredUsers.length})
+                  </CardDescription>
+                </div>
+                <Button variant="outline" size="icon" onClick={loadTeamData} disabled={isLoadingTeam}
+                  className="shrink-0 h-8 w-8 sm:h-10 sm:w-10">
+                  <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 ${isLoadingTeam ? "animate-spin" : ""}`} />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isLoadingTeam ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-50 animate-spin" />
+                  <p className="text-muted-foreground text-sm">Loading referred users...</p>
+                </div>
+              ) : referredUsers.length > 0 ? (
+                <div className="space-y-4">
+                  {referredUsers.map((user, index) => {
+                    const userActivities = referralActivities.filter(
+                      (a) => a.referredWallet.toLowerCase() === user.wallet.toLowerCase()
+                    );
+                    return (
+                      <div key={index} className="card-metallic rounded-xl p-4 border-2 border-border/50">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                              <User className="w-5 h-5 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-mono text-sm text-foreground truncate">{user.wallet}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Joined: {new Date(user.joinedAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <Button variant="ghost" size="icon" className="shrink-0 h-7 w-7 sm:h-8 sm:w-8"
+                            onClick={() => handleCopyCommunity(user.wallet, `user-${index}`)}>
+                            {copiedCommunity[`user-${index}`]
+                              ? <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-500" />
+                              : <Copy className="w-3 h-3 sm:w-4 sm:h-4" />}
+                          </Button>
+                        </div>
+                        {userActivities.length > 0 ? (
+                          <div className="mt-3 pt-3 border-t border-border/30 space-y-2">
+                            <p className="text-xs font-semibold text-muted-foreground mb-2">Activities:</p>
+                            {userActivities.map((activity) => (
+                              <div key={activity.id} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                <span className="text-primary mt-0.5">•</span>
+                                <div className="flex-1 min-w-0">
+                                  {activity.activityType === "plan_added_to_cart" && (
+                                    <span>Added plan <span className="font-semibold text-foreground">{activity.planName || activity.planId}</span> to cart</span>
+                                  )}
+                                  {activity.activityType === "plan_invested" && (
+                                    <span>Invested {activity.amount ? `${activity.amount} USDT` : ""} in <span className="font-semibold text-foreground">{activity.planName || activity.planId}</span></span>
+                                  )}
+                                  {activity.activityType === "node_purchased" && (
+                                    <span>Purchased node <span className="font-semibold text-foreground">{activity.nodeName || `Node ${activity.nodeId}`}</span>{activity.nodePrice && ` (${activity.nodePrice} USDT)`}</span>
+                                  )}
+                                  <span className="text-[10px] text-muted-foreground/70 ml-1">
+                                    {new Date(activity.createdAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="mt-3 pt-3 border-t border-border/30">
+                            <p className="text-xs text-muted-foreground">No activities yet</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Share2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground">No referred users yet</p>
+                  <p className="text-sm text-muted-foreground mt-2">Share your referral link to invite others</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* ── EARNINGS SECTION ── */}
           <Card className="mb-8 border-border/50">
             <CardHeader>
@@ -1116,6 +1388,12 @@ const Profile = () => {
                                 {inv.profit>=0?"+":""}{ (inv.profit||0).toFixed(2)} P/L
                               </p>
                             )}
+                            <InvestmentCertificateButton
+                              investorAddress={address}
+                              planName={inv.projectName || inv.category || "AlphaBag"}
+                              amount={inv.amount || 0}
+                              date={(() => { try { const d = toSafeDate(inv.investedAt); return d ? format(d, "yyyy-MM-dd") : "-"; } catch { return "-"; } })()}
+                            />
                           </div>
                         </div>
                       ))}

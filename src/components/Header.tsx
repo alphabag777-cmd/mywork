@@ -18,6 +18,7 @@ import { saveUser, updateUserConnection } from "@/lib/users";
 import { saveReferral } from "@/lib/referrals";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { LanguageSelector, LanguageSelectorBar } from "@/components/LanguageSelector";
+import { EventBannerStrip } from "@/components/EventBannerStrip";
 import { useCart } from "@/contexts/CartContext";
 import {
   Sheet,
@@ -220,15 +221,6 @@ const Header = () => {
                 variant="outline" 
                 size="default" 
                 className="gap-2" 
-                onClick={() => navigate("/community")}
-              >
-                <Users className="w-4 h-4" />
-                {t.community.title}
-              </Button>
-              <Button 
-                variant="outline" 
-                size="default" 
-                className="gap-2" 
                 onClick={() => navigate("/support")}
               >
                 <MessageSquare className="w-4 h-4" />
@@ -369,14 +361,6 @@ const Header = () => {
                     <Button 
                       variant="outline" 
                       className="w-full justify-start gap-2" 
-                      onClick={() => { navigate("/community"); setMobileMenuOpen(false); }}
-                    >
-                      <Users className="w-4 h-4" />
-                      {t.community.title}
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start gap-2" 
                       onClick={() => { navigate("/support"); setMobileMenuOpen(false); }}
                     >
                       <MessageSquare className="w-4 h-4" />
@@ -415,6 +399,8 @@ const Header = () => {
           onDisconnect={handleDisconnect}
         />
       )}
+      {/* 이벤트 배너 스트립 (헤더 하단) */}
+      <EventBannerStrip />
     </header>
   );
 };

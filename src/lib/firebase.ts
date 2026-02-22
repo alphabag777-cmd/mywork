@@ -11,6 +11,7 @@
 
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getFirestore, Firestore } from "firebase/firestore";
+import { getStorage, FirebaseStorage } from "firebase/storage";
 
 // Firebase configuration
 // Values are read from Vite environment variables so no secrets are committed.
@@ -38,6 +39,9 @@ if (getApps().length === 0) {
 
 // Initialize Firestore
 export const db: Firestore = getFirestore(app);
+
+// Initialize Firebase Storage
+export const storage: FirebaseStorage = getStorage(app);
 
 export default app;
 
