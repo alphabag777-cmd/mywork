@@ -394,8 +394,7 @@ const NodeRefRow = ({
   </div>
 );
 
-const Profile = () => {
-  const { address, isConnected } = useAccount();
+const ProfileConnected = ({ address, isConnected }: { address: `0x${string}`; isConnected: boolean }) => {
   const { t } = useLanguage();
   const navigate = useNavigate();
 
@@ -697,12 +696,7 @@ const Profile = () => {
 
   // Plan Selection → PlanSelector 컴포넌트로 완전 분리됨
 
-  // ── Not connected: ProfileGate가 ProfileIntroPage를 보여주므로 여기서는 null 반환 ──
-  if (!isConnected || !address) {
-    return null;
-  }
-
-  // ── Connected ──
+  // ── Connected UI ──
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -1423,14 +1417,13 @@ const ProfileIntroPage = () => {
   );
 };
 
-// 기존 Profile 컴포넌트를 ProfileMain으로 이름 변경
-const ProfileMain = Profile;
-
-// 새로운 default export: 가벼운 게이트 컴포넌트
+// ── 게이트 컴포넌트: 진짜 분리된 컴포넌트 구조 ──
+// ProfileConnected는 오직 여기서만 조건부 마운트됨
+// → 미연결 시 ProfileConnected 자체가 마운트되지 않으므로 내부 훅이 전혀 실행되지 않음
 const ProfileGate = () => {
   const { address, isConnected } = useAccount();
   if (!isConnected || !address) return <ProfileIntroPage />;
-  return <ProfileMain />;
+  return <ProfileConnected address={address} isConnected={isConnected} />;
 };
 
 export default ProfileGate;
