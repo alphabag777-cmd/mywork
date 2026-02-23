@@ -703,89 +703,9 @@ const Profile = () => {
 
   // Plan Selection → PlanSelector 컴포넌트로 완전 분리됨
 
-  // ── Not connected ──
+  // ── Not connected: ProfileGate가 ProfileIntroPage를 보여주므로 여기서는 null 반환 ──
   if (!isConnected || !address) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="pt-[88px] sm:pt-20 pb-12">
-          <div className="container mx-auto px-4">
-            {/* Hero intro card when wallet not connected */}
-            <div className="max-w-2xl mx-auto mt-12 space-y-6">
-              {/* Main CTA card */}
-              <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-background to-primary/10 overflow-hidden">
-                <CardContent className="pt-8 pb-8 text-center relative">
-                  {/* Decorative glow */}
-                  <div className="absolute inset-0 pointer-events-none">
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-primary/10 rounded-full blur-3xl" />
-                  </div>
-                  <div className="relative z-10">
-                    <div className="w-20 h-20 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-5">
-                      <Wallet className="w-10 h-10 text-primary" />
-                    </div>
-                    <h2 className="text-2xl font-display font-bold mb-2">{t.profile.connectWallet}</h2>
-                    <p className="text-muted-foreground mb-6 max-w-sm mx-auto">{t.profile.connectWalletDescription}</p>
-                    {/* Stats teaser */}
-                    <div className="grid grid-cols-3 gap-3 mt-4 mb-6">
-                      {[
-                        { label: "Investments", icon: "💼" },
-                        { label: "Referrals",   icon: "🤝" },
-                        { label: "Earnings",    icon: "💰" },
-                      ].map((item) => (
-                        <div key={item.label} className="bg-muted/40 rounded-lg p-3 text-center">
-                          <div className="text-2xl mb-1">{item.icon}</div>
-                          <div className="text-xs text-muted-foreground font-medium">{item.label}</div>
-                          <div className="text-sm font-bold text-muted-foreground/50 mt-0.5">—</div>
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Connect your wallet using the button in the top navigation bar.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Feature highlights */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[
-                  {
-                    icon: "📊",
-                    title: "Investment Dashboard",
-                    desc: "Track all your BBAG & SBAG investments, profits, and portfolio allocation in one place.",
-                  },
-                  {
-                    icon: "🔗",
-                    title: "Referral Network",
-                    desc: "Share your unique referral link and earn rewards from your growing team.",
-                  },
-                  {
-                    icon: "🏆",
-                    title: "Leaderboard",
-                    desc: "See how you rank among top investors and referrers in the community.",
-                  },
-                  {
-                    icon: "🔐",
-                    title: "Account Settings",
-                    desc: "Manage your profile, update your username, and secure your account.",
-                  },
-                ].map((feat) => (
-                  <Card key={feat.title} className="border-border/50 hover:border-primary/30 transition-colors">
-                    <CardContent className="pt-5 pb-4 flex gap-3">
-                      <span className="text-2xl shrink-0">{feat.icon}</span>
-                      <div>
-                        <p className="font-semibold text-sm mb-0.5">{feat.title}</p>
-                        <p className="text-xs text-muted-foreground">{feat.desc}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-    );
+    return null;
   }
 
   // ── Connected ──
@@ -1416,4 +1336,103 @@ const Profile = () => {
   );
 };
 
-export default Profile;
+// ── 게이트 컴포넌트: 미연결 시 intro, 연결 시 ProfileMain ──
+// 이 구조는 미연결 상태에서 무거운 contract hooks가 호출되지 않도록 보장합니다.
+const ProfileIntroPage = () => {
+  const { t } = useLanguage();
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+      <main className="pt-[88px] sm:pt-20 pb-12">
+        <div className="container mx-auto px-4">
+          <div className="max-w-2xl mx-auto mt-12 space-y-6">
+            {/* Main CTA card */}
+            <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-background to-primary/10 overflow-hidden">
+              <CardContent className="pt-8 pb-8 text-center relative">
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-primary/10 rounded-full blur-3xl" />
+                </div>
+                <div className="relative z-10">
+                  <div className="w-20 h-20 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-5">
+                    <Wallet className="w-10 h-10 text-primary" />
+                  </div>
+                  <h2 className="text-2xl font-display font-bold mb-2">{t.profile.connectWallet}</h2>
+                  <p className="text-muted-foreground mb-6 max-w-sm mx-auto">{t.profile.connectWalletDescription}</p>
+                  <div className="grid grid-cols-3 gap-3 mt-4 mb-6">
+                    {([
+                      { label: "Investments", icon: DollarSign },
+                      { label: "Referrals",   icon: Share2 },
+                      { label: "Earnings",    icon: TrendingUp },
+                    ] as const).map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <div key={item.label} className="bg-muted/40 rounded-lg p-3 text-center">
+                          <div className="flex justify-center mb-1">
+                            <Icon className="w-6 h-6 text-muted-foreground/60" />
+                          </div>
+                          <div className="text-xs text-muted-foreground font-medium">{item.label}</div>
+                          <div className="text-sm font-bold text-muted-foreground/50 mt-0.5">—</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Connect your wallet using the button in the top navigation bar.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Feature highlights */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {([
+                {
+                  Icon: BarChart3,
+                  title: "Investment Dashboard",
+                  desc: "Track all your BBAG & SBAG investments, profits, and portfolio allocation in one place.",
+                },
+                {
+                  Icon: Network,
+                  title: "Referral Network",
+                  desc: "Share your unique referral link and earn rewards from your growing team.",
+                },
+                {
+                  Icon: TrendingUp,
+                  title: "Leaderboard",
+                  desc: "See how you rank among top investors and referrers in the community.",
+                },
+                {
+                  Icon: AlertCircle,
+                  title: "Account Settings",
+                  desc: "Manage your profile, update your username, and secure your account.",
+                },
+              ] as const).map((feat) => (
+                <Card key={feat.title} className="border-border/50 hover:border-primary/30 transition-colors">
+                  <CardContent className="pt-5 pb-4 flex gap-3">
+                    <feat.Icon className="w-6 h-6 text-primary/60 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-sm mb-0.5">{feat.title}</p>
+                      <p className="text-xs text-muted-foreground">{feat.desc}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+// 기존 Profile 컴포넌트를 ProfileMain으로 이름 변경
+const ProfileMain = Profile;
+
+// 새로운 default export: 가벼운 게이트 컴포넌트
+const ProfileGate = () => {
+  const { address, isConnected } = useAccount();
+  if (!isConnected || !address) return <ProfileIntroPage />;
+  return <ProfileMain />;
+};
+
+export default ProfileGate;
