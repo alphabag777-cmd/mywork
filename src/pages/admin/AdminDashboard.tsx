@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BarChart3, Users, Share2, Loader2, TrendingUp, DollarSign, Activity, PieChart } from "lucide-react";
+import { BarChart3, Users, Share2, Loader2, TrendingUp, DollarSign, Activity, PieChart, KeyRound, UserCog, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { useAdminAnalytics } from "@/hooks/useAdminAnalytics";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -8,6 +8,11 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useMemo } from "react";
 import { subDays, startOfDay } from "date-fns";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { changeAdminPassword, changeAdminUsername } from "@/lib/adminConfig";
 
 const CATEGORY_COLORS = ["#f59e0b", "#3b82f6", "#10b981", "#8b5cf6", "#ef4444"];
 
@@ -16,6 +21,51 @@ type Period = "7d" | "14d" | "30d";
 export const AdminDashboard = () => {
   const { stats, dailyVolume, topPerformers, categoryBreakdown, loading } = useAdminAnalytics();
   const [period, setPeriod] = useState<Period>("30d");
+
+  // 비밀번호 변경 상태
+  const [pwCurrent, setPwCurrent]   = useState("");
+  const [pwNew, setPwNew]           = useState("");
+  const [pwConfirm, setPwConfirm]   = useState("");
+  const [pwLoading, setPwLoading]   = useState(false);
+  const [showPw, setShowPw]         = useState(false);
+
+  // 아이디 변경 상태
+  const [unPassword, setUnPassword] = useState("");
+  const [unNew, setUnNew]           = useState("");
+  const [unLoading, setUnLoading]   = useState(false);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pwNew !== pwConfirm) { toast.error("새 비밀번호가 일치하지 않습니다."); return; }
+    if (pwNew.length < 6)    { toast.error("새 비밀번호는 6자 이상이어야 합니다."); return; }
+    setPwLoading(true);
+    try {
+      const res = await changeAdminPassword(pwCurrent, pwNew);
+      if (res.ok) {
+        toast.success(res.message);
+        setPwCurrent(""); setPwNew(""); setPwConfirm("");
+      } else {
+        toast.error(res.message);
+      }
+    } catch { toast.error("오류가 발생했습니다."); }
+    finally { setPwLoading(false); }
+  };
+
+  const handleChangeUsername = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!unNew.trim() || unNew.length < 3) { toast.error("아이디는 3자 이상이어야 합니다."); return; }
+    setUnLoading(true);
+    try {
+      const res = await changeAdminUsername(unPassword, unNew);
+      if (res.ok) {
+        toast.success(res.message);
+        setUnPassword(""); setUnNew("");
+      } else {
+        toast.error(res.message);
+      }
+    } catch { toast.error("오류가 발생했습니다."); }
+    finally { setUnLoading(false); }
+  };
 
   // Filter daily volume by period
   const filteredVolume = useMemo(() => {
@@ -226,6 +276,105 @@ export const AdminDashboard = () => {
           </div>
         </CardContent>
       </Card>
+      {/* ── 계정 설정 ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {/* 비밀번호 변경 */}
+        <Card className="border-border/60">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-primary" /> 비밀번호 변경
+            </CardTitle>
+            <CardDescription className="text-xs">현재 비밀번호 확인 후 새 비밀번호로 변경합니다.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleChangePassword} className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs">현재 비밀번호</Label>
+                <div className="relative">
+                  <Input
+                    type={showPw ? "text" : "password"}
+                    value={pwCurrent}
+                    onChange={(e) => setPwCurrent(e.target.value)}
+                    placeholder="현재 비밀번호"
+                    disabled={pwLoading}
+                    className="pr-9 text-sm"
+                  />
+                  <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    onClick={() => setShowPw(!showPw)}>
+                    {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">새 비밀번호 (6자 이상)</Label>
+                <Input
+                  type="password"
+                  value={pwNew}
+                  onChange={(e) => setPwNew(e.target.value)}
+                  placeholder="새 비밀번호"
+                  disabled={pwLoading}
+                  className="text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">새 비밀번호 확인</Label>
+                <Input
+                  type="password"
+                  value={pwConfirm}
+                  onChange={(e) => setPwConfirm(e.target.value)}
+                  placeholder="새 비밀번호 재입력"
+                  disabled={pwLoading}
+                  className="text-sm"
+                />
+              </div>
+              <Button type="submit" className="w-full gap-2" disabled={pwLoading} size="sm">
+                {pwLoading ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> 변경 중...</> : <><ShieldCheck className="w-3.5 h-3.5" /> 비밀번호 변경</>}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* 아이디 변경 */}
+        <Card className="border-border/60">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <UserCog className="w-4 h-4 text-primary" /> 아이디 변경
+            </CardTitle>
+            <CardDescription className="text-xs">현재 비밀번호 확인 후 새 아이디로 변경합니다.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleChangeUsername} className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs">현재 비밀번호</Label>
+                <Input
+                  type="password"
+                  value={unPassword}
+                  onChange={(e) => setUnPassword(e.target.value)}
+                  placeholder="현재 비밀번호"
+                  disabled={unLoading}
+                  className="text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">새 아이디 (3자 이상)</Label>
+                <Input
+                  type="text"
+                  value={unNew}
+                  onChange={(e) => setUnNew(e.target.value)}
+                  placeholder="새 아이디"
+                  disabled={unLoading}
+                  className="text-sm"
+                />
+              </div>
+              <Button type="submit" className="w-full gap-2 mt-2" disabled={unLoading} size="sm">
+                {unLoading ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> 변경 중...</> : <><UserCog className="w-3.5 h-3.5" /> 아이디 변경</>}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+      </div>
     </div>
   );
 };
