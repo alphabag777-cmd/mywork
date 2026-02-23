@@ -65,7 +65,7 @@ export class ErrorBoundary extends Component<Props, State> {
     el.focus();
     el.select();
     try { document.execCommand("copy"); } catch { /* ignore */ }
-    document.body.removeChild(el);
+    try { if (document.body.contains(el)) document.body.removeChild(el); } catch { /* ignore */ }
     this.setState({ copied: true });
     setTimeout(() => this.setState({ copied: false }), 3000);
   };

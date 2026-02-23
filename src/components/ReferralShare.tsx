@@ -133,11 +133,24 @@ const ReferralShare = () => {
   const shareKakao = async () => {
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     if (isMobile) {
-      const a = document.createElement("a");
-      a.href = kakaoUrl(referralLink);
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      try {
+        const a = document.createElement("a");
+        a.href = kakaoUrl(referralLink);
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        // setTimeout으로 DOM 조작 타이밍 분리 (React reconciler 충돌 방지)
+        setTimeout(() => {
+          try {
+            if (document.body.contains(a)) {
+              document.body.removeChild(a);
+            }
+          } catch { /* ignore */ }
+        }, 100);
+      } catch {
+        // 딥링크 실패 시 링크 복사로 폴백
+        await copyLink();
+      }
     } else {
       if (navigator.share) {
         try {

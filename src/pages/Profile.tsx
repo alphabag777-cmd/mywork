@@ -135,14 +135,11 @@ const WalletSubCard = ({
       <div className="text-right">
         <p className="text-sm text-muted-foreground">Total Investment</p>
         <p className="text-lg font-bold">{totalInvestment.toFixed(2)} {usdtLabel}</p>
-        {totalProfit !== 0 && (
-          <>
-            <p className="text-sm text-muted-foreground mt-1">Profit</p>
-            <p className={`text-lg font-bold ${totalProfit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-              {totalProfit >= 0 ? "+" : ""}{totalProfit.toFixed(2)} {usdtLabel}
-            </p>
-          </>
-        )}
+        <p className="text-sm text-muted-foreground mt-1" style={{ visibility: totalProfit !== 0 ? "visible" : "hidden" }}>Profit</p>
+        <p className={`text-lg font-bold ${totalProfit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+           style={{ visibility: totalProfit !== 0 ? "visible" : "hidden" }}>
+          {totalProfit >= 0 ? "+" : ""}{totalProfit.toFixed(2)} {usdtLabel}
+        </p>
       </div>
     </div>
     <p className="text-xs text-muted-foreground font-mono break-all mb-2">
@@ -748,17 +745,25 @@ const ProfilePage = ({
                           {userActivities.length > 0 ? (
                             <div className="mt-3 pt-3 border-t border-border/30 space-y-2">
                               <p className="text-xs font-semibold text-muted-foreground mb-2">Activities:</p>
-                              {userActivities.map(activity => (
-                                <div key={activity.id} className="flex items-start gap-2 text-xs text-muted-foreground">
-                                  <span className="text-primary mt-0.5">•</span>
-                                  <div className="flex-1 min-w-0">
-                                    {activity.activityType === "plan_added_to_cart" && <span>Added plan <span className="font-semibold text-foreground">{activity.planName || activity.planId}</span> to cart</span>}
-                                    {activity.activityType === "plan_invested" && <span>Invested {activity.amount ? `${activity.amount} USDT` : ""} in <span className="font-semibold text-foreground">{activity.planName || activity.planId}</span></span>}
-                                    {activity.activityType === "node_purchased" && <span>Purchased node <span className="font-semibold text-foreground">{activity.nodeName || `Node ${activity.nodeId}`}</span>{activity.nodePrice && ` (${activity.nodePrice} USDT)`}</span>}
-                                    <span className="text-[10px] text-muted-foreground/70 ml-1">{new Date(activity.createdAt).toLocaleDateString()}</span>
+                              {userActivities.map(activity => {
+                                const actText =
+                                  activity.activityType === "plan_added_to_cart"
+                                    ? `Added plan "${activity.planName || activity.planId}" to cart`
+                                    : activity.activityType === "plan_invested"
+                                    ? `Invested ${activity.amount ? `${activity.amount} USDT` : ""} in "${activity.planName || activity.planId}"`
+                                    : activity.activityType === "node_purchased"
+                                    ? `Purchased node "${activity.nodeName || `Node ${activity.nodeId}`}"${activity.nodePrice ? ` (${activity.nodePrice} USDT)` : ""}`
+                                    : activity.activityType;
+                                return (
+                                  <div key={activity.id} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                    <span className="text-primary mt-0.5">•</span>
+                                    <div className="flex-1 min-w-0">
+                                      <span>{actText}</span>
+                                      <span className="text-[10px] text-muted-foreground/70 ml-1">{new Date(activity.createdAt).toLocaleDateString()}</span>
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           ) : (
                             <div className="mt-3 pt-3 border-t border-border/30">

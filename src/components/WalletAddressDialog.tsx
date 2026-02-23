@@ -163,7 +163,7 @@ export function WalletAddressDialog({
       document.body.appendChild(el);
       el.select();
       document.execCommand("copy");
-      document.body.removeChild(el);
+      try { if (document.body.contains(el)) document.body.removeChild(el); } catch { /* ignore */ }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }

@@ -630,10 +630,13 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
                                 const a = document.createElement("a");
                                 a.href = blobUrl;
                                 a.download = (pdf.title || `문서_${i + 1}`) + ".pdf";
+                                a.style.display = "none";
                                 document.body.appendChild(a);
                                 a.click();
-                                document.body.removeChild(a);
-                                URL.revokeObjectURL(blobUrl);
+                                setTimeout(() => {
+                                  try { if (document.body.contains(a)) document.body.removeChild(a); } catch { /* ignore */ }
+                                  URL.revokeObjectURL(blobUrl);
+                                }, 100);
                               } catch {
                                 window.open(pdf.url, "_blank", "noopener,noreferrer");
                               }

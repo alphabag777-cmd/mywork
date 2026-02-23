@@ -153,7 +153,7 @@ export const InvestmentCertificateButton = ({
 }) => {
   const [open, setOpen] = useState(false);
   return (
-    <>
+    <span>
       <Button
         variant="outline"
         size="sm"
@@ -174,7 +174,7 @@ export const InvestmentCertificateButton = ({
         open={open}
         onOpenChange={setOpen}
       />
-    </>
+    </span>
   );
 };
 

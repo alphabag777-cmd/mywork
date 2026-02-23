@@ -17,6 +17,7 @@ import { DateRange } from "react-day-picker";
 import { useAccount } from "wagmi";
 import { ImportOrgData } from "@/components/ImportOrgData";
 import { getUsersByReferrer } from "@/lib/users";
+import { getReferralsByReferrer } from "@/lib/referrals";
 
 interface OrgChartProps {
   className?: string;
@@ -39,27 +40,33 @@ function UserReferralCard({ address, className }: { address?: string; className?
   useEffect(() => {
     if (!address) { setLoading(false); return; }
 
-    // 재귀적으로 하위 전체 카운트
+    // 재귀적으로 하위 전체 카운트 (users 컬렉션 기반 - referrerWallet 필드)
     const countAll = async (wallet: string, visited = new Set<string>()): Promise<number> => {
       if (visited.has(wallet)) return 0;
       visited.add(wallet);
-      const children = await getUsersByReferrer(wallet);
-      let total = children.length;
-      for (const child of children) {
-        total += await countAll(child.walletAddress, visited);
+      try {
+        const children = await getUsersByReferrer(wallet);
+        let total = children.length;
+        for (const child of children) {
+          total += await countAll(child.walletAddress, visited);
+        }
+        return total;
+      } catch {
+        return 0;
       }
-      return total;
     };
 
     (async () => {
       try {
         setLoading(true);
-        const directs = await getUsersByReferrer(address);
-        setDirectCount(directs.length);
-        // 전체 하위 수 계산 (depth-first)
-        let total = directs.length;
-        for (const d of directs) {
-          total += await countAll(d.walletAddress, new Set([address]));
+        // 직접 추천인수: referrals 컬렉션 기준 (Profile 팀 퍼포먼스와 동일한 소스)
+        const directReferrals = await getReferralsByReferrer(address.toLowerCase());
+        setDirectCount(directReferrals.length);
+
+        // 전체 하위 수 계산 (users 컬렉션 referrerWallet 기준 - depth-first)
+        let total = directReferrals.length;
+        for (const r of directReferrals) {
+          total += await countAll(r.referredWallet.toLowerCase(), new Set([address.toLowerCase()]));
         }
         setTotalCount(total);
       } catch (e) {
@@ -314,9 +321,17 @@ function AdminOrgChart({ className }: { className?: string }) {
     const a = document.createElement("a");
     a.href = url;
     a.download = `org_chart_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.style.display = "none";
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
+    setTimeout(() => {
+      try {
+        if (document.body.contains(a)) {
+          document.body.removeChild(a);
+        }
+      } catch { /* ignore */ }
+      URL.revokeObjectURL(url);
+    }, 100);
   };
 
   if (loading && !data) {

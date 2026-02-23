@@ -120,10 +120,13 @@ export function PdfUpload({ files, onChange, folder = "plans/pdf", maxSizeMB = M
       const a = document.createElement("a");
       a.href = blobUrl;
       a.download = (file.title || "document") + ".pdf";
+      a.style.display = "none";
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
+      setTimeout(() => {
+        try { if (document.body.contains(a)) document.body.removeChild(a); } catch { /* ignore */ }
+        URL.revokeObjectURL(blobUrl);
+      }, 100);
     } catch {
       // 폴백: 새 탭으로 열기
       window.open(file.url, "_blank", "noopener,noreferrer");
