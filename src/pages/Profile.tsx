@@ -41,9 +41,7 @@ import {
   useUSDTToken,
   useUSDTDecimals,
   useTokenBalance,
-  useUserInvestment,
-  useSeparateInvestment,
-  useUserVolume,
+  // useUserInvestment, useUserVolume, useSeparateInvestment 제거 (모바일 크래시 원인)
 } from "@/hooks/useInvestment";
 import { formatUnits } from "viem";
 import { updateNodeReferralCode } from "@/lib/userReferralCodes";
@@ -514,10 +512,8 @@ const Profile = () => {
   const usdtToken = useUSDTToken();
   const decimals = useUSDTDecimals(usdtToken);
   const tokenBalance = useTokenBalance(usdtToken);
-  const { investment: userInvestment, decimals: investmentDecimals } = useUserInvestment(address);
-  const { volume: userVolume, decimals: volumeDecimals } = useUserVolume(address);
-  const { investments: contractInvestments, isLoading: isLoadingContractInvestments } =
-    useSeparateInvestment(address);
+  // ✅ useSeparateInvestment 제거 (fromBlock:0 전체 로그 조회 → 모바일 크래시 원인)
+  // ✅ useUserInvestment/useUserVolume 제거 (Firebase 데이터로 대체)
 
   // ── All Firebase / heavy data via custom hook ──
   const {
@@ -531,7 +527,7 @@ const Profile = () => {
     cbagWallet,
     targetPlan,
     refreshSBAG: _refreshSBAG,
-  } = useProfileData(address, isConnected, contractInvestments, decimals);
+  } = useProfileData(address, isConnected, undefined, decimals);
 
   // ── Referral link / code (UI-only, fast) ──
   useEffect(() => {
@@ -913,12 +909,12 @@ const Profile = () => {
                   variant="outline"
                   size="icon"
                   onClick={() => window.location.reload()}
-                  disabled={isLoadingInvestments || isLoadingContractInvestments || !address}
+                  disabled={isLoadingInvestments || !address}
                   className="shrink-0"
                 >
                   <RefreshCw
                     className={`w-4 h-4 ${
-                      isLoadingInvestments || isLoadingContractInvestments ? "animate-spin" : ""
+                      isLoadingInvestments ? "animate-spin" : ""
                     }`}
                   />
                 </Button>
@@ -927,20 +923,10 @@ const Profile = () => {
             <CardContent>
               <div className="text-center py-6">
                 <div className="text-4xl font-bold text-foreground mb-2">
-                  {userVolume
-                    ? (() => { try { return formatUnits(userVolume as bigint, volumeDecimals ?? 18); } catch { return "0"; } })()
-                    : (userInvestment != null && investmentDecimals != null)
-                    ? (() => { try { return formatUnits(userInvestment as bigint, investmentDecimals); } catch { return "0"; } })()
-                    : "0"}{" "}
+                  {eTotalInvested.toFixed(2)}{" "}
                   {t.common.usdt}
                 </div>
                 <p className="text-muted-foreground mb-2">{t.profile.totalInvestedAmount}</p>
-                {userVolume && (
-                  <p className="text-xs text-muted-foreground mb-6">
-                    From contract: {(() => { try { return formatUnits(userVolume as bigint, volumeDecimals ?? 18); } catch { return "0"; } })()} {t.common.usdt}{" "}
-                    (investSplit)
-                  </p>
-                )}
               </div>
             </CardContent>
           </Card>
