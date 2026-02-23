@@ -65,6 +65,24 @@ const ReferralShare = () => {
       .finally(() => setLoading(false));
   }, [address]);
 
+  // PlanSelector 저장 시 즉시 반영
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const saved = (e as CustomEvent).detail;
+      if (!saved) return;
+      setUserSelection(saved);
+      getAllPlans().then((allPlans) => {
+        setSelectedPlans(
+          saved.planIds.length > 0
+            ? allPlans.filter((p: any) => saved.planIds.includes(p.id))
+            : [],
+        );
+      }).catch(() => {});
+    };
+    window.addEventListener("planSelectionChanged", handler);
+    return () => window.removeEventListener("planSelectionChanged", handler);
+  }, []);
+
   if (!isConnected || !address) return null;
 
   /* ── 링크 조합 ── */

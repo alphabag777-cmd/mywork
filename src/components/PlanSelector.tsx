@@ -92,6 +92,8 @@ export default function PlanSelector() {
       setUserSelection(saved);
       setIsDirty(false);
       toast.success("투자상품 선택이 저장되었습니다!");
+      // ReferralShare 등 다른 컴포넌트에 변경 알림
+      window.dispatchEvent(new CustomEvent("planSelectionChanged", { detail: saved }));
     } catch {
       toast.error("저장 실패. 잠시 후 다시 시도해주세요.");
     } finally {
