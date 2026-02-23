@@ -33,7 +33,8 @@ export interface InvestmentPlan {
   description: string;
   tags: string[];
   quickActionsDescription: string;
-  youtubeUrl: string;
+  youtubeUrl: string;        // 기존 단일 URL (하위 호환)
+  youtubeUrls?: Array<{ url: string; title: string }>; // 다중 YouTube URL
   telegram: string;
   twitter: string;
   materials: Array<{ title: string; url: string }>;
@@ -139,6 +140,7 @@ function fromFirestore(docData: any, id: string): InvestmentPlan {
     tags: docData.tags || [],
     quickActionsDescription: docData.quickActionsDescription || "",
     youtubeUrl: docData.youtubeUrl || "",
+    youtubeUrls: docData.youtubeUrls || [],
     telegram: docData.telegram || "",
     twitter: docData.twitter || "",
     materials: docData.materials || [],
@@ -185,6 +187,7 @@ function toFirestore(plan: Partial<InvestmentPlan>): any {
     tags: plan.tags || [],
     quickActionsDescription: plan.quickActionsDescription || "",
     youtubeUrl: plan.youtubeUrl || "",
+    youtubeUrls: plan.youtubeUrls || [],
     telegram: plan.telegram || "",
     twitter: plan.twitter || "",
     materials: plan.materials || [],

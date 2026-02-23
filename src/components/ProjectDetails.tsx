@@ -24,6 +24,7 @@ interface ProjectDetailsProps {
     quickActionsDescription?: string;
     dappUrl?: string;
     youtubeUrl?: string;
+    youtubeUrls?: Array<{ url: string; title: string }>;
     telegram?: string;
     telegramUrl?: string;
     twitter?: string;
@@ -317,18 +318,26 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
   /* ── YouTube URL → embed URL 변환 ── */
   const getYoutubeEmbedUrl = (url: string): string | null => {
     if (!url) return null;
-    // 이미 embed URL인 경우
     if (url.includes('youtube.com/embed/')) return url;
-    // youtu.be 단축 URL
     const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
     if (shortMatch) return `https://www.youtube.com/embed/${shortMatch[1]}`;
-    // 일반 youtube.com/watch?v= URL
     const watchMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
     if (watchMatch) return `https://www.youtube.com/embed/${watchMatch[1]}`;
     return null;
   };
 
-  const youtubeEmbedUrl = project.youtubeUrl ? getYoutubeEmbedUrl(project.youtubeUrl) : null;
+  // 다중 YouTube 영상 목록 (youtubeUrls 우선, 없으면 youtubeUrl 단일 → 배열)
+  const youtubeList: Array<{ url: string; title: string }> =
+    project.youtubeUrls && project.youtubeUrls.length > 0
+      ? project.youtubeUrls
+      : project.youtubeUrl
+        ? [{ url: project.youtubeUrl, title: "" }]
+        : [];
+  const youtubeEmbedList = youtubeList
+    .map((item) => ({ ...item, embedUrl: getYoutubeEmbedUrl(item.url) }))
+    .filter((item) => !!item.embedUrl);
+  // 하위 호환용 단일 URL
+  const youtubeEmbedUrl = youtubeEmbedList[0]?.embedUrl ?? null;
 
   const hasSpecChips =
     project.network || project.tokenSymbol || project.lockupPeriod || project.minInvestment ||
@@ -486,21 +495,33 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
             {/* ── 오른쪽: 세부 정보 + Quick Actions ── */}
             <div className="space-y-5">
 
-              {/* YouTube 영상 */}
-              {youtubeEmbedUrl && (
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-1.5">
+              {/* YouTube 영상 (다중 지원) */}
+              {youtubeEmbedList.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                     <span className="text-red-500">▶</span> {t.projectDetails.youtubeVideo ?? "YouTube 영상"}
+                    {youtubeEmbedList.length > 1 && (
+                      <span className="text-xs font-normal text-muted-foreground">({youtubeEmbedList.length}개)</span>
+                    )}
                   </h4>
-                  <div className="relative w-full rounded-xl overflow-hidden border border-border/50" style={{paddingBottom: '56.25%'}}>
-                    <iframe
-                      src={youtubeEmbedUrl}
-                      title="YouTube video"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      className="absolute inset-0 w-full h-full"
-                    />
-                  </div>
+                  {youtubeEmbedList.map((item, idx) => (
+                    <div key={idx}>
+                      {item.title && (
+                        <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
+                          <span className="text-red-400">▶</span> {item.title}
+                        </p>
+                      )}
+                      <div className="relative w-full rounded-xl overflow-hidden border border-border/50" style={{paddingBottom: '56.25%'}}>
+                        <iframe
+                          src={item.embedUrl!}
+                          title={item.title || `YouTube ${idx + 1}`}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          className="absolute inset-0 w-full h-full"
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
 
