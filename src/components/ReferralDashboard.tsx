@@ -78,7 +78,8 @@ const ReferralDashboard = () => {
 
   useEffect(() => {
     if (isConnected && address) load();
-  }, [address, isConnected, load]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, isConnected]);
 
   if (!isConnected || !address) return null;
 

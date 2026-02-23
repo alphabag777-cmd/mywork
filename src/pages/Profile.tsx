@@ -1,4 +1,5 @@
 import { useAccount } from "wagmi";
+import { lazy, Suspense } from "react";
 import Header from "@/components/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,10 +55,15 @@ import ReferralDashboard from "@/components/ReferralDashboard";
 import { InvestmentCertificateButton } from "@/components/InvestmentCertificate";
 import { getReferralsByReferrer } from "@/lib/referrals";
 import { getReferralActivitiesByReferrer, ReferralActivity } from "@/lib/referralActivities";
-import { Leaderboard } from "@/components/Leaderboard";
-import { OrgChart } from "@/components/OrgChart";
 import { formatAddress } from "@/lib/utils";
 import { logActivity } from "@/lib/userActivityLog";
+
+// ── Lazy-loaded heavy components (각각 완전 격리) ──
+const ReferralShare    = lazy(() => import("@/components/ReferralShare"));
+const PlanSelector     = lazy(() => import("@/components/PlanSelector"));
+const ReferralDashboard = lazy(() => import("@/components/ReferralDashboard"));
+const Leaderboard      = lazy(() => import("@/components/Leaderboard").then(m => ({ default: m.Leaderboard })));
+const OrgChart         = lazy(() => import("@/components/OrgChart").then(m => ({ default: m.OrgChart })));
 
 const EARNINGS_COLORS: Record<string, string> = {
   BBAG: "#f59e0b",
@@ -736,16 +742,24 @@ const Profile = () => {
 
           {/* ── 투자상품 선택 섹션 (독립 컴포넌트) ── */}
           <SectionErrorBoundary>
-            <PlanSelector />
+            <Suspense fallback={<div className="h-24 animate-pulse bg-muted rounded-lg mb-6" />}>
+              <PlanSelector />
+            </Suspense>
           </SectionErrorBoundary>
 
           {/* ── 추천 보상 현황판 ── */}
           <SectionErrorBoundary>
-            <ReferralDashboard />
+            <Suspense fallback={<div className="h-20 animate-pulse bg-muted rounded-lg mb-6" />}>
+              <ReferralDashboard />
+            </Suspense>
           </SectionErrorBoundary>
 
           {/* ── 레퍼럴 공유 섹션 (선택된 상품 포함) ── */}
-          <ReferralShare />
+          <SectionErrorBoundary>
+            <Suspense fallback={null}>
+              <ReferralShare />
+            </Suspense>
+          </SectionErrorBoundary>
 
           {/* Community Groups */}
           <Card className="mb-8 border-border/50">
@@ -1006,13 +1020,19 @@ const Profile = () => {
 
           {/* Leaderboard */}
           <div className="mb-8">
-            <Leaderboard />
+            <SectionErrorBoundary>
+              <Suspense fallback={<div className="h-32 animate-pulse bg-muted rounded-lg" />}>
+                <Leaderboard />
+              </Suspense>
+            </SectionErrorBoundary>
           </div>
 
           {/* 추천인 현황 카드 (조직도 트리는 어드민 전용) */}
           <div className="mb-8">
             <SectionErrorBoundary>
-              <OrgChart viewAs="user" />
+              <Suspense fallback={<div className="h-24 animate-pulse bg-muted rounded-lg" />}>
+                <OrgChart viewAs="user" />
+              </Suspense>
             </SectionErrorBoundary>
           </div>
 
