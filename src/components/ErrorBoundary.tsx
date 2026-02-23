@@ -32,6 +32,18 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error("[ErrorBoundary] Stack:", error.stack);
     console.error("[ErrorBoundary] Component stack:", info.componentStack);
     this.setState({ componentStack: info.componentStack || null });
+    // Save full debug info to localStorage for mobile debugging
+    try {
+      const debugInfo = {
+        message: error.message,
+        stack: (error.stack || "").slice(0, 1500),
+        componentStack: (info.componentStack || "").slice(0, 1000),
+        url: window.location.href,
+        time: new Date().toISOString(),
+        ua: navigator.userAgent.slice(0, 200),
+      };
+      localStorage.setItem("errorboundary_last", JSON.stringify(debugInfo));
+    } catch { /* ignore */ }
   }
 
   handleReset = () => {
@@ -93,6 +105,20 @@ export class ErrorBoundary extends Component<Props, State> {
               새로 고침
             </Button>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-xs text-muted-foreground"
+            onClick={() => {
+              try {
+                const info = localStorage.getItem("errorboundary_last") || "";
+                navigator.clipboard.writeText(info).catch(() => {});
+                alert("디버그 정보가 클립보드에 복사되었습니다. 개발자에게 전달해주세요.");
+              } catch { alert("복사 실패"); }
+            }}
+          >
+            디버그 정보 복사 (개발자용)
+          </Button>
         </CardContent>
       </Card>
     );

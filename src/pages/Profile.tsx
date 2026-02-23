@@ -76,23 +76,25 @@ const EARNINGS_COLORS: Record<string, string> = {
 
 // ── SectionErrorBoundary ─────────────────────────────────────────────────────
 class SectionErrorBoundary extends Component<
-  { children: ReactNode; fallback?: ReactNode },
-  { hasError: boolean }
+  { children: ReactNode; fallback?: ReactNode; name?: string },
+  { hasError: boolean; errMsg: string }
 > {
-  state = { hasError: false };
-  static getDerivedStateFromError() { return { hasError: true }; }
+  state = { hasError: false, errMsg: "" };
+  static getDerivedStateFromError(e: Error) { return { hasError: true, errMsg: e.message }; }
   componentDidCatch(e: Error, info: ErrorInfo) {
-    console.warn("[SectionErrorBoundary]", e.message, info.componentStack);
+    const name = (this.props as { name?: string }).name || "unknown";
+    const log = `[${name}] ${e.message}\n${info.componentStack}`;
+    console.warn("[SectionErrorBoundary]", log);
+    // Save to localStorage for debugging
+    try { localStorage.setItem("profile_last_error", log.slice(0, 2000)); } catch {}
   }
   render() {
     if (this.state.hasError) {
       return this.props.fallback ?? (
-        <div className="p-4 text-sm text-muted-foreground text-center border border-border/40 rounded-lg">
-          이 섹션을 불러오는 중 문제가 발생했습니다.{" "}
-          <button
-            className="underline text-primary"
-            onClick={() => this.setState({ hasError: false })}
-          >
+        <div className="p-4 text-sm text-muted-foreground text-center border border-destructive/40 rounded-lg mb-4">
+          <p className="font-semibold text-destructive mb-1">섹션 오류 ({(this.props as {name?:string}).name})</p>
+          <p className="text-xs mb-2 break-all">{this.state.errMsg}</p>
+          <button className="underline text-primary" onClick={() => this.setState({ hasError: false, errMsg: "" })}>
             다시 시도
           </button>
         </div>
@@ -106,11 +108,13 @@ class SectionErrorBoundary extends Component<
 const LazySection = ({
   children,
   fallbackHeight = "h-24",
+  name,
 }: {
   children: ReactNode;
   fallbackHeight?: string;
+  name?: string;
 }) => (
-  <SectionErrorBoundary>
+  <SectionErrorBoundary name={name}>
     <Suspense fallback={<div className={`${fallbackHeight} animate-pulse bg-muted rounded-lg mb-6`} />}>
       {children}
     </Suspense>
@@ -484,17 +488,17 @@ const ProfilePage = ({
           </div>
 
           {/* ── Plan Selector ── */}
-          <LazySection fallbackHeight="h-24">
+          <LazySection fallbackHeight="h-24" name="PlanSelector">
             <PlanSelector />
           </LazySection>
 
           {/* ── Referral Dashboard ── */}
-          <LazySection fallbackHeight="h-20">
+          <LazySection fallbackHeight="h-20" name="ReferralDashboard">
             <ReferralDashboard />
           </LazySection>
 
           {/* ── Referral Share ── */}
-          <LazySection fallbackHeight="h-4">
+          <LazySection fallbackHeight="h-4" name="ReferralShare">
             <ReferralShare />
           </LazySection>
 
@@ -638,14 +642,14 @@ const ProfilePage = ({
 
           {/* ── Leaderboard ── */}
           <div className="mb-8">
-            <LazySection fallbackHeight="h-32">
+            <LazySection fallbackHeight="h-32" name="Leaderboard">
               <Leaderboard />
             </LazySection>
           </div>
 
           {/* ── OrgChart (user view) ── */}
           <div className="mb-8">
-            <LazySection fallbackHeight="h-24">
+            <LazySection fallbackHeight="h-24" name="OrgChart">
               <OrgChart viewAs="user" />
             </LazySection>
           </div>
