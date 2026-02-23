@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Bell, Calendar, ChevronRight, ChevronLeft } from "lucide-react";
+import { ArrowLeft, Bell, Calendar, ChevronRight, ChevronLeft, Home, X } from "lucide-react";
 import { getNoticeById, getAllNotices, Notice } from "@/lib/notices";
 import { format } from "date-fns";
 
@@ -25,7 +25,7 @@ export default function NoticeDetail() {
         ]);
         setNotice(found);
         const sorted = all
-          .filter((n) => n.isActive)
+          .filter((n) => n.isActive !== false)
           .sort((a, b) => {
             const od = a.sortOrder - b.sortOrder;
             if (od !== 0) return od;
@@ -57,10 +57,20 @@ export default function NoticeDetail() {
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-xl font-bold flex items-center gap-2">
+          <h1 className="text-xl font-bold flex items-center gap-2 flex-1">
             <Bell className="w-5 h-5 text-primary" />
             공지사항
           </h1>
+          {/* 닫기 → 홈으로 */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full"
+            onClick={() => navigate("/")}
+            title="홈으로"
+          >
+            <X className="w-5 h-5" />
+          </Button>
         </div>
 
         {/* Content Card */}

@@ -10,6 +10,7 @@ import {
   Bell,
   ArrowLeft,
   Calendar,
+  X,
 } from "lucide-react";
 import { getAllNotices, Notice } from "@/lib/notices";
 import { format } from "date-fns";
@@ -27,9 +28,9 @@ export default function Notices() {
       setLoading(true);
       try {
         const all = await getAllNotices();
-        // active 먼저, 그 다음 sortOrder, createdAt 기준 정렬
+        // isActive 가 undefined 인 경우도 표시되도록 처리 후 정렬
         const sorted = all
-          .filter((n) => n.isActive)
+          .filter((n) => n.isActive !== false)
           .sort((a, b) => {
             const od = a.sortOrder - b.sortOrder;
             if (od !== 0) return od;
@@ -61,7 +62,7 @@ export default function Notices() {
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-bold flex items-center gap-2">
               <Bell className="w-5 h-5 text-primary" />
               공지사항
@@ -70,6 +71,16 @@ export default function Notices() {
               총 {notices.length}개 공지
             </p>
           </div>
+          {/* 닫기 → 홈으로 */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full"
+            onClick={() => navigate("/")}
+            title="홈으로"
+          >
+            <X className="w-5 h-5" />
+          </Button>
         </div>
 
         {/* List */}
