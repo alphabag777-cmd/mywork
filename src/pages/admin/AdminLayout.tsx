@@ -1,22 +1,14 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { BarChart3, Users, Wallet, LayoutDashboard, PlusSquare, Share2, LogOut, Network, Image, FileText, Lock, GitGraph, MessageSquare, Megaphone, Building2, Sparkles } from "lucide-react";
+import { BarChart3, Users, Wallet, LayoutDashboard, PlusSquare, LogOut, MessageSquare, Layers, FileText, Network } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
-  { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/admin/add-plans", label: "Add Plans", icon: PlusSquare },
-  { to: "/admin/staking-plans", label: "Staking Plans", icon: Lock },
-  { to: "/admin/nodes", label: "Nodes", icon: Network },
-  { to: "/admin/notices", label: "Notices", icon: FileText },
-  { to: "/admin/announcements", label: "Announcements", icon: Megaphone },
-  { to: "/admin/event-banners", label: "Event Banners", icon: Sparkles },
-  { to: "/admin/ads", label: "Ad Images", icon: Image },
-  { to: "/admin/referred", label: "Referred", icon: Share2 },
-  { to: "/admin/organization", label: "Organization", icon: GitGraph },
-  { to: "/admin/support", label: "Support Tickets", icon: MessageSquare },
-  { to: "/admin/company-applications", label: "Company Applications", icon: Building2 },
-  { to: "/admin/users", label: "Users", icon: Users },
-  { to: "/admin/total-earning", label: "Total Earning", icon: BarChart3 },
+  { to: "/admin/dashboard",  label: "Dashboard",     icon: LayoutDashboard },
+  { to: "/admin/plans",      label: "Plans",          icon: PlusSquare },
+  { to: "/admin/content",    label: "Content",        icon: FileText },
+  { to: "/admin/users-org",  label: "Users & Org",    icon: Users },
+  { to: "/admin/assets",     label: "Assets",         icon: Layers },
+  { to: "/admin/support",    label: "Support Tickets",icon: MessageSquare },
 ];
 
 export const AdminLayout = () => {
@@ -29,7 +21,7 @@ export const AdminLayout = () => {
 
   return (
     <div className="min-h-screen flex bg-background">
-      <aside className="hidden md:flex w-64 flex-col border-r border-border/60 bg-background/80 backdrop-blur">
+      <aside className="hidden md:flex w-56 flex-col border-r border-border/60 bg-background/80 backdrop-blur">
         <div className="h-16 border-b border-border/60 flex items-center px-4 gap-2">
           <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
             <Wallet className="w-5 h-5 text-primary" />
@@ -88,5 +80,3 @@ export const AdminLayout = () => {
 };
 
 export default AdminLayout;
-
-

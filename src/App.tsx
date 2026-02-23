@@ -25,18 +25,11 @@ import CompanyRegistration from "./pages/CompanyRegistration";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminAddPlans from "./pages/admin/AdminAddPlans";
-import AdminStakingPlans from "./pages/admin/AdminStakingPlans";
-import AdminNodes from "./pages/admin/AdminNodes";
-import AdminNotices from "./pages/admin/AdminNotices";
-import AdminAds from "./pages/admin/AdminAds";
-import AdminReferred from "./pages/admin/AdminReferred";
-import AdminUsers from "./pages/admin/AdminUsers";
+import AdminPlans from "./pages/admin/AdminPlans";
+import AdminContent from "./pages/admin/AdminContent";
+import AdminUsersOrg from "./pages/admin/AdminUsersOrg";
+import AdminAssets from "./pages/admin/AdminAssets";
 import AdminSupport from "./pages/admin/AdminSupport";
-import AdminTotalEarning from "./pages/admin/AdminTotalEarning";
-import AdminOrganization from "./pages/admin/AdminOrganization";
-import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
-import AdminCompanyApplications from "./pages/admin/AdminCompanyApplications";
 import AdminRouteGuard from "./pages/admin/AdminRouteGuard";
 import InvestmentHistory from "./pages/InvestmentHistory";
 import Promo from "./pages/Promo";
@@ -46,7 +39,7 @@ import NoticeDetail from "./pages/NoticeDetail";
 import { StakingMaturityChecker } from "@/components/StakingMaturityChecker";
 import BottomNav from "@/components/BottomNav";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
-import AdminEventBanners from "./pages/admin/AdminEventBanners";
+
 
 // QueryClient를 모듈 스코프에서 생성하여 HMR 시에도 인스턴스 유지
 // staleTime 설정으로 불필요한 중복 요청 방지
@@ -84,19 +77,24 @@ const App = () => (
                 <Route element={<AdminRouteGuard />}>
                   <Route path="/admin" element={<AdminLayout />}>
                     <Route path="dashboard" element={<AdminDashboard />} />
-                    <Route path="add-plans" element={<AdminAddPlans />} />
-                    <Route path="staking-plans" element={<AdminStakingPlans />} />
-                    <Route path="nodes" element={<AdminNodes />} />
-                    <Route path="notices" element={<AdminNotices />} />
-                    <Route path="ads" element={<AdminAds />} />
-                    <Route path="referred" element={<AdminReferred />} />
-                    <Route path="users" element={<AdminUsers />} />
-                    <Route path="organization" element={<AdminOrganization />} />
+                    <Route path="plans" element={<AdminPlans />} />
+                    <Route path="content" element={<AdminContent />} />
+                    <Route path="users-org" element={<AdminUsersOrg />} />
+                    <Route path="assets" element={<AdminAssets />} />
                     <Route path="support" element={<AdminSupport />} />
-                    <Route path="total-earning" element={<AdminTotalEarning />} />
-                    <Route path="announcements" element={<AdminAnnouncements />} />
-                    <Route path="event-banners" element={<AdminEventBanners />} />
-                    <Route path="company-applications" element={<AdminCompanyApplications />} />
+                    {/* 구 URL 하위호환 리다이렉트 */}
+                    <Route path="add-plans" element={<AdminPlans />} />
+                    <Route path="staking-plans" element={<AdminPlans />} />
+                    <Route path="nodes" element={<AdminAssets />} />
+                    <Route path="notices" element={<AdminContent />} />
+                    <Route path="ads" element={<AdminContent />} />
+                    <Route path="announcements" element={<AdminContent />} />
+                    <Route path="event-banners" element={<AdminContent />} />
+                    <Route path="referred" element={<AdminUsersOrg />} />
+                    <Route path="users" element={<AdminUsersOrg />} />
+                    <Route path="organization" element={<AdminUsersOrg />} />
+                    <Route path="total-earning" element={<AdminAssets />} />
+                    <Route path="company-applications" element={<AdminUsersOrg />} />
                   </Route>
                 </Route>
 
