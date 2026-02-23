@@ -18,7 +18,7 @@ import {
   Award,
   Star,
 } from "lucide-react";
-import { getReferralsByReferrer } from "@/lib/referrals";
+import { getUsersByReferrer } from "@/lib/users";
 import { getUserInvestments } from "@/lib/userInvestments";
 
 interface RewardTier {
@@ -59,12 +59,12 @@ const ReferralDashboard = () => {
     if (!address) return;
     setLoading(true);
     try {
-      const referrals = await getReferralsByReferrer(address.toLowerCase());
-      setReferralCount(referrals.length);
+      const directUsers = await getUsersByReferrer(address.toLowerCase());
+      setReferralCount(directUsers.length);
 
       // Sum investments of referred wallets
       const invArrays = await Promise.all(
-        referrals.map((r) => getUserInvestments(r.referredWallet).catch(() => []))
+        directUsers.map((u) => getUserInvestments(u.walletAddress).catch(() => []))
       );
       const total = invArrays.flat().reduce((sum: number, inv: any) => sum + (Number(inv.amount) || 0), 0);
       setTotalInvested(total);

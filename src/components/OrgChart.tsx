@@ -17,7 +17,6 @@ import { DateRange } from "react-day-picker";
 import { useAccount } from "wagmi";
 import { ImportOrgData } from "@/components/ImportOrgData";
 import { getUsersByReferrer } from "@/lib/users";
-import { getReferralsByReferrer } from "@/lib/referrals";
 
 interface OrgChartProps {
   className?: string;
@@ -59,14 +58,14 @@ function UserReferralCard({ address, className }: { address?: string; className?
     (async () => {
       try {
         setLoading(true);
-        // 직접 추천인수: referrals 컬렉션 기준 (Profile 팀 퍼포먼스와 동일한 소스)
-        const directReferrals = await getReferralsByReferrer(address.toLowerCase());
-        setDirectCount(directReferrals.length);
+        // 직접 추천인수: users 컬렉션 referrerWallet 기준 (Profile 팀 퍼포먼스와 동일한 소스)
+        const directUsers = await getUsersByReferrer(address.toLowerCase());
+        setDirectCount(directUsers.length);
 
         // 전체 하위 수 계산 (users 컬렉션 referrerWallet 기준 - depth-first)
-        let total = directReferrals.length;
-        for (const r of directReferrals) {
-          total += await countAll(r.referredWallet.toLowerCase(), new Set([address.toLowerCase()]));
+        let total = directUsers.length;
+        for (const u of directUsers) {
+          total += await countAll(u.walletAddress.toLowerCase(), new Set([address.toLowerCase()]));
         }
         setTotalCount(total);
       } catch (e) {

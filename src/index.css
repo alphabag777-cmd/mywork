@@ -183,3 +183,28 @@
     padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* ── 구글 번역 완전 차단 CSS ────────────────────────────────────────
+   Chrome Android 자동번역이 <font> 태그를 삽입하여
+   React DOM removeChild 에러를 유발하는 것을 차단 */
+.goog-te-banner-frame,
+.goog-te-ftab-frame,
+#goog-gt-tt,
+.goog-te-balloon-frame,
+div#goog-gt-,
+.goog-te-spinner-pos,
+.skiptranslate,
+iframe.skiptranslate {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* Chrome 번역 시 삽입되는 font 태그를 투명하게 (display:inline 유지로 레이아웃 파괴 방지) */
+body > .notranslate font,
+#root font[style] {
+  display: inline !important;
+}
+
+body {
+  top: 0 !important;
+}

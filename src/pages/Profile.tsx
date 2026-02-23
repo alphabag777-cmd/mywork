@@ -35,7 +35,7 @@ import {
 import { generateReferralLink, getReferrerWallet, getOrCreateReferralCode } from "@/lib/referral";
 import { getUserInvestments } from "@/lib/userInvestments";
 import { getActiveUserStakes } from "@/lib/userStakes";
-import { getReferralsByReferrer } from "@/lib/referrals";
+import { getUsersByReferrer } from "@/lib/users";
 import { getReferralActivitiesByReferrer, ReferralActivity } from "@/lib/referralActivities";
 import { updateNodeReferralCode } from "@/lib/userReferralCodes";
 import { useProfileData } from "@/hooks/useProfileData";
@@ -272,11 +272,11 @@ const ProfilePage = ({
     setIsLoadingTeam(true);
     try {
       const norm = address.toLowerCase();
-      const [referrals, activities] = await Promise.all([
-        getReferralsByReferrer(norm),
+      const [directUsers, activities] = await Promise.all([
+        getUsersByReferrer(norm),
         getReferralActivitiesByReferrer(norm),
       ]);
-      const users = referrals.map(r => ({ wallet: r.referredWallet, joinedAt: r.createdAt }));
+      const users = directUsers.map(u => ({ wallet: u.walletAddress, joinedAt: u.createdAt }));
       setReferredUsers(users);
       setReferralActivities(activities);
       const invResults = await Promise.all(users.map(u => getUserInvestments(u.wallet).catch(() => [])));
