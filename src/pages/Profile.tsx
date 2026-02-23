@@ -38,20 +38,13 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import { format } from "date-fns";
-import {
-  useUSDTToken,
-  useUSDTDecimals,
-  useTokenBalance,
-  // useUserInvestment, useUserVolume, useSeparateInvestment 제거 (모바일 크래시 원인)
-} from "@/hooks/useInvestment";
+// useUSDTToken, useUSDTDecimals, useTokenBalance, useUserInvestment, useUserVolume,
+// useSeparateInvestment 완전 제거 — 모바일 wagmi contract-read 훅 크래시 원인
 import { formatUnits } from "viem";
 import { updateNodeReferralCode } from "@/lib/userReferralCodes";
 import { useProfileData } from "@/hooks/useProfileData";
 import type { UserNode } from "@/hooks/useProfileData";
 import type { USDTTransfer } from "@/lib/walletTransfers";
-import ReferralShare from "@/components/ReferralShare";
-import PlanSelector from "@/components/PlanSelector";
-import ReferralDashboard from "@/components/ReferralDashboard";
 import { InvestmentCertificateButton } from "@/components/InvestmentCertificate";
 import { getReferralsByReferrer } from "@/lib/referrals";
 import { getReferralActivitiesByReferrer, ReferralActivity } from "@/lib/referralActivities";
@@ -514,12 +507,10 @@ const Profile = () => {
   const [editingCode, setEditingCode] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // ── Contract reads ──
-  const usdtToken = useUSDTToken();
-  const decimals = useUSDTDecimals(usdtToken);
-  const tokenBalance = useTokenBalance(usdtToken);
-  // ✅ useSeparateInvestment 제거 (fromBlock:0 전체 로그 조회 → 모바일 크래시 원인)
-  // ✅ useUserInvestment/useUserVolume 제거 (Firebase 데이터로 대체)
+  // ── Contract reads (모바일 크래시 방지: 모든 wagmi contract-read 훅 제거) ──
+  // useUSDTToken/useUSDTDecimals/useTokenBalance/useSeparateInvestment 완전 제거
+  const decimals = 18; // USDT 고정 decimals
+  const tokenBalance: bigint | null = null; // 지갑 잔액은 wagmi 제거로 null 처리
 
   // ── All Firebase / heavy data via custom hook ──
   const {
