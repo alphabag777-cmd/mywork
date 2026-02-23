@@ -69,6 +69,7 @@ const queryClient = new QueryClient({
 });
 
 const App = () => (
+  <div translate="no" className="notranslate">
   <ErrorBoundary>
     <BrowserRouter>
       <LanguageProvider>
@@ -142,6 +143,7 @@ const App = () => (
       </LanguageProvider>
     </BrowserRouter>
   </ErrorBoundary>
+  </div>
 );
 
 export default App;
