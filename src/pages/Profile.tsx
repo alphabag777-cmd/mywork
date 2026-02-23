@@ -731,67 +731,6 @@ const Profile = () => {
           {/* ── 레퍼럴 공유 섹션 (선택된 상품 포함) ── */}
           <ReferralShare />
 
-          {/* Referral Link Section */}
-          <Card className="mb-8 border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Share2 className="w-5 h-5 text-primary" />
-                My Referral Link
-              </CardTitle>
-              <CardDescription>Share your referral link to invite others</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {/* Referral Link */}
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-foreground">Referral Link</p>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 p-3 bg-background/50 rounded-lg border border-border/50 font-mono text-sm break-all">
-                      {referralLink || "Loading..."}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleCopy(referralLink, "referral-link")}
-                      disabled={!referralLink}
-                      className="shrink-0 h-10 w-10"
-                    >
-                      {copied["referral-link"] ? (
-                        <Check className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Referral Code */}
-                {referralCode && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-foreground">Referral Code</p>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 p-3 bg-background/50 rounded-lg border border-border/50 font-mono text-sm">
-                        {referralCode}
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleCopy(referralCode, "referral-code")}
-                        className="shrink-0 h-10 w-10"
-                      >
-                        {copied["referral-code"] ? (
-                          <Check className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Community Groups */}
           <Card className="mb-8 border-border/50">
             <CardHeader>
@@ -1080,88 +1019,17 @@ const Profile = () => {
             </Card>
           )}
 
-          {/* Overall Team Performance */}
-          <Card className="p-4 sm:p-6 mb-8">
-            <div className="flex items-center justify-between mb-4 sm:mb-6">
-              <h2 className="text-lg sm:text-xl font-semibold text-foreground">
-                {t.community.overallTeamPerformance}
-              </h2>
-              <Button variant="outline" size="icon" onClick={loadTeamData} disabled={isLoadingTeam}
-                className="shrink-0 h-8 w-8 sm:h-9 sm:w-9">
-                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingTeam ? "animate-spin" : ""}`} />
-              </Button>
-            </div>
-            <div className="space-y-3">
-              {[
-                { label: t.community.marketLevel,          value: teamPerformance.marketLevel },
-                { label: t.community.teamNode,             value: String(teamPerformance.teamNode) },
-                { label: t.community.personalPerformance,  value: `$${teamPerformance.personalPerformance.toFixed(2)}` },
-                { label: t.community.regionalPerformance,  value: `$${teamPerformance.regionalPerformance.toFixed(2)}` },
-                { label: `${t.community.communityPerformance} / ${t.community.thirtySky}`,
-                  value: `$${teamPerformance.communityPerformance.toFixed(2)} / $${teamPerformance.thirtySky.toFixed(2)}` },
-                { label: t.community.totalTeamPerformance, value: `$${teamPerformance.totalTeamPerformance.toFixed(2)}` },
-                { label: t.community.totalTeamMembers,     value: String(teamPerformance.totalTeamMembers) },
-              ].map(({ label, value }) => (
-                <div key={label} className="flex justify-between items-center py-2 border-b border-border/50 last:border-0">
-                  <span className="text-muted-foreground text-sm">{label}</span>
-                  <span className="text-foreground font-medium text-sm">{value}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* My Share (직접 추천 목록) */}
-          <Card className="p-4 sm:p-6 mb-8">
-            <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-4 sm:mb-6">
-              {t.community.myShare}
-            </h2>
-            {directReferrals.length === 0 ? (
-              <div className="text-center py-10">
-                <Share2 className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-40" />
-                <p className="text-muted-foreground">{t.community.noDirectReferrals}</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {directReferrals.map((referral, index) => (
-                  <div key={index} className="border border-border rounded-lg p-3 sm:p-4 space-y-3">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
-                      <span className="text-foreground font-medium font-mono text-xs sm:text-sm">
-                        {formatAddress(referral.address)}
-                      </span>
-                      <span className="text-muted-foreground text-xs sm:text-sm">{referral.level}</span>
-                    </div>
-                    <div className="space-y-2 pl-4 border-l-2 border-border/50">
-                      {[
-                        { label: t.community.numberOfDirectPush, value: `${referral.directPush.current}/${referral.directPush.required}` },
-                        { label: t.community.personalPerformance, value: `$${referral.personalPerformance.toFixed(2)}` },
-                        { label: `${t.community.communityPerformance} / ${t.community.thirtySky}`,
-                          value: `$${referral.communityPerformance.toFixed(2)} / $${referral.thirtySky.toFixed(2)}` },
-                        { label: t.community.totalTeamPerformance, value: `$${referral.totalTeamPerformance.toFixed(2)}` },
-                        { label: t.community.totalNumberOfTeamMembers, value: String(referral.totalTeamMembers) },
-                      ].map(({ label, value }) => (
-                        <div key={label} className="flex justify-between items-center">
-                          <span className="text-muted-foreground text-sm">{label}</span>
-                          <span className="text-foreground font-medium text-sm">{value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-
-          {/* Referred Users */}
+          {/* ── 전체 팀 성과 + 내 공유 (통합) ── */}
           <Card className="mb-8 border-border/50">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
-                    <Share2 className="w-5 h-5 text-primary" />
-                    My Referred Users
+                    <Users className="w-5 h-5 text-primary" />
+                    {t.community.overallTeamPerformance}
                   </CardTitle>
                   <CardDescription>
-                    Users who joined using your referral link ({referredUsers.length})
+                    {t.community.myShare} · {referredUsers.length}{t.community.totalTeamMembers ? ` ${t.community.totalTeamMembers}` : "명"}
                   </CardDescription>
                 </div>
                 <Button variant="outline" size="icon" onClick={loadTeamData} disabled={isLoadingTeam}
@@ -1170,7 +1038,30 @@ const Profile = () => {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
+              {/* ── 팀 성과 요약 ── */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { label: t.community.marketLevel,         value: teamPerformance.marketLevel },
+                  { label: t.community.teamNode,            value: String(teamPerformance.teamNode) },
+                  { label: t.community.personalPerformance, value: `$${teamPerformance.personalPerformance.toFixed(2)}` },
+                  { label: t.community.regionalPerformance, value: `$${teamPerformance.regionalPerformance.toFixed(2)}` },
+                  { label: `${t.community.communityPerformance} / 30sky`,
+                    value: `$${teamPerformance.communityPerformance.toFixed(2)} / $${teamPerformance.thirtySky.toFixed(2)}` },
+                  { label: t.community.totalTeamPerformance, value: `$${teamPerformance.totalTeamPerformance.toFixed(2)}` },
+                ].map(({ label, value }) => (
+                  <div key={label} className="rounded-lg border border-border/40 bg-muted/20 px-3 py-2">
+                    <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
+                    <p className="text-sm font-semibold text-foreground">{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── 직접 추천 멤버 목록 ── */}
+              <div>
+                <p className="text-sm font-semibold text-muted-foreground mb-3">
+                  {t.community.myShare} ({referredUsers.length})
+                </p>
               {isLoadingTeam ? (
                 <div className="text-center py-8">
                   <RefreshCw className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-50 animate-spin" />
@@ -1181,6 +1072,9 @@ const Profile = () => {
                   {referredUsers.map((user, index) => {
                     const userActivities = referralActivities.filter(
                       (a) => a.referredWallet.toLowerCase() === user.wallet.toLowerCase()
+                    );
+                    const perfData = directReferrals.find(
+                      (r) => r.address.toLowerCase() === user.wallet.toLowerCase()
                     );
                     return (
                       <div key={index} className="card-metallic rounded-xl p-4 border-2 border-border/50">
@@ -1193,6 +1087,7 @@ const Profile = () => {
                               <p className="font-mono text-sm text-foreground truncate">{user.wallet}</p>
                               <p className="text-xs text-muted-foreground">
                                 Joined: {new Date(user.joinedAt).toLocaleDateString()}
+                                {perfData && <span className="ml-2 text-primary font-medium">{perfData.level}</span>}
                               </p>
                             </div>
                           </div>
@@ -1203,6 +1098,27 @@ const Profile = () => {
                               : <Copy className="w-3 h-3 sm:w-4 sm:h-4" />}
                           </Button>
                         </div>
+                        {/* 성과 데이터 */}
+                        {perfData && (
+                          <div className="mt-2 mb-3 grid grid-cols-2 gap-1.5 text-xs pl-3 border-l-2 border-primary/30">
+                            <div className="flex justify-between gap-1">
+                              <span className="text-muted-foreground">{t.community.numberOfDirectPush}</span>
+                              <span className="font-medium">{perfData.directPush.current}/{perfData.directPush.required}</span>
+                            </div>
+                            <div className="flex justify-between gap-1">
+                              <span className="text-muted-foreground">{t.community.personalPerformance}</span>
+                              <span className="font-medium">${perfData.personalPerformance.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between gap-1">
+                              <span className="text-muted-foreground">{t.community.communityPerformance} / 30sky</span>
+                              <span className="font-medium">${perfData.communityPerformance.toFixed(2)} / ${perfData.thirtySky.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between gap-1">
+                              <span className="text-muted-foreground">{t.community.totalTeamPerformance}</span>
+                              <span className="font-medium">${perfData.totalTeamPerformance.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        )}
                         {userActivities.length > 0 ? (
                           <div className="mt-3 pt-3 border-t border-border/30 space-y-2">
                             <p className="text-xs font-semibold text-muted-foreground mb-2">Activities:</p>
@@ -1242,6 +1158,7 @@ const Profile = () => {
                   <p className="text-sm text-muted-foreground mt-2">Share your referral link to invite others</p>
                 </div>
               )}
+              </div>
             </CardContent>
           </Card>
 
