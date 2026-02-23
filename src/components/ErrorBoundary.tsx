@@ -7,6 +7,11 @@ interface Props {
   children: ReactNode;
   /** Custom fallback UI. Receives the error and a reset callback. */
   fallback?: (error: Error, reset: () => void) => ReactNode;
+  /**
+   * If true, render the error card inline (no min-h-screen overlay).
+   * Useful for per-section boundaries inside a page.
+   */
+  inline?: boolean;
 }
 
 interface State {
@@ -42,63 +47,63 @@ export class ErrorBoundary extends Component<Props, State> {
       return this.props.fallback(this.state.error, this.handleReset);
     }
 
-    // 에러 메시지 — 프로덕션에서도 표시 (디버깅용)
     const shortStack = this.state.error.stack
       ?.split("\n")
       .slice(0, 5)
       .join("\n") || "";
 
-    // componentStack에서 첫 번째 컴포넌트 추출
     const compLine = this.state.componentStack
       ?.split("\n")
       .find((l) => l.trim().startsWith("at ") && !l.includes("ErrorBoundary")) || "";
 
+    const card = (
+      <Card className="max-w-lg w-full border-destructive/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="w-5 h-5" />
+            오류가 발생했습니다
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            페이지를 새로고침하거나 아래 다시 시도를 눌러주세요.
+          </p>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-destructive">
+              오류: {this.state.error.message}
+            </p>
+            {compLine && (
+              <p className="text-xs text-muted-foreground break-all">
+                위치: {compLine.trim()}
+              </p>
+            )}
+            <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-48 text-destructive whitespace-pre-wrap break-all">
+              {shortStack}
+              {this.state.componentStack
+                ? "\n\n--- Component Stack ---\n" +
+                  this.state.componentStack.split("\n").slice(0, 8).join("\n")
+                : ""}
+            </pre>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={this.handleReset} variant="outline" className="flex-1">
+              다시 시도
+            </Button>
+            <Button onClick={() => window.location.reload()} className="flex-1">
+              새로 고침
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+
+    if (this.props.inline) {
+      return <div className="w-full p-4">{card}</div>;
+    }
+
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-lg w-full border-destructive/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="w-5 h-5" />
-              오류가 발생했습니다
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              페이지를 새로고침하거나 아래 Try Again을 눌러주세요.
-            </p>
-
-            {/* 에러 상세 — 항상 표시 */}
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-destructive">
-                오류: {this.state.error.message}
-              </p>
-              {compLine && (
-                <p className="text-xs text-muted-foreground break-all">
-                  위치: {compLine.trim()}
-                </p>
-              )}
-              <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-48 text-destructive whitespace-pre-wrap break-all">
-                {shortStack}
-                {this.state.componentStack
-                  ? "\n\n--- Component Stack ---\n" +
-                    this.state.componentStack
-                      .split("\n")
-                      .slice(0, 8)
-                      .join("\n")
-                  : ""}
-              </pre>
-            </div>
-
-            <div className="flex gap-2">
-              <Button onClick={this.handleReset} variant="outline" className="flex-1">
-                Try Again
-              </Button>
-              <Button onClick={() => window.location.reload()} className="flex-1">
-                Refresh
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {card}
       </div>
     );
   }

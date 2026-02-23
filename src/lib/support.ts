@@ -8,10 +8,12 @@ import {
   query,
   where,
   orderBy,
+  onSnapshot,
   Timestamp,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "./firebase";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { db, storage } from "./firebase";
 
 export interface TicketReply {
   sender: "user" | "admin";
@@ -29,6 +31,7 @@ export interface Ticket {
   createdAt: number;
   updatedAt: number;
   replies: TicketReply[];
+  attachmentUrls?: string[]; // Optional screenshot/file URLs
 }
 
 const TICKETS_COLLECTION = "support_tickets";
@@ -54,6 +57,7 @@ function fromFirestore(docData: any, id: string): Ticket {
       ...r,
       timestamp: timestampToNumber(r.timestamp),
     })),
+    attachmentUrls: docData.attachmentUrls || [],
   };
 }
 
@@ -99,6 +103,33 @@ export async function createTicket(
     console.error("Error creating ticket:", error);
     throw error;
   }
+}
+
+/**
+ * Upload an attachment file to Firebase Storage and return download URL
+ */
+export async function uploadTicketAttachment(
+  ticketId: string,
+  file: File,
+  onProgress?: (pct: number) => void
+): Promise<string> {
+  const filePath = `support_attachments/${ticketId}/${Date.now()}_${file.name}`;
+  const storageRef = ref(storage, filePath);
+  return new Promise((resolve, reject) => {
+    const task = uploadBytesResumable(storageRef, file);
+    task.on(
+      "state_changed",
+      (snap) => {
+        const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+        onProgress?.(pct);
+      },
+      reject,
+      async () => {
+        const url = await getDownloadURL(task.snapshot.ref);
+        resolve(url);
+      }
+    );
+  });
 }
 
 /**
@@ -188,4 +219,31 @@ export async function closeTicket(ticketId: string): Promise<void> {
     console.error("Error closing ticket:", error);
     throw error;
   }
+}
+
+/**
+ * Subscribe to all tickets in real-time (admin)
+ * Returns unsubscribe function
+ */
+export function subscribeAllTickets(callback: (tickets: Ticket[]) => void): () => void {
+  const q = query(
+    collection(db, TICKETS_COLLECTION),
+    orderBy("updatedAt", "desc")
+  );
+  return onSnapshot(q, (snapshot) => {
+    const tickets = snapshot.docs.map((d) => fromFirestore(d.data(), d.id));
+    callback(tickets);
+  }, (error) => {
+    console.error("Error subscribing to tickets:", error);
+  });
+}
+
+/**
+ * Subscribe to a single ticket in real-time
+ */
+export function subscribeTicket(ticketId: string, callback: (ticket: Ticket | null) => void): () => void {
+  const ticketRef = doc(db, TICKETS_COLLECTION, ticketId);
+  return onSnapshot(ticketRef, (snap) => {
+    callback(snap.exists() ? fromFirestore(snap.data(), snap.id) : null);
+  });
 }

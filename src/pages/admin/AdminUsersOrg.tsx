@@ -1,9 +1,10 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Share2, GitGraph, Building2 } from "lucide-react";
+import { Users, Share2, GitGraph, Building2, Bell } from "lucide-react";
 import { AdminUsers } from "./AdminUsers";
 import { AdminReferred } from "./AdminReferred";
 import AdminOrganization from "./AdminOrganization";
 import AdminCompanyApplications from "./AdminCompanyApplications";
+import AdminNotify from "./AdminNotify";
 
 const AdminUsersOrg = () => {
   return (
@@ -26,6 +27,9 @@ const AdminUsersOrg = () => {
           <TabsTrigger value="applications" className="flex items-center gap-1.5">
             <Building2 className="w-4 h-4" /> Applications
           </TabsTrigger>
+          <TabsTrigger value="notify" className="flex items-center gap-1.5">
+            <Bell className="w-4 h-4" /> Notify
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="users">
           <AdminUsers />
@@ -39,9 +43,13 @@ const AdminUsersOrg = () => {
         <TabsContent value="applications">
           <AdminCompanyApplications />
         </TabsContent>
+        <TabsContent value="notify">
+          <AdminNotify />
+        </TabsContent>
       </Tabs>
     </div>
   );
 };
 
 export default AdminUsersOrg;
+

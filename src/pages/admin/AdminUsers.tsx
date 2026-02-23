@@ -263,14 +263,16 @@ export const AdminUsers = () => {
   };
 
   const handleSearch = async () => {
-    // Reset pagination when searching
-    setCurrentPage(0);
-    setPageHistory([]);
+    // Reset pagination when searching — MUST reset before setting activeSearchParams
+    // so that the loadUsers useCallback picks up fresh state
     const searchParams = {
       walletAddress: searchWalletAddress.trim() || undefined,
       referralCode: searchReferralCode.trim() || undefined,
       referrer: searchReferrer.trim() || undefined,
     };
+    setCurrentPage(0);
+    setPageHistory([]);
+    setLastDoc(null);
     setActiveSearchParams(searchParams);
     
     // Load users with search
@@ -313,6 +315,7 @@ export const AdminUsers = () => {
     setActiveSearchParams(null);
     setCurrentPage(0);
     setPageHistory([]);
+    setLastDoc(null);
     
     // Load users without search
     setLoading(true);

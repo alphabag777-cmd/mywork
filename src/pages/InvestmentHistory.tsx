@@ -11,10 +11,10 @@ import {
 } from "@/components/ui/select";
 import {
   History, Download, RefreshCw, Search, Filter, ExternalLink, Wallet,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, CalendarRange, X,
 } from "lucide-react";
 import { getUserInvestments, UserInvestment } from "@/lib/userInvestments";
-import { format, subDays, isAfter } from "date-fns";
+import { format, subDays, isAfter, isBefore, parseISO, startOfDay, endOfDay } from "date-fns";
 
 // ─── Timestamp 안전 변환 (Firestore Timestamp / number / string / Date 모두 처리) ─
 function toSafeDate(val: any): Date | null {
@@ -89,6 +89,9 @@ const InvestmentHistory = () => {
   const [searchQuery, setSearchQuery]     = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [periodFilter, setPeriodFilter]   = useState<PeriodFilter>("all");
+  // Custom date range
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo,   setCustomTo]   = useState("");
   const [page, setPage]                   = useState(1);
 
   const load = useCallback(async () => {
@@ -108,7 +111,7 @@ const InvestmentHistory = () => {
   useEffect(() => { load(); }, [load]);
 
   // 필터가 바뀌면 첫 페이지로
-  useEffect(() => { setPage(1); }, [searchQuery, categoryFilter, periodFilter]);
+  useEffect(() => { setPage(1); }, [searchQuery, categoryFilter, periodFilter, customFrom, customTo]);
 
   const filtered = useMemo(() => {
     let result = [...investments];
@@ -119,6 +122,22 @@ const InvestmentHistory = () => {
       result = result.filter((inv) => {
         const d = toSafeDate(inv.investedAt);
         return d ? isAfter(d, cutoff) : false;
+      });
+    }
+
+    // Custom date range filter
+    if (customFrom) {
+      const from = startOfDay(parseISO(customFrom));
+      result = result.filter((inv) => {
+        const d = toSafeDate(inv.investedAt);
+        return d ? !isBefore(d, from) : false;
+      });
+    }
+    if (customTo) {
+      const to = endOfDay(parseISO(customTo));
+      result = result.filter((inv) => {
+        const d = toSafeDate(inv.investedAt);
+        return d ? !isAfter(d, to) : false;
       });
     }
 
@@ -137,7 +156,7 @@ const InvestmentHistory = () => {
     }
 
     return result;
-  }, [investments, periodFilter, categoryFilter, searchQuery]);
+  }, [investments, periodFilter, categoryFilter, searchQuery, customFrom, customTo]);
 
   const totalFiltered   = filtered.reduce((s, i) => s + (i.amount || 0), 0);
   const totalPages      = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -211,7 +230,7 @@ const InvestmentHistory = () => {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={periodFilter} onValueChange={(v) => setPeriodFilter(v as PeriodFilter)}>
+              <Select value={periodFilter} onValueChange={(v) => { setPeriodFilter(v as PeriodFilter); setCustomFrom(""); setCustomTo(""); }}>
                 <SelectTrigger className="w-44">
                   <SelectValue />
                 </SelectTrigger>
@@ -221,6 +240,33 @@ const InvestmentHistory = () => {
                   ))}
                 </SelectContent>
               </Select>
+              {/* Custom date range */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <CalendarRange className="w-4 h-4 text-muted-foreground shrink-0" />
+                <Input
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => { setCustomFrom(e.target.value); setPeriodFilter("all"); }}
+                  className="w-36 h-9 text-xs"
+                  placeholder="From"
+                />
+                <span className="text-muted-foreground text-xs">–</span>
+                <Input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => { setCustomTo(e.target.value); setPeriodFilter("all"); }}
+                  className="w-36 h-9 text-xs"
+                  placeholder="To"
+                />
+                {(customFrom || customTo) && (
+                  <Button
+                    variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
+                    onClick={() => { setCustomFrom(""); setCustomTo(""); }}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

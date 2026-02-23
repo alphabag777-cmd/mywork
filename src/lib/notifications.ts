@@ -10,7 +10,8 @@ import {
   doc,
   serverTimestamp,
   Timestamp,
-  onSnapshot
+  onSnapshot,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -84,5 +85,59 @@ export async function createNotification(
     });
   } catch (error) {
     console.error("Error creating notification:", error);
+  }
+}
+
+/**
+ * Send a broadcast notification to ALL users
+ * (Admin use only — writes one doc per user)
+ */
+export async function sendBroadcastNotification(
+  userIds: string[],
+  type: Notification["type"],
+  title: string,
+  message: string,
+  link?: string
+) {
+  const BATCH_LIMIT = 500; // Firestore batch write limit
+  for (let i = 0; i < userIds.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    const chunk = userIds.slice(i, i + BATCH_LIMIT);
+    for (const userId of chunk) {
+      const ref = doc(collection(db, COLLECTION_NAME));
+      batch.set(ref, {
+        userId: userId.toLowerCase(),
+        type,
+        title,
+        message,
+        isRead: false,
+        createdAt: serverTimestamp(),
+        link: link ?? null,
+      });
+    }
+    await batch.commit();
+  }
+}
+
+/**
+ * Get recent notifications sent by admin (for history display)
+ */
+export async function getAdminSentNotifications(limitCount = 20) {
+  try {
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where("type", "==", "system_notice"),
+      orderBy("createdAt", "desc"),
+      limit(limitCount)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({
+      id: d.id,
+      ...d.data(),
+      createdAt: d.data().createdAt?.toMillis?.() || Date.now(),
+    })) as Notification[];
+  } catch (error) {
+    console.error("Error fetching admin notifications:", error);
+    return [];
   }
 }

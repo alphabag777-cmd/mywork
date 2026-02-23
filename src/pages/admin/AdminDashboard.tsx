@@ -98,13 +98,20 @@ export const AdminDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Real-time overview of platform performance</p>
+      {/* Header row with refresh */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-display font-semibold">Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Real-time overview of platform performance</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={refresh} disabled={loading} className="gap-2">
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card className="border-l-4 border-l-primary shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Sales Volume</CardTitle>
@@ -148,6 +155,23 @@ export const AdminDashboard = () => {
               {stats.totalUsers > 0 ? ((stats.activeUsers / stats.totalUsers) * 100).toFixed(1) : 0}%
             </div>
             <p className="text-xs text-muted-foreground">Users with investment</p>
+          </CardContent>
+        </Card>
+
+        {/* Open Tickets KPI (real-time) */}
+        <Card className={`border-l-4 shadow-sm ${openTickets > 0 ? "border-l-red-500" : "border-l-emerald-500"}`}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Open Tickets</CardTitle>
+            <MessageSquare className={`w-4 h-4 ${openTickets > 0 ? "text-red-500" : "text-muted-foreground"}`} />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold flex items-center gap-2 ${openTickets > 0 ? "text-red-500" : ""}`}>
+              {openTickets}
+              {openTickets > 0 && (
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse inline-block" />
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">Awaiting admin reply</p>
           </CardContent>
         </Card>
       </div>
@@ -239,9 +263,16 @@ export const AdminDashboard = () => {
                       {index + 1}
                     </div>
                     <div className="space-y-1 flex-1 min-w-0">
-                      <p className="text-sm font-medium leading-none truncate" title={user.wallet}>
-                        {user.wallet}
-                      </p>
+                      <a
+                        href={`https://bscscan.com/address/${user.wallet}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium leading-none flex items-center gap-1 hover:text-primary hover:underline transition-colors"
+                        title={user.wallet}
+                      >
+                        {formatAddress(user.wallet)}
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                      </a>
                       <p className="text-xs text-muted-foreground">{user.referralCount} Direct Referrals</p>
                     </div>
                     <div className="font-bold">${user.totalInvestment.toLocaleString()}</div>

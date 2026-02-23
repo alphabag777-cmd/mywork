@@ -9,8 +9,8 @@ import {
   TrendingUp, DollarSign, Wallet, RefreshCw, BarChart3, PieChart,
   AlertCircle,
 } from "lucide-react";
-import { getUserInvestments } from "@/lib/userInvestments";
-import { getActiveUserStakes } from "@/lib/userStakes";
+import { getUserInvestments, UserInvestment } from "@/lib/userInvestments";
+import { getActiveUserStakes, UserStake } from "@/lib/userStakes";
 import { formatUnits } from "viem";
 import { PieChart as RechartsPie, Pie, Cell, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { format } from "date-fns";
@@ -24,8 +24,8 @@ const COLORS = {
 
 const Earnings = () => {
   const { address, isConnected } = useAccount();
-  const [investments, setInvestments] = useState<any[]>([]);
-  const [stakes, setStakes] = useState<any[]>([]);
+  const [investments, setInvestments] = useState<UserInvestment[]>([]);
+  const [stakes, setStakes] = useState<UserStake[]>([]);
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
@@ -64,6 +64,18 @@ const Earnings = () => {
       return s + (p * st.dailyRateBps) / 10000;
     } catch { return s; }
   }, 0);
+
+  // ── Sort investments ──────────────────────────────────────────────────────────
+  const sortedInvestments = useMemo(() => {
+    const arr = [...investments];
+    switch (sortBy) {
+      case "date_desc":   return arr.sort((a, b) => (b.investedAt || 0) - (a.investedAt || 0));
+      case "date_asc":    return arr.sort((a, b) => (a.investedAt || 0) - (b.investedAt || 0));
+      case "amount_desc": return arr.sort((a, b) => (b.amount || 0) - (a.amount || 0));
+      case "amount_asc":  return arr.sort((a, b) => (a.amount || 0) - (b.amount || 0));
+      default: return arr;
+    }
+  }, [investments, sortBy]);
 
   // ── Category breakdown for pie chart ─────────────────────────────────────────
   const categoryMap: Record<string, number> = {};
@@ -211,8 +223,24 @@ const Earnings = () => {
         {/* Investment List */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Investment Details</CardTitle>
-            <CardDescription>{investments.length} total investments</CardDescription>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <CardTitle className="text-base">Investment Details</CardTitle>
+                <CardDescription>{investments.length} total investments</CardDescription>
+              </div>
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+                <SelectTrigger className="w-44 h-8 text-xs">
+                  <ArrowUpDown className="w-3 h-3 mr-1" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date_desc">Newest First</SelectItem>
+                  <SelectItem value="date_asc">Oldest First</SelectItem>
+                  <SelectItem value="amount_desc">Highest Amount</SelectItem>
+                  <SelectItem value="amount_asc">Lowest Amount</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -228,7 +256,7 @@ const Earnings = () => {
               </div>
             ) : (
               <div className="space-y-3">
-                {investments.map((inv) => (
+                {sortedInvestments.map((inv) => (
                   <div key={inv.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border/50">
                     <div className="flex items-center gap-3">
                       <Badge variant="outline" className="text-xs font-mono">{inv.category}</Badge>
@@ -237,12 +265,22 @@ const Earnings = () => {
                         <p className="text-xs text-muted-foreground">{format(new Date(inv.investedAt), "yyyy-MM-dd")}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold">${(inv.amount || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
-                      {inv.profit !== undefined && (
-                        <p className={`text-xs font-medium ${inv.profit >= 0 ? "text-green-500" : "text-red-500"}`}>
-                          {inv.profit >= 0 ? "+" : ""}{inv.profit.toFixed(2)} P/L
-                        </p>
+                    <div className="text-right flex items-center gap-2">
+                      <div>
+                        <p className="text-sm font-semibold">${(inv.amount || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                        {inv.profit !== undefined && (
+                          <p className={`text-xs font-medium ${inv.profit >= 0 ? "text-green-500" : "text-red-500"}`}>
+                            {inv.profit >= 0 ? "+" : ""}{inv.profit.toFixed(2)} P/L
+                          </p>
+                        )}
+                      </div>
+                      {address && (
+                        <InvestmentCertificateButton
+                          investorAddress={address}
+                          planName={inv.projectName}
+                          amount={inv.amount || 0}
+                          date={format(new Date(inv.investedAt), "yyyy-MM-dd")}
+                        />
                       )}
                     </div>
                   </div>

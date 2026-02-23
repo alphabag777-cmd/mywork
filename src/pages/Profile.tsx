@@ -24,12 +24,11 @@ import {
   BarChart3,
   PieChart,
   AlertCircle,
-
 } from "lucide-react";
 import { generateReferralLink, getReferrerWallet, getOrCreateReferralCode } from "@/lib/referral";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, Component, ReactNode, ErrorInfo } from "react";
 import { useNavigate } from "react-router-dom";
 import { getUserInvestments } from "@/lib/userInvestments";
 import { getActiveUserStakes } from "@/lib/userStakes";
@@ -67,6 +66,34 @@ const EARNINGS_COLORS: Record<string, string> = {
   CBAG: "#10b981",
   Staking: "#8b5cf6",
 };
+
+// ── Inline error boundary for dangerous sub-components (e.g. react-d3-tree) ──
+class SectionErrorBoundary extends Component<
+  { children: ReactNode; fallback?: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(e: Error, info: ErrorInfo) {
+    console.warn("[SectionErrorBoundary]", e.message, info.componentStack);
+  }
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback ?? (
+        <div className="p-4 text-sm text-muted-foreground text-center border border-border/40 rounded-lg">
+          이 섹션을 불러오는 중 문제가 발생했습니다.{" "}
+          <button
+            className="underline text-primary"
+            onClick={() => this.setState({ hasError: false })}
+          >
+            다시 시도
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helper: wallet transfer sub-card (used for BBAG / SBAG / CBAG)
@@ -679,14 +706,79 @@ const Profile = () => {
       <div className="min-h-screen bg-background">
         <Header />
         <main className="pt-[88px] sm:pt-20 pb-12">
-          <div className="container mx-auto px-4 text-center">
-            <Card className="max-w-md mx-auto mt-12">
-              <CardContent className="pt-6">
-                <Wallet className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-                <h2 className="text-2xl font-bold mb-2">{t.profile.connectWallet}</h2>
-                <p className="text-muted-foreground">{t.profile.connectWalletDescription}</p>
-              </CardContent>
-            </Card>
+          <div className="container mx-auto px-4">
+            {/* Hero intro card when wallet not connected */}
+            <div className="max-w-2xl mx-auto mt-12 space-y-6">
+              {/* Main CTA card */}
+              <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-background to-primary/10 overflow-hidden">
+                <CardContent className="pt-8 pb-8 text-center relative">
+                  {/* Decorative glow */}
+                  <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-primary/10 rounded-full blur-3xl" />
+                  </div>
+                  <div className="relative z-10">
+                    <div className="w-20 h-20 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-5">
+                      <Wallet className="w-10 h-10 text-primary" />
+                    </div>
+                    <h2 className="text-2xl font-display font-bold mb-2">{t.profile.connectWallet}</h2>
+                    <p className="text-muted-foreground mb-6 max-w-sm mx-auto">{t.profile.connectWalletDescription}</p>
+                    {/* Stats teaser */}
+                    <div className="grid grid-cols-3 gap-3 mt-4 mb-6">
+                      {[
+                        { label: "Investments", icon: "💼" },
+                        { label: "Referrals",   icon: "🤝" },
+                        { label: "Earnings",    icon: "💰" },
+                      ].map((item) => (
+                        <div key={item.label} className="bg-muted/40 rounded-lg p-3 text-center">
+                          <div className="text-2xl mb-1">{item.icon}</div>
+                          <div className="text-xs text-muted-foreground font-medium">{item.label}</div>
+                          <div className="text-sm font-bold text-muted-foreground/50 mt-0.5">—</div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Connect your wallet using the button in the top navigation bar.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Feature highlights */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {[
+                  {
+                    icon: "📊",
+                    title: "Investment Dashboard",
+                    desc: "Track all your BBAG & SBAG investments, profits, and portfolio allocation in one place.",
+                  },
+                  {
+                    icon: "🔗",
+                    title: "Referral Network",
+                    desc: "Share your unique referral link and earn rewards from your growing team.",
+                  },
+                  {
+                    icon: "🏆",
+                    title: "Leaderboard",
+                    desc: "See how you rank among top investors and referrers in the community.",
+                  },
+                  {
+                    icon: "🔐",
+                    title: "Account Settings",
+                    desc: "Manage your profile, update your username, and secure your account.",
+                  },
+                ].map((feat) => (
+                  <Card key={feat.title} className="border-border/50 hover:border-primary/30 transition-colors">
+                    <CardContent className="pt-5 pb-4 flex gap-3">
+                      <span className="text-2xl shrink-0">{feat.icon}</span>
+                      <div>
+                        <p className="font-semibold text-sm mb-0.5">{feat.title}</p>
+                        <p className="text-xs text-muted-foreground">{feat.desc}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
           </div>
         </main>
       </div>
@@ -723,10 +815,14 @@ const Profile = () => {
           </div>
 
           {/* ── 투자상품 선택 섹션 (독립 컴포넌트) ── */}
-          <PlanSelector />
+          <SectionErrorBoundary>
+            <PlanSelector />
+          </SectionErrorBoundary>
 
           {/* ── 추천 보상 현황판 ── */}
-          <ReferralDashboard />
+          <SectionErrorBoundary>
+            <ReferralDashboard />
+          </SectionErrorBoundary>
 
           {/* ── 레퍼럴 공유 섹션 (선택된 상품 포함) ── */}
           <ReferralShare />
@@ -1005,7 +1101,9 @@ const Profile = () => {
 
           {/* 추천인 현황 카드 (조직도 트리는 어드민 전용) */}
           <div className="mb-8">
-            <OrgChart viewAs="user" />          
+            <SectionErrorBoundary>
+              <OrgChart viewAs="user" />
+            </SectionErrorBoundary>
           </div>
 
           {/* ── 전체 팀 성과 + 내 공유 (통합) ── */}

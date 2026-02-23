@@ -12,10 +12,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, MessageSquare, ArrowLeft, Send } from "lucide-react";
+import { Loader2, Plus, MessageSquare, ArrowLeft, Send, Paperclip, X, Image } from "lucide-react";
 import { toast } from "sonner";
-import { Ticket, getUserTickets, createTicket, addReply } from "@/lib/support";
+import { Ticket, getUserTickets, createTicket, addReply, uploadTicketAttachment } from "@/lib/support";
 import { format } from "date-fns";
+import { useRef } from "react";
 
 export default function Support() {
   const { address } = useAccount();
@@ -31,6 +32,11 @@ export default function Support() {
     priority: "medium",
     message: "",
   });
+
+  // Attachment state
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Reply State
   const [replyMessage, setReplyMessage] = useState("");
@@ -65,21 +71,55 @@ export default function Support() {
 
     setLoading(true);
     try {
-      await createTicket({
+      // Create ticket first to get ticketId
+      const ticketId = await createTicket({
         userId: address.toLowerCase(),
         subject: formData.subject,
         message: formData.message,
         priority: formData.priority as "low" | "medium" | "high",
       });
+
+      // Upload attachments if any
+      if (attachments.length > 0) {
+        const urls: string[] = [];
+        for (const file of attachments) {
+          const url = await uploadTicketAttachment(ticketId, file, (pct) =>
+            setUploadProgress(pct)
+          );
+          urls.push(url);
+        }
+        // Update ticket with attachment URLs via updateDoc (support.ts toFirestore)
+        const { doc, updateDoc } = await import("firebase/firestore");
+        const { db } = await import("@/lib/firebase");
+        await updateDoc(doc(db, "support_tickets", ticketId), { attachmentUrls: urls });
+      }
+
       toast.success("Ticket created successfully");
-      // setShowCreateForm(false); // Removed toggle update
       setFormData({ subject: "", priority: "medium", message: "" });
+      setAttachments([]);
+      setUploadProgress(0);
       loadTickets();
     } catch (error) {
       toast.error("Failed to create ticket");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const valid = files.filter(f => f.size <= 5 * 1024 * 1024); // 5MB limit
+    const oversized = files.length - valid.length;
+    if (oversized > 0) toast.error(`${oversized} file(s) exceed 5 MB limit`);
+    setAttachments(prev => {
+      const combined = [...prev, ...valid];
+      return combined.slice(0, 3); // max 3 files
+    });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeAttachment = (idx: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== idx));
   };
 
   const handleReply = async () => {
@@ -187,6 +227,53 @@ export default function Support() {
                     />
                   </div>
 
+                  {/* File Attachments */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Attachments <span className="text-muted-foreground font-normal">(optional, max 3 × 5MB)</span>
+                    </label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {attachments.map((file, idx) => (
+                        <div key={idx} className="flex items-center gap-1 bg-muted px-2 py-1 rounded text-xs">
+                          <Image className="w-3 h-3 text-muted-foreground" />
+                          <span className="max-w-[120px] truncate">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeAttachment(idx)}
+                            className="ml-1 text-muted-foreground hover:text-destructive"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      {attachments.length < 3 && (
+                        <>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={handleFileSelect}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 h-7 text-xs"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <Paperclip className="w-3 h-3" />
+                            Add image
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                    {uploadProgress > 0 && uploadProgress < 100 && (
+                      <p className="text-xs text-muted-foreground">Uploading… {uploadProgress}%</p>
+                    )}
+                  </div>
+
                   <div className="flex justify-end pt-2">
                     <Button type="submit" disabled={loading}>
                       {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Ticket"}
@@ -266,6 +353,20 @@ export default function Support() {
                 <div className="bg-muted/30 p-4 rounded-lg text-sm whitespace-pre-wrap">
                   {selectedTicket.message}
                 </div>
+                {/* Attachment images */}
+                {selectedTicket.attachmentUrls && selectedTicket.attachmentUrls.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedTicket.attachmentUrls.map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={url}
+                          alt={`attachment-${i + 1}`}
+                          className="h-24 w-auto rounded border border-border object-cover hover:opacity-80 transition-opacity"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Replies */}

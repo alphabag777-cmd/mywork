@@ -1,107 +1,110 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Loader2, ArrowLeft, Send, CheckCircle2, MessageSquare } from "lucide-react";
+import { Loader2, ArrowLeft, Send, CheckCircle2, MessageSquare, Search, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { Ticket, getAllTickets, addReply, closeTicket } from "@/lib/support";
+import {
+  Ticket, addReply, closeTicket,
+  subscribeAllTickets, subscribeTicket,
+} from "@/lib/support";
 import { format } from "date-fns";
 
 export default function AdminSupport() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [filteredTickets, setFilteredTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);          // initial load
+  const [actionLoading, setActionLoading] = useState(false); // reply/close
   const [statusFilter, setStatusFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [replyMessage, setReplyMessage] = useState("");
 
+  const ticketUnsubRef = useRef<(() => void) | null>(null);
+
+  // ── Real-time list subscription ──────────────────────────────────────────────
   useEffect(() => {
-    loadTickets();
+    setLoading(true);
+    const unsub = subscribeAllTickets((data) => {
+      setTickets(data);
+      setLoading(false);
+    });
+    return () => unsub();
   }, []);
 
+  // ── Real-time single ticket subscription when selected ───────────────────────
   useEffect(() => {
-    if (statusFilter === "all") {
-      setFilteredTickets(tickets);
-    } else {
-      setFilteredTickets(tickets.filter(t => t.status === statusFilter));
+    if (ticketUnsubRef.current) {
+      ticketUnsubRef.current();
+      ticketUnsubRef.current = null;
     }
-  }, [statusFilter, tickets]);
+    if (!selectedTicket) return;
 
-  const loadTickets = async () => {
-    setLoading(true);
-    try {
-      const data = await getAllTickets();
-      setTickets(data);
-    } catch (error) {
-      toast.error("Failed to load tickets");
-    } finally {
-      setLoading(false);
+    const unsub = subscribeTicket(selectedTicket.id, (t) => {
+      if (t) setSelectedTicket(t);
+    });
+    ticketUnsubRef.current = unsub;
+    return () => unsub();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTicket?.id]);
+
+  // ── Filter ───────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    let result = tickets;
+    if (statusFilter !== "all") result = result.filter(t => t.status === statusFilter);
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(t =>
+        t.userId.toLowerCase().includes(q) ||
+        t.subject.toLowerCase().includes(q)
+      );
     }
-  };
+    setFilteredTickets(result);
+  }, [statusFilter, searchQuery, tickets]);
 
+  // ── Stats ────────────────────────────────────────────────────────────────────
+  const openCount     = tickets.filter(t => t.status === "open").length;
+  const answeredCount = tickets.filter(t => t.status === "answered").length;
+  const closedCount   = tickets.filter(t => t.status === "closed").length;
+
+  // ── Actions ──────────────────────────────────────────────────────────────────
   const handleReply = async () => {
     if (!selectedTicket || !replyMessage.trim()) return;
-
-    setLoading(true);
+    setActionLoading(true);
     try {
-      await addReply(selectedTicket.id, {
-        sender: "admin",
-        message: replyMessage,
-      });
+      await addReply(selectedTicket.id, { sender: "admin", message: replyMessage });
       setReplyMessage("");
       toast.success("Reply sent");
-      await loadTickets(); // Refresh list
-      
-      // Update selected ticket view
-      const updatedTicket = {
-        ...selectedTicket,
-        status: "answered",
-        replies: [
-          ...selectedTicket.replies,
-          { sender: "admin", message: replyMessage, timestamp: Date.now() } as any
-        ]
-      };
-      setSelectedTicket(updatedTicket as Ticket);
-    } catch (error) {
+    } catch {
       toast.error("Failed to send reply");
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
   const handleCloseTicket = async () => {
     if (!selectedTicket) return;
     if (!confirm("Are you sure you want to close this ticket?")) return;
-
-    setLoading(true);
+    setActionLoading(true);
     try {
       await closeTicket(selectedTicket.id);
       toast.success("Ticket closed");
-      await loadTickets();
-      setSelectedTicket(prev => prev ? ({ ...prev, status: "closed" }) : null);
-    } catch (error) {
+    } catch {
       toast.error("Failed to close ticket");
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
+  // ── Ticket Detail View ───────────────────────────────────────────────────────
   if (selectedTicket) {
     return (
       <div className="space-y-4">
@@ -111,7 +114,7 @@ export default function AdminSupport() {
 
         <div className="grid gap-6 md:grid-cols-3">
           <div className="md:col-span-2 space-y-4">
-            <Card className="h-full flex flex-col">
+            <Card className="flex flex-col">
               <CardHeader className="border-b pb-4">
                 <div className="flex justify-between items-start">
                   <div>
@@ -120,15 +123,20 @@ export default function AdminSupport() {
                       From: <span className="font-mono text-xs bg-muted px-1 rounded">{selectedTicket.userId}</span>
                     </CardDescription>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap justify-end">
                     <Badge variant={selectedTicket.status === "closed" ? "secondary" : "default"}>
                       {selectedTicket.status.toUpperCase()}
                     </Badge>
                     <Badge variant="outline">{selectedTicket.priority}</Badge>
+                    {/* live indicator */}
+                    <span className="flex items-center gap-1 text-xs text-green-500 font-medium">
+                      <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />
+                      Live
+                    </span>
                   </div>
                 </div>
               </CardHeader>
-              
+
               <CardContent className="flex-1 overflow-y-auto pt-6 space-y-6 max-h-[600px]">
                 {/* Original Message */}
                 <div className="flex flex-col gap-2">
@@ -165,7 +173,6 @@ export default function AdminSupport() {
                 ))}
               </CardContent>
 
-              {/* Reply Input */}
               {selectedTicket.status !== "closed" ? (
                 <CardFooter className="border-t pt-4">
                   <div className="flex w-full gap-2">
@@ -174,12 +181,15 @@ export default function AdminSupport() {
                       onChange={(e) => setReplyMessage(e.target.value)}
                       placeholder="Type your reply..."
                       className="min-h-[80px]"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleReply();
+                      }}
                     />
                     <div className="flex flex-col gap-2">
-                      <Button onClick={handleReply} disabled={loading || !replyMessage.trim()} className="flex-1">
-                        <Send className="w-4 h-4" />
+                      <Button onClick={handleReply} disabled={actionLoading || !replyMessage.trim()} className="flex-1">
+                        {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                       </Button>
-                      <Button variant="outline" onClick={handleCloseTicket} disabled={loading} title="Close Ticket">
+                      <Button variant="outline" onClick={handleCloseTicket} disabled={actionLoading} title="Close Ticket">
                         <CheckCircle2 className="w-4 h-4 text-green-600" />
                       </Button>
                     </div>
@@ -229,40 +239,85 @@ export default function AdminSupport() {
     );
   }
 
+  // ── List View ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Support Tickets</h1>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            Support Tickets
+            {openCount > 0 && (
+              <Badge variant="destructive" className="text-xs animate-pulse">
+                {openCount} open
+              </Badge>
+            )}
+          </h1>
           <p className="text-muted-foreground">Manage user inquiries and support requests.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="open">Open</SelectItem>
-              <SelectItem value="answered">Answered</SelectItem>
-              <SelectItem value="closed">Closed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="icon" onClick={loadTickets} title="Refresh">
-            <Loader2 className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
+
+        {/* Live indicator */}
+        <span className="flex items-center gap-1.5 text-xs text-green-500 font-medium">
+          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />
+          Real-time
+        </span>
       </div>
 
+      {/* KPI mini row */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: "Open",     count: openCount,     color: "text-red-500",    bg: "bg-red-500/10"    },
+          { label: "Answered", count: answeredCount, color: "text-blue-500",   bg: "bg-blue-500/10"   },
+          { label: "Closed",   count: closedCount,   color: "text-green-500",  bg: "bg-green-500/10"  },
+        ].map(({ label, count, color, bg }) => (
+          <Card
+            key={label}
+            className={`cursor-pointer border transition-colors ${statusFilter === label.toLowerCase() ? "ring-2 ring-primary" : ""}`}
+            onClick={() => setStatusFilter(prev => prev === label.toLowerCase() ? "all" : label.toLowerCase())}
+          >
+            <CardContent className="pt-4 pb-3 text-center">
+              <div className={`text-2xl font-bold ${color}`}>{count}</div>
+              <div className={`text-xs font-medium mt-1 px-2 py-0.5 rounded-full inline-block ${bg} ${color}`}>{label}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by wallet or subject..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="open">Open</SelectItem>
+            <SelectItem value="answered">Answered</SelectItem>
+            <SelectItem value="closed">Closed</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Table */}
       <Card>
         <CardContent className="p-0">
-          {loading && tickets.length === 0 ? (
+          {loading ? (
             <div className="flex justify-center p-12">
               <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
             </div>
           ) : filteredTickets.length === 0 ? (
             <div className="text-center p-12 text-muted-foreground">
-              No tickets found matching your filter.
+              <MessageSquare className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p>No tickets found matching your filter.</p>
             </div>
           ) : (
             <Table>
@@ -277,15 +332,15 @@ export default function AdminSupport() {
               </TableHeader>
               <TableBody>
                 {filteredTickets.map((ticket) => (
-                  <TableRow 
-                    key={ticket.id} 
+                  <TableRow
+                    key={ticket.id}
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => setSelectedTicket(ticket)}
                   >
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         {ticket.subject}
-                        {ticket.status === 'open' && (
+                        {ticket.status === "open" && (
                           <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                         )}
                       </div>
@@ -294,7 +349,12 @@ export default function AdminSupport() {
                       {ticket.userId.substring(0, 6)}...{ticket.userId.substring(ticket.userId.length - 4)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={ticket.status === "open" ? "destructive" : ticket.status === "closed" ? "secondary" : "default"}>
+                      <Badge
+                        variant={
+                          ticket.status === "open" ? "destructive" :
+                          ticket.status === "closed" ? "secondary" : "default"
+                        }
+                      >
                         {ticket.status}
                       </Badge>
                     </TableCell>

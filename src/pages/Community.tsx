@@ -77,11 +77,16 @@ const Community = () => {
     try {
       const normalizedAddress = address.toLowerCase();
 
-      // Firebase에서 직접 추청 연동 사용자 목록 + 활동 동시 요청
-      const [referrals, activities] = await Promise.all([
+      // Firebase에서 직접 추청 연동 사용자 목록 + 활동 동시 요청 (부분 실패 허용)
+      const [referralsResult, activitiesResult] = await Promise.allSettled([
         getReferralsByReferrer(normalizedAddress),
         getReferralActivitiesByReferrer(normalizedAddress),
       ]);
+
+      const referrals = referralsResult.status === "fulfilled" ? referralsResult.value : [];
+      const activities = activitiesResult.status === "fulfilled" ? activitiesResult.value : [];
+      if (referralsResult.status === "rejected") console.warn("Failed to load referrals:", referralsResult.reason);
+      if (activitiesResult.status === "rejected") console.warn("Failed to load activities:", activitiesResult.reason);
 
       const users = referrals.map((ref) => ({
         wallet: ref.referredWallet,
@@ -90,25 +95,59 @@ const Community = () => {
       setReferredUsers(users);
       setReferralActivities(activities);
 
-      // 각 직접 추천 사용자의 투자 데이터를 받아 팀 퍼포먼스 쪼산
+      // 각 직접 추천 사용자의 투자 데이터를 받아 팀 퍼포먼스 계산
       const referralInvestments = await Promise.all(
         users.map((u) => getUserInvestments(u.wallet).catch(() => []))
       );
 
+      // 각 직접 추천인의 하위 팀 투자도 재귀 없이 1-depth로 집계
+      const subReferralsPerUser = await Promise.all(
+        users.map((u) =>
+          getReferralsByReferrer(u.wallet.toLowerCase()).catch(() => [])
+        )
+      );
+      const subInvestmentsPerUser = await Promise.all(
+        subReferralsPerUser.map((subs) =>
+          Promise.all(
+            subs.map((s) => getUserInvestments(s.referredWallet).catch(() => []))
+          )
+        )
+      );
+
+      const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+      const cutoff = Date.now() - THIRTY_DAYS_MS;
+
       let totalPersonalPerformance = 0;
+      let totalCommunityPerformance = 0;
+      let totalThirtySky = 0;
+      let totalTeamMembersAll = users.length;
+
       const builtDirectReferrals: DirectReferral[] = users.map((user, idx) => {
-        const investments = referralInvestments[idx];
-        const personalPerf = investments.reduce((sum, inv) => sum + (inv.amount || 0), 0);
-        totalPersonalPerformance += personalPerf;
+        const myInvestments      = referralInvestments[idx];
+        const subInvestmentsFlat = subInvestmentsPerUser[idx].flat();
+        const subMembers         = subReferralsPerUser[idx].length;
+
+        const personalPerf = myInvestments.reduce((s, inv) => s + (inv.amount || 0), 0);
+        const communityPerf = subInvestmentsFlat.reduce((s, inv) => s + (inv.amount || 0), 0);
+        const allInvestments = [...myInvestments, ...subInvestmentsFlat];
+        const thirtySkyVal  = allInvestments
+          .filter((inv) => inv.createdAt >= cutoff)
+          .reduce((s, inv) => s + (inv.amount || 0), 0);
+
+        totalPersonalPerformance   += personalPerf;
+        totalCommunityPerformance  += communityPerf;
+        totalThirtySky             += thirtySkyVal;
+        totalTeamMembersAll        += subMembers;
+
         return {
           address: user.wallet,
           level: "Direct",
-          directPush: { current: 0, required: 1 },
+          directPush: { current: subMembers, required: 1 },
           personalPerformance: personalPerf,
-          communityPerformance: 0,
-          thirtySky: 0,
-          totalTeamPerformance: personalPerf,
-          totalTeamMembers: 1,
+          communityPerformance: communityPerf,
+          thirtySky: thirtySkyVal,
+          totalTeamPerformance: personalPerf + communityPerf,
+          totalTeamMembers: 1 + subMembers,
         };
       });
 
@@ -116,8 +155,11 @@ const Community = () => {
       setTeamPerformance((prev) => ({
         ...prev,
         teamNode: users.length,
-        totalTeamMembers: users.length,
-        totalTeamPerformance: totalPersonalPerformance,
+        totalTeamMembers: totalTeamMembersAll,
+        personalPerformance: totalPersonalPerformance,
+        communityPerformance: totalCommunityPerformance,
+        thirtySky: totalThirtySky,
+        totalTeamPerformance: totalPersonalPerformance + totalCommunityPerformance,
       }));
     } catch (error) {
       console.error("Failed to load team data from Firebase:", error);
