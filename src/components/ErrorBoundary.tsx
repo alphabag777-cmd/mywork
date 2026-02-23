@@ -5,12 +5,7 @@ import { AlertTriangle } from "lucide-react";
 
 interface Props {
   children: ReactNode;
-  /** Custom fallback UI. Receives the error and a reset callback. */
   fallback?: (error: Error, reset: () => void) => ReactNode;
-  /**
-   * If true, render the error card inline (no min-h-screen overlay).
-   * Useful for per-section boundaries inside a page.
-   */
   inline?: boolean;
 }
 
@@ -18,36 +13,61 @@ interface State {
   hasError: boolean;
   error: Error | null;
   componentStack: string | null;
+  copied: boolean;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false, error: null, componentStack: null };
+  state: State = { hasError: false, error: null, componentStack: null, copied: false };
 
   static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[ErrorBoundary] Uncaught error:", error.message);
-    console.error("[ErrorBoundary] Stack:", error.stack);
-    console.error("[ErrorBoundary] Component stack:", info.componentStack);
     this.setState({ componentStack: info.componentStack || null });
-    // Save full debug info to localStorage for mobile debugging
     try {
-      const debugInfo = {
+      const debugInfo = JSON.stringify({
         message: error.message,
-        stack: (error.stack || "").slice(0, 1500),
-        componentStack: (info.componentStack || "").slice(0, 1000),
+        stack: (error.stack || "").slice(0, 2000),
+        componentStack: (info.componentStack || "").slice(0, 1500),
         url: window.location.href,
         time: new Date().toISOString(),
-        ua: navigator.userAgent.slice(0, 200),
-      };
-      localStorage.setItem("errorboundary_last", JSON.stringify(debugInfo));
+        ua: navigator.userAgent,
+      }, null, 2);
+      localStorage.setItem("errorboundary_last", debugInfo);
     } catch { /* ignore */ }
   }
 
   handleReset = () => {
-    this.setState({ hasError: false, error: null, componentStack: null });
+    this.setState({ hasError: false, error: null, componentStack: null, copied: false });
+  };
+
+  handleCopy = () => {
+    try {
+      const txt = localStorage.getItem("errorboundary_last") || "";
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(txt).then(() => {
+          this.setState({ copied: true });
+          setTimeout(() => this.setState({ copied: false }), 3000);
+        }).catch(() => this.fallbackCopy(txt));
+      } else {
+        this.fallbackCopy(txt);
+      }
+    } catch { /* ignore */ }
+  };
+
+  fallbackCopy = (text: string) => {
+    const el = document.createElement("textarea");
+    el.value = text;
+    el.style.position = "fixed";
+    el.style.opacity = "0";
+    document.body.appendChild(el);
+    el.focus();
+    el.select();
+    try { document.execCommand("copy"); } catch { /* ignore */ }
+    document.body.removeChild(el);
+    this.setState({ copied: true });
+    setTimeout(() => this.setState({ copied: false }), 3000);
   };
 
   render() {
@@ -59,66 +79,65 @@ export class ErrorBoundary extends Component<Props, State> {
       return this.props.fallback(this.state.error, this.handleReset);
     }
 
-    const shortStack = this.state.error.stack
-      ?.split("\n")
-      .slice(0, 5)
-      .join("\n") || "";
-
-    const compLine = this.state.componentStack
-      ?.split("\n")
-      .find((l) => l.trim().startsWith("at ") && !l.includes("ErrorBoundary")) || "";
+    const fullDebug = [
+      `[오류 메시지]`,
+      this.state.error.message,
+      ``,
+      `[스택 트레이스]`,
+      this.state.error.stack || "(없음)",
+      ``,
+      `[컴포넌트 스택]`,
+      this.state.componentStack || "(없음)",
+    ].join("\n");
 
     const card = (
       <Card className="max-w-lg w-full border-destructive/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="w-5 h-5" />
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-destructive text-base">
+            <AlertTriangle className="w-5 h-5 shrink-0" />
             오류가 발생했습니다
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            페이지를 새로고침하거나 아래 다시 시도를 눌러주세요.
-          </p>
-          <div className="space-y-2">
-            <p className="text-xs font-semibold text-destructive">
-              오류: {this.state.error.message}
+        <CardContent className="space-y-3">
+          {/* 에러 메시지 — 크게 표시 */}
+          <div className="rounded-md bg-destructive/10 border border-destructive/30 p-3">
+            <p className="text-xs font-bold text-destructive mb-1">오류 메시지:</p>
+            <p className="text-sm font-mono break-all text-destructive">
+              {this.state.error.message}
             </p>
-            {compLine && (
-              <p className="text-xs text-muted-foreground break-all">
-                위치: {compLine.trim()}
-              </p>
-            )}
-            <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-48 text-destructive whitespace-pre-wrap break-all">
-              {shortStack}
-              {this.state.componentStack
-                ? "\n\n--- Component Stack ---\n" +
-                  this.state.componentStack.split("\n").slice(0, 8).join("\n")
-                : ""}
-            </pre>
           </div>
+
+          {/* 전체 디버그 — textarea로 선택/복사 가능 */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">
+              ▼ 아래 전체 내용을 선택해서 개발자에게 전달해주세요
+            </p>
+            <textarea
+              readOnly
+              value={fullDebug}
+              rows={10}
+              className="w-full text-xs font-mono bg-muted border border-border rounded p-2 resize-none focus:outline-none"
+              onFocus={e => e.target.select()}
+              onClick={e => (e.target as HTMLTextAreaElement).select()}
+            />
+          </div>
+
+          {/* 버튼 영역 */}
+          <Button
+            onClick={this.handleCopy}
+            variant="default"
+            className="w-full"
+          >
+            {this.state.copied ? "✓ 복사됨!" : "📋 에러 정보 클립보드 복사"}
+          </Button>
           <div className="flex gap-2">
             <Button onClick={this.handleReset} variant="outline" className="flex-1">
               다시 시도
             </Button>
-            <Button onClick={() => window.location.reload()} className="flex-1">
+            <Button onClick={() => window.location.reload()} variant="secondary" className="flex-1">
               새로 고침
             </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full text-xs text-muted-foreground"
-            onClick={() => {
-              try {
-                const info = localStorage.getItem("errorboundary_last") || "";
-                navigator.clipboard.writeText(info).catch(() => {});
-                alert("디버그 정보가 클립보드에 복사되었습니다. 개발자에게 전달해주세요.");
-              } catch { alert("복사 실패"); }
-            }}
-          >
-            디버그 정보 복사 (개발자용)
-          </Button>
         </CardContent>
       </Card>
     );
