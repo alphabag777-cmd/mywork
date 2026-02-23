@@ -38,7 +38,7 @@ const CountdownChip = ({ endsAt }: { endsAt: number }) => {
   return (
     <span className="flex items-center gap-1 text-xs font-mono tabular-nums">
       <Clock className="w-3 h-3 shrink-0" />
-      {t.d > 0 && <span>{t.d}일 </span>}
+      <span style={{ display: t.d > 0 ? 'inline' : 'none' }}>{t.d}일 </span>
       {pad(t.h)}:{pad(t.m)}:{pad(t.s)}
     </span>
   );

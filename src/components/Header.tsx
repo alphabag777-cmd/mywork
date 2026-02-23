@@ -200,43 +200,41 @@ const Header = () => {
             <Lock className="w-4 h-4" />
             Staking
           </Button>
-          {isConnected && (
-            <>
-              <NotificationCenter />
-              <Button 
-                variant="outline" 
-                size="default" 
-                className="gap-2 relative" 
-                onClick={() => navigate("/cart")}
-              >
-                <ShoppingCart className="w-4 h-4" />
-                Cart
-                {cartItemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                    {cartItemCount > 9 ? "9+" : cartItemCount}
-                  </span>
-                )}
-              </Button>
-              <Button 
-                variant="outline" 
-                size="default" 
-                className="gap-2" 
-                onClick={() => navigate("/support")}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Support
-              </Button>
-              <Button 
-                variant="outline" 
-                size="default" 
-                className="gap-2" 
-                onClick={() => navigate("/profile")}
-              >
-                <User className="w-4 h-4" />
-                Profile
-              </Button>
-            </>
-          )}
+          <div className={`contents ${isConnected ? '' : 'hidden'}`} style={{ display: isConnected ? 'contents' : 'none' }}>
+            <NotificationCenter />
+            <Button 
+              variant="outline" 
+              size="default" 
+              className="gap-2 relative" 
+              onClick={() => navigate("/cart")}
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Cart
+              {cartItemCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {cartItemCount > 9 ? "9+" : cartItemCount}
+                </span>
+              )}
+            </Button>
+            <Button 
+              variant="outline" 
+              size="default" 
+              className="gap-2" 
+              onClick={() => navigate("/support")}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Support
+            </Button>
+            <Button 
+              variant="outline" 
+              size="default" 
+              className="gap-2" 
+              onClick={() => navigate("/profile")}
+            >
+              <User className="w-4 h-4" />
+              Profile
+            </Button>
+          </div>
           {/* 지갑 버튼 – 클릭 시 항상 Dialog 오픈 (연결 후) */}
           <Button
             variant="gold"
@@ -310,30 +308,29 @@ const Header = () => {
                 <div className="h-px bg-border/50" />
 
                 {/* 연결된 경우 – 지갑 주소 확인 버튼 (Sheet 내) */}
-                {isConnected && address && (
-                  <button
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-amber-400/50 bg-amber-50/50 dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors text-left"
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      setTimeout(() => setWalletDialogOpen(true), 150);
-                    }}
-                  >
-                    <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center flex-shrink-0">
-                      <Wallet className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                    </div>
-                    <div className="flex flex-col flex-1 min-w-0">
-                      <span className="text-xs text-muted-foreground">
-                        {isTP ? "TokenPocket 연결됨" : "지갑 연결됨"}
-                      </span>
-                      <span className="text-sm font-mono font-semibold text-amber-700 dark:text-amber-400 truncate">
-                        {formatAddress(address, 6)}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground border border-border/50 rounded px-1.5 py-0.5">
-                      상세
+                <button
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-amber-400/50 bg-amber-50/50 dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors text-left"
+                  style={{ display: isConnected && address ? 'flex' : 'none' }}
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setTimeout(() => setWalletDialogOpen(true), 150);
+                  }}
+                >
+                  <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center flex-shrink-0">
+                    <Wallet className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="text-xs text-muted-foreground">
+                      {isTP ? "TokenPocket 연결됨" : "지갑 연결됨"}
                     </span>
-                  </button>
-                )}
+                    <span className="text-sm font-mono font-semibold text-amber-700 dark:text-amber-400 truncate">
+                      {address ? formatAddress(address, 6) : ""}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground border border-border/50 rounded px-1.5 py-0.5">
+                    상세
+                  </span>
+                </button>
 
                 <Button 
                   variant="outline" 
@@ -343,44 +340,44 @@ const Header = () => {
                   <Lock className="w-4 h-4" />
                   Staking
                 </Button>
-                {isConnected && (
-                  <>
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start gap-2 relative" 
-                      onClick={() => { navigate("/cart"); setMobileMenuOpen(false); }}
-                    >
-                      <ShoppingCart className="w-4 h-4" />
-                      Cart
-                      {cartItemCount > 0 && (
-                        <span className="ml-auto bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                          {cartItemCount > 9 ? "9+" : cartItemCount}
-                        </span>
-                      )}
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start gap-2" 
-                      onClick={() => { navigate("/support"); setMobileMenuOpen(false); }}
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                      Support
-                    </Button>
-                    <Button 
-                      variant="outline"  
-                      className="w-full justify-start gap-2" 
-                      onClick={() => { navigate("/profile"); setMobileMenuOpen(false); }}
-                    >
-                      <User className="w-4 h-4" />
-                      Profile
-                    </Button>
-                  </>
-                )}
-                {!isConnected && (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Connect your wallet to access all features
-                  </p>
-                )}
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2 relative" 
+                  style={{ display: isConnected ? 'flex' : 'none' }}
+                  onClick={() => { navigate("/cart"); setMobileMenuOpen(false); }}
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  Cart
+                  {cartItemCount > 0 && (
+                    <span className="ml-auto bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                      {cartItemCount > 9 ? "9+" : cartItemCount}
+                    </span>
+                  )}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2" 
+                  style={{ display: isConnected ? 'flex' : 'none' }}
+                  onClick={() => { navigate("/support"); setMobileMenuOpen(false); }}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Support
+                </Button>
+                <Button 
+                  variant="outline"  
+                  className="w-full justify-start gap-2" 
+                  style={{ display: isConnected ? 'flex' : 'none' }}
+                  onClick={() => { navigate("/profile"); setMobileMenuOpen(false); }}
+                >
+                  <User className="w-4 h-4" />
+                  Profile
+                </Button>
+                <p 
+                  className="text-sm text-muted-foreground text-center py-4"
+                  style={{ display: isConnected ? 'none' : 'block' }}
+                >
+                  Connect your wallet to access all features
+                </p>
               </div>
             </SheetContent>
           </Sheet>
@@ -388,17 +385,15 @@ const Header = () => {
       </div>
 
       {/* ─── 지갑 주소 확인 Dialog (PC/모바일 공통) ─── */}
-      {isConnected && address && (
-        <WalletAddressDialog
-          open={walletDialogOpen}
-          onOpenChange={setWalletDialogOpen}
-          address={address}
-          isTokenPocket={isTP}
-          isSwitching={isSwitching}
-          onSwitch={handleAccountSwitch}
-          onDisconnect={handleDisconnect}
-        />
-      )}
+      <WalletAddressDialog
+        open={walletDialogOpen && isConnected && !!address}
+        onOpenChange={setWalletDialogOpen}
+        address={address || "0x0000000000000000000000000000000000000000"}
+        isTokenPocket={isTP}
+        isSwitching={isSwitching}
+        onSwitch={handleAccountSwitch}
+        onDisconnect={handleDisconnect}
+      />
       {/* 이벤트 배너 스트립 (헤더 하단) */}
       <EventBannerStrip />
     </header>

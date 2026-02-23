@@ -109,9 +109,10 @@ export default function BottomNav() {
               </span>
 
               {/* 활성 인디케이터 */}
-              {active && (
-                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-primary" />
-              )}
+              <span 
+                className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-primary"
+                style={{ opacity: active ? 1 : 0, pointerEvents: 'none' }}
+              />
             </button>
           );
         })}
