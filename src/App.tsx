@@ -41,6 +41,8 @@ import AdminRouteGuard from "./pages/admin/AdminRouteGuard";
 import InvestmentHistory from "./pages/InvestmentHistory";
 import Promo from "./pages/Promo";
 import PromoDetail from "./pages/PromoDetail";
+import Notices from "./pages/Notices";
+import NoticeDetail from "./pages/NoticeDetail";
 import { StakingMaturityChecker } from "@/components/StakingMaturityChecker";
 import BottomNav from "@/components/BottomNav";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
@@ -113,6 +115,9 @@ const App = () => (
                 {/* 홍보 페이지 */}
                 <Route path="/promo" element={<Promo />} />
                 <Route path="/promo/:planId" element={<PromoDetail />} />
+                {/* 공지사항 */}
+                <Route path="/notices" element={<Notices />} />
+                <Route path="/notices/:id" element={<NoticeDetail />} />
 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />

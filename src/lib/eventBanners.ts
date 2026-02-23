@@ -7,9 +7,6 @@ import {
   getDocs,
   setDoc,
   deleteDoc,
-  query,
-  orderBy,
-  where,
   Timestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
@@ -55,17 +52,13 @@ function fromFirestore(data: any, id: string): EventBanner {
 
 export async function getActiveEventBanners(): Promise<EventBanner[]> {
   try {
-    const snap = await getDocs(
-      query(
-        collection(db, COLLECTION),
-        where("isActive", "==", true),
-        orderBy("order", "asc")
-      )
-    );
+    // orderBy 없이 전체 조회 후 클라이언트 필터링 (인덱스 불필요)
+    const snap = await getDocs(collection(db, COLLECTION));
     const now = Date.now();
     return snap.docs
       .map((d) => fromFirestore(d.data(), d.id))
-      .filter((b) => b.endsAt === 0 || b.endsAt > now);
+      .filter((b) => b.isActive && (b.endsAt === 0 || b.endsAt > now))
+      .sort((a, b) => a.order - b.order);
   } catch {
     return [];
   }
@@ -73,10 +66,11 @@ export async function getActiveEventBanners(): Promise<EventBanner[]> {
 
 export async function getAllEventBanners(): Promise<EventBanner[]> {
   try {
-    const snap = await getDocs(
-      query(collection(db, COLLECTION), orderBy("order", "asc"))
-    );
-    return snap.docs.map((d) => fromFirestore(d.data(), d.id));
+    // orderBy 없이 전체 조회 후 클라이언트 정렬 (인덱스 불필요)
+    const snap = await getDocs(collection(db, COLLECTION));
+    return snap.docs
+      .map((d) => fromFirestore(d.data(), d.id))
+      .sort((a, b) => a.order - b.order);
   } catch {
     return [];
   }
@@ -93,12 +87,22 @@ export async function saveEventBanner(
     createdAt: now,
     updatedAt: now,
   };
-  await setDoc(doc(db, COLLECTION, id), {
-    ...data,
-    endsAt: data.endsAt ? Timestamp.fromMillis(data.endsAt) : 0,
+  // undefined 필드 제거 후 Firestore 저장 (undefined는 Firestore 에러 원인)
+  const firestoreData: Record<string, any> = {
+    id: data.id,
+    title: data.title || "",
+    subtitle: data.subtitle || "",
+    ctaText: data.ctaText || "",
+    ctaUrl: data.ctaUrl || "",
+    bgColor: data.bgColor || "from-primary/20 to-primary/5",
+    textColor: data.textColor || "",
+    endsAt: data.endsAt > 0 ? Timestamp.fromMillis(data.endsAt) : 0,
+    isActive: data.isActive !== false,
+    order: typeof data.order === "number" ? data.order : 0,
     createdAt: Timestamp.fromMillis(now),
     updatedAt: Timestamp.fromMillis(now),
-  });
+  };
+  await setDoc(doc(db, COLLECTION, id), firestoreData);
   return data;
 }
 

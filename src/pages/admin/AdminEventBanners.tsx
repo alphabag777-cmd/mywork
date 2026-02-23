@@ -7,7 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Edit, Loader2, Megaphone, Clock } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus, Trash2, Edit, Loader2, Megaphone, Clock, Bell, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -16,6 +23,7 @@ import {
   saveEventBanner,
   deleteEventBanner,
 } from "@/lib/eventBanners";
+import { getAllNotices, Notice } from "@/lib/notices";
 
 const PRESET_COLORS = [
   { label: "골드", value: "from-yellow-500/20 to-yellow-500/5" },
@@ -33,14 +41,18 @@ const EMPTY_FORM = {
   ctaUrl: "",
   bgColor: "from-primary/20 to-primary/5",
   textColor: "",
-  endsAtStr: "", // datetime-local string
+  endsAtStr: "",
   noExpiry: true,
   isActive: true,
   order: "0",
 };
 
+// CTA URL 입력 모드
+type CtaMode = "direct" | "notice_list" | "notice_detail";
+
 export const AdminEventBanners = () => {
   const [banners, setBanners] = useState<EventBanner[]>([]);
+  const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -48,28 +60,62 @@ export const AdminEventBanners = () => {
   const [editing, setEditing] = useState<EventBanner | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
 
+  // CTA URL 모드 & 선택된 공지 ID
+  const [ctaMode, setCtaMode] = useState<CtaMode>("direct");
+  const [selectedNoticeId, setSelectedNoticeId] = useState<string>("");
+
   const load = async () => {
     setLoading(true);
-    const data = await getAllEventBanners();
-    setBanners(data);
+    const [bannerData, noticeData] = await Promise.all([
+      getAllEventBanners(),
+      getAllNotices(),
+    ]);
+    setBanners(bannerData);
+    // 활성 공지만
+    const activeNotices = noticeData
+      .filter((n) => n.isActive)
+      .sort((a, b) => a.sortOrder - b.sortOrder || b.createdAt - a.createdAt);
+    setNotices(activeNotices);
     setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
 
+  // CTA URL 자동 계산
+  const computedCtaUrl = (): string => {
+    if (ctaMode === "notice_list") return "/notices";
+    if (ctaMode === "notice_detail" && selectedNoticeId)
+      return `/notices/${selectedNoticeId}`;
+    return form.ctaUrl;
+  };
+
   const openCreate = () => {
     setEditing(null);
     setForm({ ...EMPTY_FORM });
+    setCtaMode("direct");
+    setSelectedNoticeId("");
     setOpen(true);
   };
 
   const openEdit = (b: EventBanner) => {
     setEditing(b);
+    // ctaUrl로 모드 자동 감지
+    const url = b.ctaUrl || "";
+    let mode: CtaMode = "direct";
+    let noticeId = "";
+    if (url === "/notices") {
+      mode = "notice_list";
+    } else if (url.startsWith("/notices/")) {
+      mode = "notice_detail";
+      noticeId = url.replace("/notices/", "");
+    }
+    setCtaMode(mode);
+    setSelectedNoticeId(noticeId);
     setForm({
       title: b.title,
       subtitle: b.subtitle || "",
       ctaText: b.ctaText || "",
-      ctaUrl: b.ctaUrl || "",
+      ctaUrl: mode === "direct" ? url : "",
       bgColor: b.bgColor || "from-primary/20 to-primary/5",
       textColor: b.textColor || "",
       endsAtStr: b.endsAt ? format(new Date(b.endsAt), "yyyy-MM-dd'T'HH:mm") : "",
@@ -87,12 +133,15 @@ export const AdminEventBanners = () => {
       const endsAt = form.noExpiry || !form.endsAtStr
         ? 0
         : new Date(form.endsAtStr).getTime();
+
+      const finalCtaUrl = computedCtaUrl();
+
       await saveEventBanner({
         id: editing?.id,
         title: form.title.trim(),
         subtitle: form.subtitle.trim() || undefined,
         ctaText: form.ctaText.trim() || undefined,
-        ctaUrl: form.ctaUrl.trim() || undefined,
+        ctaUrl: finalCtaUrl.trim() || undefined,
         bgColor: form.bgColor,
         textColor: form.textColor || undefined,
         endsAt,
@@ -102,8 +151,9 @@ export const AdminEventBanners = () => {
       toast.success(editing ? "배너가 수정되었습니다" : "배너가 생성되었습니다");
       setOpen(false);
       load();
-    } catch {
-      toast.error("저장 실패");
+    } catch (err: any) {
+      console.error("배너 저장 에러:", err);
+      toast.error("저장 실패: " + (err?.message || String(err)));
     } finally {
       setSaving(false);
     }
@@ -167,7 +217,16 @@ export const AdminEventBanners = () => {
                         {b.subtitle && <p className="text-xs text-muted-foreground">{b.subtitle}</p>}
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm">{b.ctaText || "-"}</TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <p>{b.ctaText || "-"}</p>
+                        {b.ctaUrl && (
+                          <p className="text-xs text-muted-foreground font-mono truncate max-w-[120px]">
+                            {b.ctaUrl}
+                          </p>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {b.endsAt ? (
                         <span className="flex items-center gap-1 text-xs">
@@ -223,19 +282,110 @@ export const AdminEventBanners = () => {
               <Input placeholder="지금 참여하고 보너스 받으세요"
                 value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} />
             </div>
-            {/* CTA */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>CTA 버튼 텍스트</Label>
-                <Input placeholder="자세히 보기"
-                  value={form.ctaText} onChange={(e) => setForm({ ...form, ctaText: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>CTA URL</Label>
-                <Input placeholder="https://..."
-                  value={form.ctaUrl} onChange={(e) => setForm({ ...form, ctaUrl: e.target.value })} />
-              </div>
+
+            {/* CTA 버튼 텍스트 */}
+            <div className="space-y-1.5">
+              <Label>CTA 버튼 텍스트</Label>
+              <Input placeholder="자세히 보기"
+                value={form.ctaText} onChange={(e) => setForm({ ...form, ctaText: e.target.value })} />
             </div>
+
+            {/* CTA URL 모드 선택 */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <Link2 className="w-3.5 h-3.5" />
+                CTA 링크 유형
+              </Label>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={ctaMode === "direct" ? "default" : "outline"}
+                  className="text-xs h-8"
+                  onClick={() => setCtaMode("direct")}
+                >
+                  직접 입력
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={ctaMode === "notice_list" ? "default" : "outline"}
+                  className="text-xs h-8 gap-1"
+                  onClick={() => { setCtaMode("notice_list"); setSelectedNoticeId(""); }}
+                >
+                  <Bell className="w-3 h-3" />
+                  공지 목록
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={ctaMode === "notice_detail" ? "default" : "outline"}
+                  className="text-xs h-8 gap-1"
+                  onClick={() => setCtaMode("notice_detail")}
+                >
+                  <Bell className="w-3 h-3" />
+                  특정 공지글
+                </Button>
+              </div>
+
+              {/* 직접 입력 */}
+              {ctaMode === "direct" && (
+                <Input
+                  placeholder="https:// 또는 /path"
+                  value={form.ctaUrl}
+                  onChange={(e) => setForm({ ...form, ctaUrl: e.target.value })}
+                />
+              )}
+
+              {/* 공지 목록 */}
+              {ctaMode === "notice_list" && (
+                <div className="flex items-center gap-2 p-2.5 rounded-md bg-muted/40 border border-border">
+                  <Bell className="w-4 h-4 text-primary shrink-0" />
+                  <span className="text-sm font-mono text-muted-foreground">/notices</span>
+                  <Badge variant="secondary" className="text-[10px] ml-auto">공지 목록 페이지</Badge>
+                </div>
+              )}
+
+              {/* 특정 공지글 선택 */}
+              {ctaMode === "notice_detail" && (
+                <div className="space-y-2">
+                  {notices.length === 0 ? (
+                    <p className="text-xs text-muted-foreground p-2">
+                      활성 공지사항이 없습니다. 먼저 공지를 등록해주세요.
+                    </p>
+                  ) : (
+                    <Select
+                      value={selectedNoticeId}
+                      onValueChange={setSelectedNoticeId}
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue placeholder="공지글 선택..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {notices.map((n) => (
+                          <SelectItem key={n.id} value={n.id}>
+                            <span className="flex items-center gap-2">
+                              <Bell className="w-3 h-3 text-muted-foreground shrink-0" />
+                              <span className="truncate max-w-[280px]">
+                                {n.title || n.points[0] || "제목 없음"}
+                              </span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {selectedNoticeId && (
+                    <div className="flex items-center gap-2 p-2 rounded bg-muted/40 border border-border">
+                      <span className="text-xs font-mono text-muted-foreground">
+                        /notices/{selectedNoticeId}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Colors */}
             <div className="space-y-1.5">
               <Label>배경 색상</Label>
@@ -284,9 +434,14 @@ export const AdminEventBanners = () => {
                 <p className="text-sm font-semibold">{form.title || "제목 미입력"}</p>
                 {form.subtitle && <p className="text-xs text-muted-foreground">{form.subtitle}</p>}
                 {form.ctaText && (
-                  <span className="mt-2 inline-block text-xs px-2 py-1 rounded bg-primary text-primary-foreground">
-                    {form.ctaText}
-                  </span>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="inline-block text-xs px-2 py-1 rounded bg-primary text-primary-foreground">
+                      {form.ctaText}
+                    </span>
+                    <span className="text-xs text-muted-foreground font-mono">
+                      → {computedCtaUrl() || "(URL 없음)"}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
