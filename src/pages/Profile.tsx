@@ -24,7 +24,7 @@ import {
   BarChart3,
   PieChart,
   AlertCircle,
-  Crown,
+
 } from "lucide-react";
 import { generateReferralLink, getReferrerWallet, getOrCreateReferralCode } from "@/lib/referral";
 import { toast } from "sonner";
@@ -58,7 +58,7 @@ import { InvestmentCertificateButton } from "@/components/InvestmentCertificate"
 import { getReferralsByReferrer } from "@/lib/referrals";
 import { getReferralActivitiesByReferrer, ReferralActivity } from "@/lib/referralActivities";
 import { Leaderboard } from "@/components/Leaderboard";
-import { ReferralTree } from "@/components/ReferralTree";
+import { OrgChart } from "@/components/OrgChart";
 import { formatAddress } from "@/lib/utils";
 
 const EARNINGS_COLORS: Record<string, string> = {
@@ -1003,21 +1003,10 @@ const Profile = () => {
             <Leaderboard />
           </div>
 
-          {/* Referral Tree */}
-          {directReferrals.length > 0 && (
-            <Card className="p-4 sm:p-6 mb-8">
-              <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Crown className="w-5 h-5 text-yellow-500" /> My Referral Network
-              </h2>
-              <ReferralTree
-                rootWallet={address}
-                referrals={directReferrals.map((r) => ({
-                  wallet: r.address,
-                  personalPerformance: r.personalPerformance,
-                }))}
-              />
-            </Card>
-          )}
+          {/* 추천인 현황 카드 (조직도 트리는 어드민 전용) */}
+          <div className="mb-8">
+            <OrgChart viewAs="user" />          
+          </div>
 
           {/* ── 전체 팀 성과 + 내 공유 (통합) ── */}
           <Card className="mb-8 border-border/50">
