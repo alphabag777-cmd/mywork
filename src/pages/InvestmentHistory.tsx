@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { getUserInvestments, UserInvestment } from "@/lib/userInvestments";
 import { format, subDays, isAfter, isBefore, parseISO, startOfDay, endOfDay } from "date-fns";
+import { useDateFormat } from "@/lib/i18n/dateLocale";
 
 // ─── Timestamp 안전 변환 (Firestore Timestamp / number / string / Date 모두 처리) ─
 function toSafeDate(val: any): Date | null {
@@ -84,6 +85,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 // ─── 컴포넌트 ──────────────────────────────────────────────────────────────────
 const InvestmentHistory = () => {
   const { address, isConnected } = useAccount();
+  const { fmtDateTime } = useDateFormat();
   const [investments, setInvestments]     = useState<UserInvestment[]>([]);
   const [loading, setLoading]             = useState(false);
   const [searchQuery, setSearchQuery]     = useState("");
@@ -320,7 +322,7 @@ const InvestmentHistory = () => {
                               <div>
                                 <p className="text-sm font-medium">{inv.projectName}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  {safeFormat(inv.investedAt, "yyyy-MM-dd HH:mm")}
+                                  {fmtDateTime(toSafeDate(inv.investedAt) ?? inv.investedAt)}
                                 </p>
                               </div>
                             </div>

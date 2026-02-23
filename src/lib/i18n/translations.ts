@@ -476,6 +476,29 @@ export interface Translations {
     submit: string;
     loading: string;
   };
+  support: {
+    title: string;
+    createTicket: string;
+    createTicketDesc: string;
+    subject: string;
+    priority: string;
+    message: string;
+    attachments: string;
+    attachmentsHint: string;
+    addImage: string;
+    submitTicket: string;
+    noTickets: string;
+    backToTickets: string;
+    ticketId: string;
+    originalMessage: string;
+    typeReply: string;
+    priorityLow: string;
+    priorityMedium: string;
+    priorityHigh: string;
+    statusOpen: string;
+    statusAnswered: string;
+    statusClosed: string;
+  };
   admin: {
     planManagement: string;
     addPlan: string;
@@ -1002,8 +1025,30 @@ export const translations: Record<Language, Translations> = {
       submit: 'Submit',
       loading: 'Loading...',
     },
+    support: {
+      title: 'Support Center',
+      createTicket: 'Create New Ticket',
+      createTicketDesc: "Describe your issue and we'll get back to you.",
+      subject: 'Subject',
+      priority: 'Priority',
+      message: 'Message',
+      attachments: 'Attachments',
+      attachmentsHint: '(optional, max 3 × 5MB)',
+      addImage: 'Add image',
+      submitTicket: 'Submit Ticket',
+      noTickets: 'No tickets found. Create one if you need help!',
+      backToTickets: 'Back to Tickets',
+      ticketId: 'Ticket ID',
+      originalMessage: 'Original Message',
+      typeReply: 'Type your reply...',
+      priorityLow: 'Low',
+      priorityMedium: 'Medium',
+      priorityHigh: 'High',
+      statusOpen: 'OPEN',
+      statusAnswered: 'ANSWERED',
+      statusClosed: 'CLOSED',
+    },
     admin: {
-      planManagement: 'Manage Investment Plans',
       addPlan: 'Add New Plan',
       editPlan: 'Edit Plan',
       createPlan: 'Create Plan',
@@ -1528,6 +1573,29 @@ export const translations: Record<Language, Translations> = {
       reset: '重置',
       submit: '提交',
       loading: '加载中...',
+    },
+    support: {
+      title: '支持中心',
+      createTicket: '创建新工单',
+      createTicketDesc: '描述您的问题，我们将尽快回复。',
+      subject: '主题',
+      priority: '优先级',
+      message: '消息',
+      attachments: '附件',
+      attachmentsHint: '（可选，最多 3 × 5MB）',
+      addImage: '添加图片',
+      submitTicket: '提交工单',
+      noTickets: '暂无工单。如需帮助，请创建一个！',
+      backToTickets: '返回工单列表',
+      ticketId: '工单编号',
+      originalMessage: '原始消息',
+      typeReply: '输入回复内容…',
+      priorityLow: '低',
+      priorityMedium: '中',
+      priorityHigh: '高',
+      statusOpen: '待处理',
+      statusAnswered: '已回复',
+      statusClosed: '已关闭',
     },
     admin: {
       planManagement: '管理投资计划',
@@ -2056,6 +2124,29 @@ export const translations: Record<Language, Translations> = {
       submit: '제출',
       loading: '로딩 중...',
     },
+    support: {
+      title: '지원 센터',
+      createTicket: '새 티켓 만들기',
+      createTicketDesc: '문제를 설명해 주시면 빠르게 답변드리겠습니다.',
+      subject: '제목',
+      priority: '우선순위',
+      message: '메시지',
+      attachments: '첨부파일',
+      attachmentsHint: '(선택, 최대 3개 × 5MB)',
+      addImage: '이미지 추가',
+      submitTicket: '티켓 제출',
+      noTickets: '티켓이 없습니다. 도움이 필요하면 티켓을 만들어주세요!',
+      backToTickets: '티켓 목록으로',
+      ticketId: '티켓 ID',
+      originalMessage: '원본 메시지',
+      typeReply: '답장을 입력하세요…',
+      priorityLow: '낮음',
+      priorityMedium: '보통',
+      priorityHigh: '높음',
+      statusOpen: '열림',
+      statusAnswered: '답변됨',
+      statusClosed: '닫힘',
+    },
     admin: {
       planManagement: '투자 플랜 관리',
       addPlan: '플랜 추가',
@@ -2570,6 +2661,29 @@ export const translations: Record<Language, Translations> = {
       reset: 'リセット',
       submit: '送信',
       loading: '読み込み中...',
+    },
+    support: {
+      title: 'サポートセンター',
+      createTicket: '新規チケット作成',
+      createTicketDesc: '問題を説明してください。できるだけ早くご回答します。',
+      subject: '件名',
+      priority: '優先度',
+      message: 'メッセージ',
+      attachments: '添付ファイル',
+      attachmentsHint: '（任意、最大 3 × 5MB）',
+      addImage: '画像を追加',
+      submitTicket: 'チケットを送信',
+      noTickets: 'チケットがありません。お困りの場合はチケットを作成してください！',
+      backToTickets: 'チケット一覧に戻る',
+      ticketId: 'チケット ID',
+      originalMessage: '元のメッセージ',
+      typeReply: '返信を入力してください…',
+      priorityLow: '低',
+      priorityMedium: '中',
+      priorityHigh: '高',
+      statusOpen: 'オープン',
+      statusAnswered: '回答済み',
+      statusClosed: 'クローズ',
     },
     admin: {
       planManagement: '投資プラン管理',

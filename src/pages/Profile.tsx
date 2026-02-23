@@ -59,6 +59,7 @@ import { getReferralActivitiesByReferrer, ReferralActivity } from "@/lib/referra
 import { Leaderboard } from "@/components/Leaderboard";
 import { OrgChart } from "@/components/OrgChart";
 import { formatAddress } from "@/lib/utils";
+import { logActivity } from "@/lib/userActivityLog";
 
 const EARNINGS_COLORS: Record<string, string> = {
   BBAG: "#f59e0b",
@@ -427,6 +428,8 @@ const Profile = () => {
     navigator.clipboard.writeText(text);
     setCopiedCommunity((prev) => ({ ...prev, [key]: true }));
     setTimeout(() => setCopiedCommunity((prev) => ({ ...prev, [key]: false })), 2000);
+    // Log referral link copy activity
+    if (address) logActivity(address.toLowerCase(), "referral_link_copy", { copied: text.slice(0, 42) });
   };
 
   const loadTeamData = useCallback(async () => {

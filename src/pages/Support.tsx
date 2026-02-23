@@ -17,9 +17,14 @@ import { toast } from "sonner";
 import { Ticket, getUserTickets, createTicket, addReply, uploadTicketAttachment } from "@/lib/support";
 import { format } from "date-fns";
 import { useRef } from "react";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { useDateFormat } from "@/lib/i18n/dateLocale";
+import { logActivity } from "@/lib/userActivityLog";
 
 export default function Support() {
   const { address } = useAccount();
+  const { t } = useLanguage();
+  const { fmtDateTime, fmtDate } = useDateFormat();
   const [view, setView] = useState<"list" | "detail">("list");
   // const [showCreateForm, setShowCreateForm] = useState(false); // Removed toggle state
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -95,6 +100,11 @@ export default function Support() {
       }
 
       toast.success("Ticket created successfully");
+      // Log activity
+      logActivity(address.toLowerCase(), "ticket_created", {
+        subject: formData.subject,
+        priority: formData.priority,
+      });
       setFormData({ subject: "", priority: "medium", message: "" });
       setAttachments([]);
       setUploadProgress(0);
@@ -174,7 +184,7 @@ export default function Support() {
   return (
     <div className="container py-10 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">Support Center</h1>
+        <h1 className="text-3xl font-bold">{t.support.title}</h1>
         {/* Button removed, form is always visible */}
       </div>
 
@@ -184,13 +194,13 @@ export default function Support() {
           {/* CREATE FORM - Always Visible */}
           <Card className="border-primary/20 bg-primary/5">
             <CardHeader>
-              <CardTitle>Create New Ticket</CardTitle>
-              <CardDescription>Describe your issue and we'll get back to you.</CardDescription>
+              <CardTitle>{t.support.createTicket}</CardTitle>
+              <CardDescription>{t.support.createTicketDesc}</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleCreateTicket} className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Subject</label>
+                    <label className="text-sm font-medium">{t.support.subject}</label>
                     <Input
                       value={formData.subject}
                       onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
@@ -200,7 +210,7 @@ export default function Support() {
                   </div>
                   
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Priority</label>
+                    <label className="text-sm font-medium">{t.support.priority}</label>
                     <Select
                       value={formData.priority}
                       onValueChange={(val) => setFormData({ ...formData, priority: val })}
@@ -209,15 +219,15 @@ export default function Support() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="low">{t.support.priorityLow}</SelectItem>
+                        <SelectItem value="medium">{t.support.priorityMedium}</SelectItem>
+                        <SelectItem value="high">{t.support.priorityHigh}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Message</label>
+                    <label className="text-sm font-medium">{t.support.message}</label>
                     <Textarea
                       value={formData.message}
                       onChange={(e) => setFormData({ ...formData, message: e.target.value })}
@@ -230,7 +240,7 @@ export default function Support() {
                   {/* File Attachments */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium">
-                      Attachments <span className="text-muted-foreground font-normal">(optional, max 3 × 5MB)</span>
+                      {t.support.attachments} <span className="text-muted-foreground font-normal">{t.support.attachmentsHint}</span>
                     </label>
                     <div className="flex items-center gap-2 flex-wrap">
                       {attachments.map((file, idx) => (
@@ -264,7 +274,7 @@ export default function Support() {
                             onClick={() => fileInputRef.current?.click()}
                           >
                             <Paperclip className="w-3 h-3" />
-                            Add image
+                            {t.support.addImage}
                           </Button>
                         </>
                       )}
@@ -276,7 +286,7 @@ export default function Support() {
 
                   <div className="flex justify-end pt-2">
                     <Button type="submit" disabled={loading}>
-                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Ticket"}
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : t.support.submitTicket}
                     </Button>
                   </div>
                 </form>
@@ -291,7 +301,7 @@ export default function Support() {
                 </div>
               ) : tickets.length === 0 ? (
                 <div className="text-center p-8 text-muted-foreground">
-                  No tickets found. Create one if you need help!
+                  {t.support.noTickets}
                 </div>
               ) : (
                 <div className="divide-y">
@@ -307,7 +317,7 @@ export default function Support() {
                       <div className="flex flex-col gap-1">
                         <div className="font-semibold">{ticket.subject}</div>
                         <div className="text-xs text-muted-foreground">
-                          {format(ticket.createdAt, "PPP p")}
+                          {fmtDateTime(ticket.createdAt)}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -329,7 +339,7 @@ export default function Support() {
       {view === "detail" && selectedTicket && (
         <div className="space-y-4">
           <Button variant="ghost" onClick={() => setView("list")} className="mb-2 pl-0">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Tickets
+            <ArrowLeft className="w-4 h-4 mr-2" /> {t.support.backToTickets}
           </Button>
 
           <Card>
@@ -338,7 +348,7 @@ export default function Support() {
                 <div>
                   <CardTitle className="text-xl">{selectedTicket.subject}</CardTitle>
                   <CardDescription className="mt-1">
-                    Ticket ID: {selectedTicket.id} • {format(selectedTicket.createdAt, "PPP")}
+                    Ticket ID: {selectedTicket.id} • {fmtDate(selectedTicket.createdAt)}
                   </CardDescription>
                 </div>
                 <Badge variant={selectedTicket.status === "closed" ? "secondary" : "default"}>
@@ -349,7 +359,7 @@ export default function Support() {
             <CardContent className="pt-6 space-y-6">
               {/* Original Message */}
               <div className="flex flex-col gap-2">
-                <div className="font-semibold text-sm text-muted-foreground">Original Message</div>
+                <div className="font-semibold text-sm text-muted-foreground">{t.support.originalMessage}</div>
                 <div className="bg-muted/30 p-4 rounded-lg text-sm whitespace-pre-wrap">
                   {selectedTicket.message}
                 </div>
@@ -402,7 +412,7 @@ export default function Support() {
                   <Textarea
                     value={replyMessage}
                     onChange={(e) => setReplyMessage(e.target.value)}
-                    placeholder="Type your reply..."
+                    placeholder={t.support.typeReply}
                     className="min-h-[60px]"
                   />
                   <Button onClick={handleReply} disabled={loading || !replyMessage.trim()} className="h-auto">

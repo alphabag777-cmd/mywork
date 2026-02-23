@@ -1,10 +1,10 @@
 /**
  * useStakingMaturityNotifier
  * Runs once when the user connects; checks active stakes and
- * fires a "staking_reward" notification for any that unlock within
- * the next 24 h or have already unlocked (but not yet notified).
+ * fires a "staking_maturity" notification for any that unlock within
+ * 3 days, 1 day, or have already unlocked (but not yet notified).
  *
- * De-duplication key: `staking_notified_<wallet>_<stakeId>` in localStorage.
+ * De-duplication: localStorage key per stake+phase.
  */
 import { useEffect } from "react";
 import { useAccount } from "wagmi";
@@ -12,10 +12,10 @@ import { getActiveUserStakes } from "@/lib/userStakes";
 import { createNotification } from "@/lib/notifications";
 import { formatUnits } from "viem";
 
-const NOTIFY_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 h
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-function notifiedKey(wallet: string, stakeId: number) {
-  return `staking_notified_${wallet.toLowerCase()}_${stakeId}`;
+function notifiedKey(wallet: string, stakeId: number, phase: string) {
+  return `staking_notified_${wallet.toLowerCase()}_${stakeId}_${phase}`;
 }
 
 export function useStakingMaturityNotifier() {
@@ -35,29 +35,39 @@ export function useStakingMaturityNotifier() {
           if (cancelled) break;
           const unlockMs = stake.unlockTime * 1000;
           const timeLeft = unlockMs - now;
-          const key = notifiedKey(address, stake.stakeId);
+          const daysLeft = Math.ceil(timeLeft / DAY_MS);
 
-          // Already notified for this stake?
+          // Determine notification phase
+          let phase: string | null = null;
+          if (timeLeft <= 0) phase = "matured";
+          else if (daysLeft <= 1) phase = "1d";
+          else if (daysLeft <= 3) phase = "3d";
+
+          if (!phase) continue;
+
+          const key = notifiedKey(address, stake.stakeId, phase);
           if (localStorage.getItem(key)) continue;
-
-          // Only notify if unlocked or unlocking within 24 h
-          if (timeLeft > NOTIFY_WINDOW_MS) continue;
 
           let principal = "0";
           try {
             principal = parseFloat(formatUnits(BigInt(stake.principal), 18)).toFixed(2);
           } catch {/* ignore */}
 
-          const isUnlocked = timeLeft <= 0;
-          const title = isUnlocked
-            ? "Staking Unlocked 🎉"
-            : "Staking Unlocking Soon ⏰";
-          const hoursLeft = Math.max(0, Math.floor(timeLeft / 3_600_000));
-          const message = isUnlocked
-            ? `Your stake of ${principal} USDT (ID #${stake.stakeId}) is now unlocked and ready to claim!`
-            : `Your stake of ${principal} USDT (ID #${stake.stakeId}) unlocks in ~${hoursLeft}h. Get ready to claim.`;
+          let title: string;
+          let message: string;
 
-          await createNotification(address, "staking_reward", title, message, "/staking");
+          if (phase === "matured") {
+            title = "스테이킹 만기 도래 🎉";
+            message = `${principal} USDT 스테이킹(#${stake.stakeId})이 만기되었습니다. 지금 인출하실 수 있습니다.`;
+          } else if (phase === "1d") {
+            title = "스테이킹 만기 1일 전 ⏰";
+            message = `${principal} USDT 스테이킹(#${stake.stakeId})이 내일 만기됩니다.`;
+          } else {
+            title = "스테이킹 만기 3일 전 📅";
+            message = `${principal} USDT 스테이킹(#${stake.stakeId})이 3일 후 만기됩니다.`;
+          }
+
+          await createNotification(address, "staking_maturity", title, message, "/staking");
           localStorage.setItem(key, "1");
         }
       } catch (err) {

@@ -9,6 +9,15 @@
     <meta name="author" content="AlphaBag" />
     <link rel="icon" type="image/png" href="/logo.png" />
 
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="AlphaBag" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+    <meta name="theme-color" content="#f59e0b" />
+
     <meta property="og:title" content="AlphaBag Investment | Invest Your USDT & Earn Rewards" />
     <meta property="og:description" content="Invest your USDT tokens and earn rewards. Secure investment platform with flexible options." />
     <meta property="og:type" content="website" />
@@ -22,5 +31,15 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker
+            .register("/sw.js")
+            .then(function (reg) { console.log("[SW] Registered:", reg.scope); })
+            .catch(function (err) { console.warn("[SW] Registration failed:", err); });
+        });
+      }
+    </script>
   </body>
 </html>

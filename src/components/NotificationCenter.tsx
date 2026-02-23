@@ -43,10 +43,11 @@ export function NotificationCenter() {
 
   const getIcon = (type: Notification["type"]) => {
     switch (type) {
-      case "staking_reward": return <Circle className="w-2 h-2 fill-green-500 text-green-500" />;
-      case "ticket_reply": return <Circle className="w-2 h-2 fill-blue-500 text-blue-500" />;
-      case "referral_joined": return <Circle className="w-2 h-2 fill-purple-500 text-purple-500" />;
-      default: return <Circle className="w-2 h-2 fill-gray-500 text-gray-500" />;
+      case "staking_reward":   return <Circle className="w-2 h-2 fill-green-500 text-green-500" />;
+      case "staking_maturity": return <Circle className="w-2 h-2 fill-yellow-500 text-yellow-500" />;
+      case "ticket_reply":     return <Circle className="w-2 h-2 fill-blue-500 text-blue-500" />;
+      case "referral_joined":  return <Circle className="w-2 h-2 fill-purple-500 text-purple-500" />;
+      default:                 return <Circle className="w-2 h-2 fill-gray-500 text-gray-500" />;
     }
   };
 

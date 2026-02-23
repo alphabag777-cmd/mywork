@@ -14,6 +14,8 @@ import { getActiveUserStakes, UserStake } from "@/lib/userStakes";
 import { formatUnits } from "viem";
 import { PieChart as RechartsPie, Pie, Cell, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { format } from "date-fns";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { useDateFormat } from "@/lib/i18n/dateLocale";
 
 const COLORS = {
   BBAG: "#f59e0b",
@@ -24,6 +26,8 @@ const COLORS = {
 
 const Earnings = () => {
   const { address, isConnected } = useAccount();
+  const { language } = useLanguage();
+  const { fmtDate } = useDateFormat();
   const [investments, setInvestments] = useState<UserInvestment[]>([]);
   const [stakes, setStakes] = useState<UserStake[]>([]);
   const [loading, setLoading] = useState(false);
@@ -94,7 +98,10 @@ const Earnings = () => {
   const barData = Object.entries(monthlyMap)
     .sort((a, b) => a[0].localeCompare(b[0]))
     .slice(-6)
-    .map(([month, amount]) => ({ month: format(new Date(month), "MMM yy"), amount }));
+    .map(([month, amount]) => ({
+      month: format(new Date(month + "-01"), language === "ko" ? "yy년 M월" : language === "ja" ? "yy/MM" : language === "zh" ? "yy年M月" : "MMM yy"),
+      amount,
+    }));
 
   if (!isConnected) {
     return (
@@ -262,7 +269,7 @@ const Earnings = () => {
                       <Badge variant="outline" className="text-xs font-mono">{inv.category}</Badge>
                       <div>
                         <p className="text-sm font-medium">{inv.projectName}</p>
-                        <p className="text-xs text-muted-foreground">{format(new Date(inv.investedAt), "yyyy-MM-dd")}</p>
+                        <p className="text-xs text-muted-foreground">{fmtDate(new Date(inv.investedAt))}</p>
                       </div>
                     </div>
                     <div className="text-right flex items-center gap-2">
@@ -279,7 +286,7 @@ const Earnings = () => {
                           investorAddress={address}
                           planName={inv.projectName}
                           amount={inv.amount || 0}
-                          date={format(new Date(inv.investedAt), "yyyy-MM-dd")}
+                          date={fmtDate(new Date(inv.investedAt))}
                         />
                       )}
                     </div>

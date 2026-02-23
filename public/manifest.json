@@ -1,0 +1,45 @@
+{
+  "name": "AlphaBag Investment",
+  "short_name": "AlphaBag",
+  "description": "Invest your USDT & earn rewards on AlphaBag platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#f59e0b",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "business"],
+  "lang": "en",
+  "scope": "/",
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Profile",
+      "url": "/profile",
+      "description": "View your investment profile"
+    },
+    {
+      "name": "Invest",
+      "url": "/investment",
+      "description": "Browse investment plans"
+    },
+    {
+      "name": "Community",
+      "url": "/community",
+      "description": "View your referral network"
+    }
+  ]
+}

@@ -34,6 +34,7 @@ import { NEW_INVESTMENT_CONTRACT_ADDRESS } from "@/lib/contract";
 import { isAddress } from "viem";
 import { isLoomxReferralRegistered } from "@/lib/referralValidation";
 import { isNewWallet } from "@/lib/users";
+import { logActivity } from "@/lib/userActivityLog";
 
 const Cart = () => {
   const { items, removeFromCart, updateQuantity, clearCart } = useCart();
@@ -377,6 +378,14 @@ const Cart = () => {
               tokenAmount,
               tokenValueUSDT,
               profit,
+            });
+
+            // Log activity (fire-and-forget)
+            logActivity(address.toLowerCase(), "investment_made", {
+              planId: plan.id,
+              planName: plan.name,
+              amount: investedAmount,
+              category,
             });
           }
         } catch (error) {
