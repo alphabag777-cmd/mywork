@@ -74,8 +74,24 @@ export interface InvestmentPlan {
   noticeText?: string;                            // 주의사항 / 공지 (빨간 경고 박스로 표시)
   category?: PlanCategory;                         // 플랜 카테고리: ABAG, BBAG, CBAG, SELF_COLLECTION
   pdfFiles?: Array<{ title: string; url: string }>; // PDF 첨부 파일 목록
+  // ── 다국어 콘텐츠 (언어별 설명/자료) ──
+  langContent?: {
+    en?: LangContent;
+    zh?: LangContent;
+    ko?: LangContent;
+    ja?: LangContent;
+  };
   createdAt: number;
   updatedAt: number;
+}
+
+/** 언어별 콘텐츠 (설명, 이미지, PDF) */
+export interface LangContent {
+  description?: string;       // 해당 언어 설명
+  detailDescription?: string; // 해당 언어 상세 설명
+  materials?: Array<{ title: string; url: string }>; // 해당 언어 참고 자료
+  pdfFiles?: Array<{ title: string; url: string }>;  // 해당 언어 PDF
+  detailImages?: Array<{ url: string; caption: string }>; // 해당 언어 이미지
 }
 
 const PLANS_COLLECTION = "investment_plans";

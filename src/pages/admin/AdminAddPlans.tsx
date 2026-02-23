@@ -9,13 +9,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   PlusSquare, Trash2, Edit, Save, X, GripVertical, ChevronUp, ChevronDown,
   Image as ImageIcon, Star, Plus, Info, Link, Wallet,
-  Eye, EyeOff, ArrowUp, ArrowDown, FileText, Bell, Youtube,
+  Eye, EyeOff, ArrowUp, ArrowDown, FileText, Bell, Youtube, Globe,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { InvestmentPlan, PlanStatus, PlanCategory, getAllPlans, savePlan, deletePlan, updatePlanOrder } from "@/lib/plans";
+import { InvestmentPlan, LangContent, PlanStatus, PlanCategory, getAllPlans, savePlan, deletePlan, updatePlanOrder } from "@/lib/plans";
 import { ImageUpload } from "@/components/ImageUpload";
 import { PdfUpload } from "@/components/PdfUpload";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -456,6 +457,7 @@ function DetailPreview({
 /*  메인 컴포넌트                                   */
 /* ─────────────────────────────────────────────── */
 export const AdminAddPlans = () => {
+  const { t } = useLanguage();
   const [plans, setPlans] = useState<InvestmentPlan[]>([]);
   const [editingPlan, setEditingPlan] = useState<InvestmentPlan | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -464,6 +466,11 @@ export const AdminAddPlans = () => {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState("basic");
   const [showPreview, setShowPreview] = useState(false);
+  // 언어별 콘텐츠 상태
+  const [activeLangTab, setActiveLangTab] = useState<"en" | "zh" | "ko" | "ja">("en");
+  const [langContent, setLangContent] = useState<{
+    en: LangContent; zh: LangContent; ko: LangContent; ja: LangContent;
+  }>({ en: {}, zh: {}, ko: {}, ja: {} });
 
   /* ── 폼 상태 ── */
   const [formData, setFormData] = useState({
@@ -545,6 +552,8 @@ export const AdminAddPlans = () => {
     setEditingPlan(null);
     setActiveTab("basic");
     setShowPreview(false);
+    setLangContent({ en: {}, zh: {}, ko: {}, ja: {} });
+    setActiveLangTab("en");
   };
 
   /* ── 이미지 데이터 정규화 헬퍼 ── */
@@ -596,6 +605,12 @@ export const AdminAddPlans = () => {
       setDetailImages(normalizeImages(plan.detailImages as any[] || []));
       setMaterials(plan.materials || []);
       setPdfFiles(plan.pdfFiles || []);
+      setLangContent({
+        en: plan.langContent?.en || {},
+        zh: plan.langContent?.zh || {},
+        ko: plan.langContent?.ko || {},
+        ja: plan.langContent?.ja || {},
+      });
     } else {
       resetForm();
     }
@@ -640,6 +655,12 @@ export const AdminAddPlans = () => {
       youtubeUrl: formData.youtubeUrl, telegram: formData.telegram, twitter: formData.twitter,
       materials,
       pdfFiles,
+      langContent: {
+        en: Object.keys(langContent.en).length ? langContent.en : undefined,
+        zh: Object.keys(langContent.zh).length ? langContent.zh : undefined,
+        ko: Object.keys(langContent.ko).length ? langContent.ko : undefined,
+        ja: Object.keys(langContent.ja).length ? langContent.ja : undefined,
+      },
       recommendedAmount: formData.recommendedAmount,
       // 세부 정보
       detailDescription: formData.detailDescription,
@@ -734,19 +755,19 @@ export const AdminAddPlans = () => {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <PlusSquare className="w-4 h-4 text-primary" />
-                Manage Investment Plans
+                {t.admin.planManagement}
               </CardTitle>
               <CardDescription>투자 플랜을 생성하고 세부 정보를 관리합니다</CardDescription>
             </div>
             <Button onClick={() => handleOpenDialog()} className="gap-2">
-              <PlusSquare className="w-4 h-4" /> Add New Plan
+              <PlusSquare className="w-4 h-4" /> {t.admin.addPlan}
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           {plans.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <p>No plans yet. Click "Add New Plan" to create one.</p>
+              <p>{t.admin.noPlans}</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -756,14 +777,14 @@ export const AdminAddPlans = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-12">순서</TableHead>
-                    <TableHead>로고</TableHead>
-                    <TableHead>이름</TableHead>
-                    <TableHead>라벨</TableHead>
-                    <TableHead>상태</TableHead>
-                    <TableHead>일일수익</TableHead>
-                    <TableHead>세부정보</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-12">{t.admin.order}</TableHead>
+                    <TableHead>{t.admin.logo}</TableHead>
+                    <TableHead>{t.admin.planName}</TableHead>
+                    <TableHead>{t.admin.label}</TableHead>
+                    <TableHead>{t.admin.status}</TableHead>
+                    <TableHead>{t.admin.dailyProfit}</TableHead>
+                    <TableHead>{t.admin.detailInfo}</TableHead>
+                    <TableHead className="text-right">{t.admin.actions}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -857,7 +878,7 @@ export const AdminAddPlans = () => {
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
             <div className="flex items-center justify-between">
               <div>
-                <DialogTitle className="text-lg">{editingPlan ? "✏️ 플랜 수정" : "➕ 새 플랜 추가"}</DialogTitle>
+                <DialogTitle className="text-lg">{editingPlan ? `✏️ ${t.admin.editPlan}` : `➕ ${t.admin.addPlan}`}</DialogTitle>
                 <DialogDescription>각 탭에서 항목을 입력하고 저장하세요.</DialogDescription>
               </div>
               <Button
@@ -868,7 +889,7 @@ export const AdminAddPlans = () => {
                 className="gap-1.5 mr-8"
               >
                 {showPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                {showPreview ? "미리보기 닫기" : "미리보기"}
+                {showPreview ? t.buttons.closePreview : t.buttons.preview}
               </Button>
             </div>
           </DialogHeader>
@@ -931,25 +952,30 @@ export const AdminAddPlans = () => {
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                   {/* ── 탭 헤더 ── */}
                   <div className="px-6 pt-4">
-                    <TabsList className="grid w-full grid-cols-4 h-auto">
+                    <TabsList className="grid w-full grid-cols-5 h-auto">
                       <TabsTrigger value="basic" className="flex flex-col gap-0.5 py-2 text-xs">
                         <Info className="w-4 h-4" />
-                        <span>기본 정보</span>
-                        {basicFilled && <span className="text-[9px] text-green-500">✓ 완료</span>}
+                        <span>{t.admin.basicInfo}</span>
+                        {basicFilled && <span className="text-[9px] text-green-500">✓</span>}
                       </TabsTrigger>
                       <TabsTrigger value="detail" className="flex flex-col gap-0.5 py-2 text-xs">
                         <Star className="w-4 h-4" />
-                        <span>세부 정보</span>
-                        {(detailFilled || extraDetailFilled) && <span className="text-[9px] text-green-500">✓ 입력됨</span>}
+                        <span>{t.admin.detailInfo}</span>
+                        {(detailFilled || extraDetailFilled) && <span className="text-[9px] text-green-500">✓</span>}
                       </TabsTrigger>
                       <TabsTrigger value="links" className="flex flex-col gap-0.5 py-2 text-xs">
                         <Link className="w-4 h-4" />
-                        <span>링크·미디어</span>
-                        {materials.length > 0 && <span className="text-[9px] text-green-500">✓ {materials.length}개</span>}
+                        <span>{t.admin.linksMedia}</span>
+                        {materials.length > 0 && <span className="text-[9px] text-green-500">✓ {materials.length}</span>}
+                      </TabsTrigger>
+                      <TabsTrigger value="lang" className="flex flex-col gap-0.5 py-2 text-xs">
+                        <Globe className="w-4 h-4" />
+                        <span>{t.admin.langContent}</span>
+                        {(langContent.en.description || langContent.zh.description || langContent.ja.description) && <span className="text-[9px] text-green-500">✓</span>}
                       </TabsTrigger>
                       <TabsTrigger value="wallet" className={`flex flex-col gap-0.5 py-2 text-xs ${formData.category === 'SELF_COLLECTION' ? 'text-amber-500' : ''}`}>
                         <Wallet className="w-4 h-4" />
-                        <span>지갑 배분</span>
+                        <span>{t.admin.walletAllocation}</span>
                         {formData.category === 'SELF_COLLECTION'
                           ? <span className="text-[9px] text-amber-500 font-bold">100% 🎯</span>
                           : walletTotal > 0 && <span className="text-[9px] text-blue-500">{walletTotal.toFixed(0)}%</span>
@@ -1268,7 +1294,115 @@ export const AdminAddPlans = () => {
                       </div>
                     </TabsContent>
 
-                    {/* ══════════════ 탭 4: 지갑 배분 ══════════════ */}
+                    {/* ══════════════ 탭 4: 언어별 콘텐츠 ══════════════ */}
+                    <TabsContent value="lang" className="mt-0 space-y-5">
+                      <div className="p-3 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/50">
+                        <p className="text-xs text-blue-600 dark:text-blue-400">
+                          💡 <strong>{t.admin.langContent}</strong>: 언어별로 설명, 자료, PDF를 개별 등록하세요. 미입력 시 기본(KO) 내용이 표시됩니다.
+                        </p>
+                      </div>
+
+                      {/* 언어 탭 선택 */}
+                      <div className="flex border-b border-border/60">
+                        {(["en", "zh", "ko", "ja"] as const).map((lang) => {
+                          const labels: Record<string, string> = { en: "🇺🇸 English", zh: "🇨🇳 中文", ko: "🇰🇷 한국어", ja: "🇯🇵 日本語" };
+                          const hasData = !!(langContent[lang]?.description || langContent[lang]?.detailDescription ||
+                            (langContent[lang]?.materials?.length ?? 0) > 0 ||
+                            (langContent[lang]?.pdfFiles?.length ?? 0) > 0);
+                          return (
+                            <button
+                              key={lang}
+                              type="button"
+                              onClick={() => setActiveLangTab(lang)}
+                              className={`flex-1 py-2.5 text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
+                                activeLangTab === lang
+                                  ? "border-b-2 border-primary text-foreground bg-background"
+                                  : "text-muted-foreground hover:text-foreground"
+                              }`}
+                            >
+                              {labels[lang]}
+                              {hasData && <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* 선택된 언어 콘텐츠 편집 */}
+                      {(["en", "zh", "ko", "ja"] as const).map((lang) => {
+                        if (lang !== activeLangTab) return null;
+                        const langLabels: Record<string, string> = { en: "English", zh: "中文", ko: "한국어", ja: "日本語" };
+                        const lc = langContent[lang];
+                        const update = (patch: Partial<LangContent>) =>
+                          setLangContent({ ...langContent, [lang]: { ...lc, ...patch } });
+                        return (
+                          <div key={lang} className="space-y-5">
+                            {/* 간략 설명 */}
+                            <div className="space-y-2">
+                              <Label className="text-sm font-semibold">📝 {langLabels[lang]} 간략 설명</Label>
+                              <Textarea
+                                value={lc.description || ""}
+                                onChange={(e) => update({ description: e.target.value })}
+                                placeholder={`${langLabels[lang]}로 간략 설명 입력 (카드에 표시됨)`}
+                                rows={3}
+                                className="text-sm"
+                              />
+                            </div>
+
+                            {/* 상세 설명 */}
+                            <div className="space-y-2">
+                              <Label className="text-sm font-semibold">📄 {langLabels[lang]} 상세 설명</Label>
+                              <Textarea
+                                value={lc.detailDescription || ""}
+                                onChange={(e) => update({ detailDescription: e.target.value })}
+                                placeholder={`${langLabels[lang]}로 상세 설명 입력 (세부 정보 팝업에 표시됨)`}
+                                rows={6}
+                                className="text-sm font-mono"
+                              />
+                            </div>
+
+                            {/* 참고 자료 */}
+                            <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
+                              <Label className="text-sm font-semibold">
+                                <FileText className="w-4 h-4 inline mr-1 text-primary" />
+                                {langLabels[lang]} {t.admin.materials}
+                              </Label>
+                              <MaterialEditor
+                                materials={lc.materials || []}
+                                onChange={(m) => update({ materials: m })}
+                              />
+                            </div>
+
+                            {/* PDF 첨부 */}
+                            <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
+                              <Label className="text-sm font-semibold">
+                                <FileText className="w-4 h-4 inline mr-1 text-red-500" />
+                                {langLabels[lang]} {t.admin.pdfFiles}
+                              </Label>
+                              <PdfUpload
+                                files={lc.pdfFiles || []}
+                                onChange={(files) => update({ pdfFiles: files })}
+                                folder={`alphabag/plans/pdf/${lang}`}
+                                maxSizeMB={10}
+                              />
+                            </div>
+
+                            {/* 이미지 갤러리 */}
+                            <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
+                              <Label className="text-sm font-semibold">
+                                <ImageIcon className="w-4 h-4 inline mr-1 text-blue-500" />
+                                {langLabels[lang]} {t.admin.detailImages}
+                              </Label>
+                              <DetailImageEditor
+                                images={lc.detailImages || []}
+                                onChange={(imgs) => update({ detailImages: imgs })}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </TabsContent>
+
+                    {/* ══════════════ 탭 5: 지갑 배분 ══════════════ */}
                     <TabsContent value="wallet" className="mt-0 space-y-4">
 
                       {/* ── 셀프컬렉션 모드: 지갑1에 100% 고정 ── */}
@@ -1416,11 +1550,11 @@ export const AdminAddPlans = () => {
                   {/* ── 저장 버튼 ── */}
                   <div className="flex justify-end gap-2 px-6 py-4 border-t border-border/50 bg-muted/20">
                     <Button type="button" variant="outline" onClick={handleCloseDialog}>
-                      <X className="w-4 h-4 mr-2" /> 취소
+                      <X className="w-4 h-4 mr-2" /> {t.buttons.cancel}
                     </Button>
                     <Button type="submit" className="gap-2 min-w-28">
                       <Save className="w-4 h-4" />
-                      {editingPlan ? "수정 저장" : "플랜 생성"}
+                      {editingPlan ? t.admin.updatePlan : t.admin.createPlan}
                     </Button>
                   </div>
                 </Tabs>

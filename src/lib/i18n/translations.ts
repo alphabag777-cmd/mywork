@@ -430,6 +430,102 @@ export interface Translations {
     };
     foot: string;
   };
+  notices: {
+    title: string;
+    backToList: string;
+    home: string;
+    close: string;
+    prev: string;
+    next: string;
+    prevPost: string;
+    nextPost: string;
+    allNotices: string;
+    noNotices: string;
+    loading: string;
+    noticeDetail: string;
+    popup: string;
+  };
+  buttons: {
+    save: string;
+    cancel: string;
+    close: string;
+    add: string;
+    delete: string;
+    edit: string;
+    create: string;
+    update: string;
+    confirm: string;
+    back: string;
+    next: string;
+    prev: string;
+    preview: string;
+    closePreview: string;
+    addItem: string;
+    addLink: string;
+    upload: string;
+    selectAll: string;
+    deselectAll: string;
+    saving: string;
+    saved: string;
+    copy: string;
+    copied: string;
+    share: string;
+    view: string;
+    search: string;
+    reset: string;
+    submit: string;
+    loading: string;
+  };
+  admin: {
+    planManagement: string;
+    addPlan: string;
+    editPlan: string;
+    createPlan: string;
+    updatePlan: string;
+    basicInfo: string;
+    detailInfo: string;
+    linksMedia: string;
+    walletAllocation: string;
+    planName: string;
+    label: string;
+    dailyProfit: string;
+    status: string;
+    focus: string;
+    dappUrl: string;
+    recommendedAmount: string;
+    description: string;
+    quickActionsDesc: string;
+    tags: string;
+    network: string;
+    tokenSymbol: string;
+    lockupPeriod: string;
+    minInvestment: string;
+    investmentPeriod: string;
+    profitCycle: string;
+    riskLevel: string;
+    feeInfo: string;
+    totalCapacity: string;
+    contractAddress: string;
+    auditInfo: string;
+    detailDescription: string;
+    noticeText: string;
+    highlights: string;
+    detailImages: string;
+    youtubeUrl: string;
+    telegram: string;
+    twitter: string;
+    materials: string;
+    pdfFiles: string;
+    walletDistrib: string;
+    category: string;
+    langContent: string;
+    langTab: string;
+    order: string;
+    logo: string;
+    actions: string;
+    noPlans: string;
+    confirmDelete: string;
+  };
 }
 
 export const translations: Record<Language, Translations> = {
@@ -859,6 +955,102 @@ export const translations: Record<Language, Translations> = {
         p3: 'AlphaBag is not a short-term trend. It aims to be a long-term structure where leaders and community grow together.',
       },
       foot: '© AlphaBag Community Platform. All rights reserved.',
+    },
+    notices: {
+      title: 'Notices',
+      backToList: 'Back to List',
+      home: 'Home',
+      close: 'Close',
+      prev: 'Previous',
+      next: 'Next',
+      prevPost: 'Previous Post',
+      nextPost: 'Next Post',
+      allNotices: 'All Notices',
+      noNotices: 'No notices available.',
+      loading: 'Loading...',
+      noticeDetail: 'Notice Detail',
+      popup: 'Popup',
+    },
+    buttons: {
+      save: 'Save',
+      cancel: 'Cancel',
+      close: 'Close',
+      add: 'Add',
+      delete: 'Delete',
+      edit: 'Edit',
+      create: 'Create',
+      update: 'Update',
+      confirm: 'Confirm',
+      back: 'Back',
+      next: 'Next',
+      prev: 'Previous',
+      preview: 'Preview',
+      closePreview: 'Close Preview',
+      addItem: 'Add Item',
+      addLink: 'Add Link',
+      upload: 'Upload',
+      selectAll: 'Select All',
+      deselectAll: 'Deselect All',
+      saving: 'Saving...',
+      saved: 'Saved',
+      copy: 'Copy',
+      copied: 'Copied!',
+      share: 'Share',
+      view: 'View',
+      search: 'Search',
+      reset: 'Reset',
+      submit: 'Submit',
+      loading: 'Loading...',
+    },
+    admin: {
+      planManagement: 'Manage Investment Plans',
+      addPlan: 'Add New Plan',
+      editPlan: 'Edit Plan',
+      createPlan: 'Create Plan',
+      updatePlan: 'Save Changes',
+      basicInfo: 'Basic Info',
+      detailInfo: 'Detail Info',
+      linksMedia: 'Links & Media',
+      walletAllocation: 'Wallet Allocation',
+      planName: 'Plan Name',
+      label: 'Label',
+      dailyProfit: 'Daily Profit',
+      status: 'Status',
+      focus: 'Focus',
+      dappUrl: 'DApp URL',
+      recommendedAmount: 'Recommended Amount (USDT)',
+      description: 'Short Description',
+      quickActionsDesc: 'Quick Actions Description',
+      tags: 'Tags (comma-separated)',
+      network: 'Network',
+      tokenSymbol: 'Token Symbol',
+      lockupPeriod: 'Lockup Period',
+      minInvestment: 'Minimum Investment',
+      investmentPeriod: 'Investment Period',
+      profitCycle: 'Profit Cycle',
+      riskLevel: 'Risk Level',
+      feeInfo: 'Fee Info',
+      totalCapacity: 'Total Capacity',
+      contractAddress: 'Smart Contract Address',
+      auditInfo: 'Audit Info',
+      detailDescription: 'Detail Description',
+      noticeText: 'Notice / Warning',
+      highlights: 'Key Metrics (Highlight Cards)',
+      detailImages: 'Detail Image Gallery',
+      youtubeUrl: 'YouTube URL',
+      telegram: 'Telegram',
+      twitter: 'Twitter/X',
+      materials: 'Reference Materials',
+      pdfFiles: 'PDF Attachments',
+      walletDistrib: 'Wallet Distribution',
+      category: 'Product Category',
+      langContent: 'Language-specific Content',
+      langTab: 'Language',
+      order: 'Order',
+      logo: 'Logo',
+      actions: 'Actions',
+      noPlans: 'No plans yet. Click "Add New Plan" to create one.',
+      confirmDelete: 'Are you sure you want to delete this plan?',
     },
   },
   zh: {
@@ -1291,6 +1483,102 @@ export const translations: Record<Language, Translations> = {
       },
       foot: '© AlphaBag 社区平台. 版权所有.',
     },
+    notices: {
+      title: '公告',
+      backToList: '返回列表',
+      home: '首页',
+      close: '关闭',
+      prev: '上一条',
+      next: '下一条',
+      prevPost: '上一篇',
+      nextPost: '下一篇',
+      allNotices: '所有公告',
+      noNotices: '暂无公告。',
+      loading: '加载中...',
+      noticeDetail: '公告详情',
+      popup: '弹窗',
+    },
+    buttons: {
+      save: '保存',
+      cancel: '取消',
+      close: '关闭',
+      add: '添加',
+      delete: '删除',
+      edit: '编辑',
+      create: '创建',
+      update: '更新',
+      confirm: '确认',
+      back: '返回',
+      next: '下一步',
+      prev: '上一步',
+      preview: '预览',
+      closePreview: '关闭预览',
+      addItem: '添加项目',
+      addLink: '添加链接',
+      upload: '上传',
+      selectAll: '全选',
+      deselectAll: '取消全选',
+      saving: '保存中...',
+      saved: '已保存',
+      copy: '复制',
+      copied: '已复制！',
+      share: '分享',
+      view: '查看',
+      search: '搜索',
+      reset: '重置',
+      submit: '提交',
+      loading: '加载中...',
+    },
+    admin: {
+      planManagement: '管理投资计划',
+      addPlan: '添加新计划',
+      editPlan: '编辑计划',
+      createPlan: '创建计划',
+      updatePlan: '保存修改',
+      basicInfo: '基本信息',
+      detailInfo: '详细信息',
+      linksMedia: '链接与媒体',
+      walletAllocation: '钱包分配',
+      planName: '计划名称',
+      label: '标签',
+      dailyProfit: '日收益',
+      status: '状态',
+      focus: '重点',
+      dappUrl: 'DApp 地址',
+      recommendedAmount: '推荐金额（USDT）',
+      description: '简短描述',
+      quickActionsDesc: '快速操作描述',
+      tags: '标签（逗号分隔）',
+      network: '网络',
+      tokenSymbol: '代币符号',
+      lockupPeriod: '锁定期',
+      minInvestment: '最低投资额',
+      investmentPeriod: '投资期限',
+      profitCycle: '收益周期',
+      riskLevel: '风险等级',
+      feeInfo: '手续费信息',
+      totalCapacity: '总容量',
+      contractAddress: '智能合约地址',
+      auditInfo: '审计信息',
+      detailDescription: '详细描述',
+      noticeText: '注意事项 / 公告',
+      highlights: '关键指标（高亮卡片）',
+      detailImages: '详细图片库',
+      youtubeUrl: 'YouTube 地址',
+      telegram: 'Telegram',
+      twitter: 'Twitter/X',
+      materials: '参考资料',
+      pdfFiles: 'PDF 附件',
+      walletDistrib: '钱包分配设置',
+      category: '产品类别',
+      langContent: '各语言内容',
+      langTab: '语言',
+      order: '顺序',
+      logo: '徽标',
+      actions: '操作',
+      noPlans: '暂无计划。点击"添加新计划"创建。',
+      confirmDelete: '确定要删除此计划吗？',
+    },
   },
   ko: {
     header: {
@@ -1722,6 +2010,102 @@ export const translations: Record<Language, Translations> = {
       },
       foot: '© AlphaBag 커뮤니티 플랫폼. All rights reserved.',
     },
+    notices: {
+      title: '공지사항',
+      backToList: '목록으로',
+      home: '홈',
+      close: '닫기',
+      prev: '이전',
+      next: '다음',
+      prevPost: '이전 글',
+      nextPost: '다음 글',
+      allNotices: '전체 공지 보기',
+      noNotices: '공지사항이 없습니다.',
+      loading: '로딩 중...',
+      noticeDetail: '공지 상세',
+      popup: '팝업',
+    },
+    buttons: {
+      save: '저장',
+      cancel: '취소',
+      close: '닫기',
+      add: '추가',
+      delete: '삭제',
+      edit: '수정',
+      create: '생성',
+      update: '수정 저장',
+      confirm: '확인',
+      back: '뒤로',
+      next: '다음',
+      prev: '이전',
+      preview: '미리보기',
+      closePreview: '미리보기 닫기',
+      addItem: '항목 추가',
+      addLink: '링크 추가',
+      upload: '업로드',
+      selectAll: '전체 선택',
+      deselectAll: '전체 해제',
+      saving: '저장 중...',
+      saved: '저장됨',
+      copy: '복사',
+      copied: '복사됨!',
+      share: '공유',
+      view: '보기',
+      search: '검색',
+      reset: '초기화',
+      submit: '제출',
+      loading: '로딩 중...',
+    },
+    admin: {
+      planManagement: '투자 플랜 관리',
+      addPlan: '플랜 추가',
+      editPlan: '플랜 수정',
+      createPlan: '플랜 생성',
+      updatePlan: '수정 저장',
+      basicInfo: '기본 정보',
+      detailInfo: '세부 정보',
+      linksMedia: '링크·미디어',
+      walletAllocation: '지갑 배분',
+      planName: '플랜 이름',
+      label: '라벨',
+      dailyProfit: '일일 수익',
+      status: '상태',
+      focus: '포커스',
+      dappUrl: 'DApp URL',
+      recommendedAmount: '권장 금액 (USDT)',
+      description: '간략 설명',
+      quickActionsDesc: 'Quick Actions 설명',
+      tags: '태그 (쉼표로 구분)',
+      network: '네트워크',
+      tokenSymbol: '토큰 심볼',
+      lockupPeriod: '락업 기간',
+      minInvestment: '최소 투자금',
+      investmentPeriod: '투자 기간',
+      profitCycle: '수익 지급 주기',
+      riskLevel: '리스크 레벨',
+      feeInfo: '수수료 정보',
+      totalCapacity: '총 모집 한도',
+      contractAddress: '스마트 컨트랙트 주소',
+      auditInfo: '감사(Audit) 정보',
+      detailDescription: '상세 설명',
+      noticeText: '주의사항 / 공지',
+      highlights: '핵심 지표 (하이라이트 카드)',
+      detailImages: '상세 이미지 갤러리',
+      youtubeUrl: 'YouTube URL',
+      telegram: '텔레그램',
+      twitter: 'Twitter/X',
+      materials: '참고 자료',
+      pdfFiles: 'PDF 첨부 파일',
+      walletDistrib: '투자 금액 배분 설정',
+      category: '상품 유형 (카테고리)',
+      langContent: '언어별 콘텐츠',
+      langTab: '언어',
+      order: '순서',
+      logo: '로고',
+      actions: '관리',
+      noPlans: '플랜이 없습니다. "플랜 추가" 버튼을 클릭하세요.',
+      confirmDelete: '이 플랜을 삭제하시겠습니까?',
+    },
   },
   ja: {
     header: {
@@ -2141,6 +2525,101 @@ export const translations: Record<Language, Translations> = {
       },
       foot: '© AlphaBagコミュニティプラットフォーム. All rights reserved.',
     },
+    notices: {
+      title: 'お知らせ',
+      backToList: 'リストに戻る',
+      home: 'ホーム',
+      close: '閉じる',
+      prev: '前へ',
+      next: '次へ',
+      prevPost: '前の記事',
+      nextPost: '次の記事',
+      allNotices: 'すべてのお知らせ',
+      noNotices: 'お知らせはありません。',
+      loading: '読み込み中...',
+      noticeDetail: 'お知らせ詳細',
+      popup: 'ポップアップ',
+    },
+    buttons: {
+      save: '保存',
+      cancel: 'キャンセル',
+      close: '閉じる',
+      add: '追加',
+      delete: '削除',
+      edit: '編集',
+      create: '作成',
+      update: '変更を保存',
+      confirm: '確認',
+      back: '戻る',
+      next: '次へ',
+      prev: '前へ',
+      preview: 'プレビュー',
+      closePreview: 'プレビューを閉じる',
+      addItem: '項目を追加',
+      addLink: 'リンクを追加',
+      upload: 'アップロード',
+      selectAll: 'すべて選択',
+      deselectAll: 'すべて解除',
+      saving: '保存中...',
+      saved: '保存済み',
+      copy: 'コピー',
+      copied: 'コピーしました！',
+      share: '共有',
+      view: '表示',
+      search: '検索',
+      reset: 'リセット',
+      submit: '送信',
+      loading: '読み込み中...',
+    },
+    admin: {
+      planManagement: '投資プラン管理',
+      addPlan: 'プラン追加',
+      editPlan: 'プラン編集',
+      createPlan: 'プラン作成',
+      updatePlan: '変更を保存',
+      basicInfo: '基本情報',
+      detailInfo: '詳細情報',
+      linksMedia: 'リンク・メディア',
+      walletAllocation: 'ウォレット配分',
+      planName: 'プラン名',
+      label: 'ラベル',
+      dailyProfit: '日利',
+      status: 'ステータス',
+      focus: 'フォーカス',
+      dappUrl: 'DApp URL',
+      recommendedAmount: '推奨金額（USDT）',
+      description: '簡単な説明',
+      quickActionsDesc: 'クイックアクション説明',
+      tags: 'タグ（カンマ区切り）',
+      network: 'ネットワーク',
+      tokenSymbol: 'トークンシンボル',
+      lockupPeriod: 'ロック期間',
+      minInvestment: '最低投資額',
+      investmentPeriod: '投資期間',
+      profitCycle: '収益支払サイクル',
+      riskLevel: 'リスクレベル',
+      feeInfo: '手数料情報',
+      totalCapacity: '総募集上限',
+      contractAddress: 'スマートコントラクトアドレス',
+      auditInfo: '監査情報',
+      detailDescription: '詳細説明',
+      noticeText: '注意事項 / お知らせ',
+      highlights: 'キー指標（ハイライトカード）',
+      detailImages: '詳細画像ギャラリー',
+      youtubeUrl: 'YouTube URL',
+      telegram: 'テレグラム',
+      twitter: 'Twitter/X',
+      materials: '参考資料',
+      pdfFiles: 'PDF添付ファイル',
+      walletDistrib: '投資金額配分設定',
+      category: '商品カテゴリ',
+      langContent: '言語別コンテンツ',
+      langTab: '言語',
+      order: '順序',
+      logo: 'ロゴ',
+      actions: '操作',
+      noPlans: 'プランがありません。「プラン追加」ボタンをクリックしてください。',
+      confirmDelete: 'このプランを削除してもよろしいですか？',
+    },
   },
 };
-

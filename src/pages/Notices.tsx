@@ -14,11 +14,13 @@ import {
 } from "lucide-react";
 import { getAllNotices, Notice } from "@/lib/notices";
 import { format } from "date-fns";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 const PAGE_SIZE = 5;
 
 export default function Notices() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -28,7 +30,6 @@ export default function Notices() {
       setLoading(true);
       try {
         const all = await getAllNotices();
-        // isActive 가 undefined 인 경우도 표시되도록 처리 후 정렬
         const sorted = all
           .filter((n) => n.isActive !== false)
           .sort((a, b) => {
@@ -65,10 +66,10 @@ export default function Notices() {
           <div className="flex-1">
             <h1 className="text-xl font-bold flex items-center gap-2">
               <Bell className="w-5 h-5 text-primary" />
-              공지사항
+              {t.notices.title}
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              총 {notices.length}개 공지
+              {notices.length} {t.notices.allNotices}
             </p>
           </div>
           {/* 닫기 → 홈으로 */}
@@ -77,7 +78,7 @@ export default function Notices() {
             size="icon"
             className="rounded-full"
             onClick={() => navigate("/")}
-            title="홈으로"
+            title={t.notices.home}
           >
             <X className="w-5 h-5" />
           </Button>
@@ -99,7 +100,7 @@ export default function Notices() {
               <Card>
                 <CardContent className="py-16 flex flex-col items-center text-muted-foreground">
                   <Bell className="w-10 h-10 mb-3 opacity-30" />
-                  <p>공지사항이 없습니다.</p>
+                  <p>{t.notices.noNotices}</p>
                 </CardContent>
               </Card>
             )
@@ -124,11 +125,11 @@ export default function Notices() {
                           <div className="flex items-center gap-2 mb-1">
                             {notice.type === "popup" && (
                               <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                팝업
+                                {t.notices.popup}
                               </Badge>
                             )}
                             <p className="font-medium text-sm leading-snug truncate group-hover:text-primary transition-colors">
-                              {notice.title || notice.points[0] || "제목 없음"}
+                              {notice.title || notice.points[0] || "—"}
                             </p>
                           </div>
                           {notice.points.length > 0 && notice.title && (

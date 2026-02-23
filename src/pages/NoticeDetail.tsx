@@ -4,13 +4,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Bell, Calendar, ChevronRight, ChevronLeft, Home, X } from "lucide-react";
+import { ArrowLeft, Bell, Calendar, ChevronRight, ChevronLeft, X } from "lucide-react";
 import { getNoticeById, getAllNotices, Notice } from "@/lib/notices";
 import { format } from "date-fns";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 export default function NoticeDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [notice, setNotice] = useState<Notice | null>(null);
   const [allNotices, setAllNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +41,6 @@ export default function NoticeDetail() {
     load();
   }, [id]);
 
-  // 이전/다음 공지
   const currentIdx = allNotices.findIndex((n) => n.id === id);
   const prevNotice = currentIdx > 0 ? allNotices[currentIdx - 1] : null;
   const nextNotice = currentIdx < allNotices.length - 1 ? allNotices[currentIdx + 1] : null;
@@ -59,7 +60,7 @@ export default function NoticeDetail() {
           </Button>
           <h1 className="text-xl font-bold flex items-center gap-2 flex-1">
             <Bell className="w-5 h-5 text-primary" />
-            공지사항
+            {t.notices.title}
           </h1>
           {/* 닫기 → 홈으로 */}
           <Button
@@ -67,7 +68,7 @@ export default function NoticeDetail() {
             size="icon"
             className="rounded-full"
             onClick={() => navigate("/")}
-            title="홈으로"
+            title={t.notices.home}
           >
             <X className="w-5 h-5" />
           </Button>
@@ -89,13 +90,13 @@ export default function NoticeDetail() {
             ) : !notice ? (
               <div className="py-12 text-center text-muted-foreground">
                 <Bell className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                <p>공지사항을 찾을 수 없습니다.</p>
+                <p>{t.notices.noNotices}</p>
                 <Button
                   variant="outline"
                   className="mt-4"
                   onClick={() => navigate("/notices")}
                 >
-                  목록으로 돌아가기
+                  {t.notices.backToList}
                 </Button>
               </div>
             ) : (
@@ -104,17 +105,17 @@ export default function NoticeDetail() {
                 <div className="border-b border-border pb-4">
                   <div className="flex items-center gap-2 mb-2">
                     {notice.type === "popup" && (
-                      <Badge variant="secondary" className="text-xs">팝업</Badge>
+                      <Badge variant="secondary" className="text-xs">{t.notices.popup}</Badge>
                     )}
-                    <Badge variant="outline" className="text-xs">공지</Badge>
+                    <Badge variant="outline" className="text-xs">{t.notices.noticeDetail}</Badge>
                   </div>
                   <h2 className="text-lg font-bold leading-snug">
-                    {notice.title || notice.points[0] || "제목 없음"}
+                    {notice.title || notice.points[0] || "—"}
                   </h2>
                   <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                     <Calendar className="w-3 h-3" />
                     {notice.createdAt
-                      ? format(new Date(notice.createdAt), "yyyy년 MM월 dd일")
+                      ? format(new Date(notice.createdAt), "yyyy.MM.dd")
                       : ""}
                   </div>
                 </div>
@@ -132,7 +133,7 @@ export default function NoticeDetail() {
                     </div>
                   ))}
                   {notice.points.length === 0 && (
-                    <p className="text-sm text-muted-foreground">내용이 없습니다.</p>
+                    <p className="text-sm text-muted-foreground">—</p>
                   )}
                 </div>
               </>
@@ -151,9 +152,9 @@ export default function NoticeDetail() {
                 <CardContent className="p-3 flex items-center gap-3">
                   <ChevronLeft className="w-4 h-4 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-muted-foreground">이전 글</p>
+                    <p className="text-[10px] text-muted-foreground">{t.notices.prevPost}</p>
                     <p className="text-sm truncate group-hover:text-primary transition-colors">
-                      {nextNotice.title || nextNotice.points[0] || "제목 없음"}
+                      {nextNotice.title || nextNotice.points[0] || "—"}
                     </p>
                   </div>
                 </CardContent>
@@ -166,9 +167,9 @@ export default function NoticeDetail() {
               >
                 <CardContent className="p-3 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-muted-foreground text-right">다음 글</p>
+                    <p className="text-[10px] text-muted-foreground text-right">{t.notices.nextPost}</p>
                     <p className="text-sm truncate text-right group-hover:text-primary transition-colors">
-                      {prevNotice.title || prevNotice.points[0] || "제목 없음"}
+                      {prevNotice.title || prevNotice.points[0] || "—"}
                     </p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -184,7 +185,7 @@ export default function NoticeDetail() {
                 className="gap-1"
               >
                 <Bell className="w-3.5 h-3.5" />
-                목록으로
+                {t.notices.backToList}
               </Button>
             </div>
           </div>
