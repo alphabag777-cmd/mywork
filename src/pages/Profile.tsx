@@ -1,63 +1,72 @@
+/**
+ * Profile.tsx — 완전 재작성 (2026-02-23)
+ *
+ * 구조:
+ *   ProfileGate (default export)
+ *     ├─ isConnected=false → <ProfileIntroPage />  (훅 없음, 순수 UI)
+ *     └─ isConnected=true  → <ProfilePage />        (모든 데이터 로직)
+ *
+ * ProfilePage 내부도 모든 heavy 섹션을 React.lazy + Suspense + SectionErrorBoundary 3중 격리
+ */
+
 import { useAccount } from "wagmi";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, Component, ReactNode, ErrorInfo } from "react";
 import Header from "@/components/Header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import {
-  Copy,
-  Check,
-  Share2,
-  Network,
-  TrendingUp,
-  Wallet,
-  User,
-  RefreshCw,
-  ExternalLink,
-  Users,
-  ArrowLeft,
-  Edit2,
-  Save,
-  X,
-  DollarSign,
-  BarChart3,
-  PieChart,
-  AlertCircle,
+  Wallet, User, TrendingUp, Share2, Network, BarChart3,
+  DollarSign, PieChart, AlertCircle, ArrowLeft, RefreshCw,
+  Copy, Check, ExternalLink, Users, Edit2, Save, X,
 } from "lucide-react";
-import { generateReferralLink, getReferrerWallet, getOrCreateReferralCode } from "@/lib/referral";
-import { toast } from "sonner";
-import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { useState, useEffect, useCallback, useMemo, Component, ReactNode, ErrorInfo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { formatUnits } from "viem";
+import {
+  PieChart as RechartsPie, Pie, Cell, Tooltip,
+  ResponsiveContainer, Legend, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid,
+} from "recharts";
+import { generateReferralLink, getReferrerWallet, getOrCreateReferralCode } from "@/lib/referral";
 import { getUserInvestments } from "@/lib/userInvestments";
 import { getActiveUserStakes } from "@/lib/userStakes";
-import {
-  PieChart as RechartsPie, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-} from "recharts";
-import { format } from "date-fns";
-// useUSDTToken, useUSDTDecimals, useTokenBalance, useUserInvestment, useUserVolume,
-// useSeparateInvestment 완전 제거 — 모바일 wagmi contract-read 훅 크래시 원인
-import { formatUnits } from "viem";
+import { getReferralsByReferrer } from "@/lib/referrals";
+import { getReferralActivitiesByReferrer, ReferralActivity } from "@/lib/referralActivities";
 import { updateNodeReferralCode } from "@/lib/userReferralCodes";
 import { useProfileData } from "@/hooks/useProfileData";
 import type { UserNode } from "@/hooks/useProfileData";
 import type { USDTTransfer } from "@/lib/walletTransfers";
 import { InvestmentCertificateButton } from "@/components/InvestmentCertificate";
-import { getReferralsByReferrer } from "@/lib/referrals";
-import { getReferralActivitiesByReferrer, ReferralActivity } from "@/lib/referralActivities";
 import { formatAddress } from "@/lib/utils";
 import { logActivity } from "@/lib/userActivityLog";
 
-// ── Lazy-loaded heavy components (각각 완전 격리) ──
-const ReferralShare    = lazy(() => import("@/components/ReferralShare"));
-const PlanSelector     = lazy(() => import("@/components/PlanSelector"));
+// ── Lazy-loaded heavy components ──────────────────────────────────────────────
+const ReferralShare     = lazy(() => import("@/components/ReferralShare"));
+const PlanSelector      = lazy(() => import("@/components/PlanSelector"));
 const ReferralDashboard = lazy(() => import("@/components/ReferralDashboard"));
-const Leaderboard      = lazy(() => import("@/components/Leaderboard").then(m => ({ default: m.Leaderboard })));
-const OrgChart         = lazy(() => import("@/components/OrgChart").then(m => ({ default: m.OrgChart })));
+const Leaderboard       = lazy(() => import("@/components/Leaderboard").then(m => ({ default: m.Leaderboard })));
+const OrgChart          = lazy(() => import("@/components/OrgChart").then(m => ({ default: m.OrgChart })));
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+type InvestmentPlan = import("@/lib/plans").InvestmentPlan;
+
+interface DirectReferral {
+  address: string;
+  level: string;
+  directPush: { current: number; required: number };
+  personalPerformance: number;
+  communityPerformance: number;
+  thirtySky: number;
+  totalTeamPerformance: number;
+  totalTeamMembers: number;
+}
+
+// ── Earnings colors ───────────────────────────────────────────────────────────
 const EARNINGS_COLORS: Record<string, string> = {
   BBAG: "#f59e0b",
   SBAG: "#3b82f6",
@@ -65,7 +74,7 @@ const EARNINGS_COLORS: Record<string, string> = {
   Staking: "#8b5cf6",
 };
 
-// ── Inline error boundary for dangerous sub-components (e.g. react-d3-tree) ──
+// ── SectionErrorBoundary ─────────────────────────────────────────────────────
 class SectionErrorBoundary extends Component<
   { children: ReactNode; fallback?: ReactNode },
   { hasError: boolean }
@@ -93,322 +102,153 @@ class SectionErrorBoundary extends Component<
   }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Helper: wallet transfer sub-card (used for BBAG / SBAG / CBAG)
-// ──────────────────────────────────────────────────────────────────────────────
-interface WalletSubCardProps {
-  label: string;
-  address: string;
-  totalInvestment: number;
-  totalProfit: number;
-  isLoading: boolean;
-  transfers: USDTTransfer[];
-  conversionRate?: number;
-  tokenPrice?: number;
-  usdtLabel: string;
-}
+// ── Helper: lazy section wrapper ─────────────────────────────────────────────
+const LazySection = ({
+  children,
+  fallbackHeight = "h-24",
+}: {
+  children: ReactNode;
+  fallbackHeight?: string;
+}) => (
+  <SectionErrorBoundary>
+    <Suspense fallback={<div className={`${fallbackHeight} animate-pulse bg-muted rounded-lg mb-6`} />}>
+      {children}
+    </Suspense>
+  </SectionErrorBoundary>
+);
 
+// ── Helper: WalletSubCard ─────────────────────────────────────────────────────
 const WalletSubCard = ({
-  label,
-  address,
-  totalInvestment,
-  totalProfit,
-  isLoading,
-  transfers,
-  conversionRate,
-  tokenPrice,
-  usdtLabel,
-}: WalletSubCardProps) => (
+  label, address, totalInvestment, totalProfit, isLoading, transfers, usdtLabel,
+}: {
+  label: string; address: string; totalInvestment: number; totalProfit: number;
+  isLoading: boolean; transfers: USDTTransfer[]; usdtLabel: string;
+  conversionRate?: number; tokenPrice?: number;
+}) => (
   <div className="border border-border/50 rounded-lg p-4">
     <div className="flex items-center justify-between mb-4">
-      <h3 className="text-lg font-semibold text-foreground">{label}</h3>
+      <h3 className="text-lg font-semibold">{label}</h3>
       <div className="text-right">
         <p className="text-sm text-muted-foreground">Total Investment</p>
-        <p className="text-lg font-bold text-foreground">
-          {totalInvestment.toFixed(2)} {usdtLabel}
-        </p>
+        <p className="text-lg font-bold">{totalInvestment.toFixed(2)} {usdtLabel}</p>
         {totalProfit !== 0 && (
           <>
             <p className="text-sm text-muted-foreground mt-1">Profit</p>
-            <p
-              className={`text-lg font-bold ${
-                totalProfit >= 0
-                  ? "text-green-600 dark:text-green-400"
-                  : "text-red-600 dark:text-red-400"
-              }`}
-            >
-              {totalProfit >= 0 ? "+" : ""}
-              {totalProfit.toFixed(2)} {usdtLabel}
+            <p className={`text-lg font-bold ${totalProfit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+              {totalProfit >= 0 ? "+" : ""}{totalProfit.toFixed(2)} {usdtLabel}
             </p>
           </>
         )}
       </div>
     </div>
-
     <p className="text-xs text-muted-foreground font-mono break-all mb-2">
       {address || "No wallet address configured"}
     </p>
-
     {isLoading ? (
       <div className="text-center py-4">
         <RefreshCw className="w-6 h-6 mx-auto mb-2 text-muted-foreground opacity-50 animate-spin" />
-        <p className="text-sm text-muted-foreground">Loading transactions...</p>
       </div>
     ) : transfers.length > 0 ? (
       <div className="space-y-2 mt-4">
-        <h4 className="text-sm font-semibold text-foreground mb-2">Transactions:</h4>
-        {transfers.map((transfer, index) => {
-          const amount = Number(transfer.amount);
-          let profit = 0;
-          if (conversionRate && tokenPrice) {
-            profit = amount * conversionRate * tokenPrice;
-          }
-          return (
-            <div
-              key={`${transfer.transactionHash}-${index}`}
-              className="flex items-center justify-between p-2 bg-background/50 rounded border border-border/30"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <p className="text-sm font-medium text-foreground">
-                    {amount.toFixed(2)} {usdtLabel}
-                  </p>
-                  {profit > 0 && (
-                    <p
-                      className={`text-sm font-semibold ${
-                        profit >= 0
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-red-600 dark:text-red-400"
-                      }`}
-                    >
-                      Profit: {profit >= 0 ? "+" : ""}
-                      {profit.toFixed(2)} {usdtLabel}
-                    </p>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {(() => { try { const d = toSafeDate ? toSafeDate(transfer.timestamp) : new Date(transfer.timestamp); return d ? d.toLocaleString() : "-"; } catch { return "-"; } })()}
-                </p>
-                <a
-                  href={`https://bscscan.com/tx/${transfer.transactionHash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-primary hover:underline mt-1 block truncate"
-                >
-                  Tx: {transfer.transactionHash.slice(0, 6)}...
-                  {transfer.transactionHash.slice(-4)}
-                </a>
-              </div>
-            </div>
-          );
-        })}
+        <h4 className="text-sm font-semibold mb-2">Transactions:</h4>
+        {transfers.slice(0, 5).map((transfer, idx) => (
+          <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-border/30">
+            <span className="text-muted-foreground font-mono">{formatAddress(transfer.from || "")}</span>
+            <span className="font-medium">{Number(transfer.amount).toFixed(2)} {usdtLabel}</span>
+          </div>
+        ))}
       </div>
     ) : (
-      <p className="text-sm text-muted-foreground py-2">No transactions found</p>
+      <p className="text-xs text-muted-foreground text-center py-4">No transactions found</p>
     )}
   </div>
 );
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Main component
-// ──────────────────────────────────────────────────────────────────────────────
-// ──────────────────────────────────────────────────────────────────────────────
-// NodeCard — 노드 카드 독립 컴포넌트 (insertBefore 에러 방지)
-// isSaving, editingNodeId 등 상태 변화 시 DOM 구조가 항상 동일하게 유지됨
-// ──────────────────────────────────────────────────────────────────────────────
-interface NodeCardProps {
+// ── Helper: NodeCard ──────────────────────────────────────────────────────────
+const NodeCard = ({
+  node, nodeReferralCodes, editingNodeId, editingCode, isSaving,
+  copied, t, getColorClasses, onEditNodeCode, onCancelEdit, onSaveNodeCode,
+  onCopy, onEditingCodeChange,
+}: {
   node: UserNode;
   nodeReferralCodes: Record<string, string>;
   editingNodeId: string | null;
   editingCode: string;
   isSaving: boolean;
   copied: Record<string, boolean>;
-  t: any;
+  t: ReturnType<typeof useLanguage>["t"];
   getColorClasses: (color: string) => string;
   onEditNodeCode: (nodeId: number) => void;
   onCancelEdit: () => void;
   onSaveNodeCode: (nodeId: number) => void;
   onCopy: (text: string, key: string) => void;
-  onEditingCodeChange: (val: string) => void;
-}
-
-const NodeCard = ({
-  node, nodeReferralCodes, editingNodeId, editingCode, isSaving,
-  copied, t, getColorClasses, onEditNodeCode, onCancelEdit,
-  onSaveNodeCode, onCopy, onEditingCodeChange,
-}: NodeCardProps) => {
-  const colors = getColorClasses(node.color);
-  const nodeKey = node.nodeId?.toString() ?? "";
-  const isEditing = editingNodeId === nodeKey;
-  const hasReferralCode = nodeKey && nodeReferralCodes[nodeKey];
-
+  onEditingCodeChange: (v: string) => void;
+}) => {
+  const isEditing = editingNodeId === node.nodeId?.toString();
+  const refCode = node.nodeId !== undefined ? nodeReferralCodes[node.nodeId.toString()] : "";
   return (
-    <div className={`card-metallic rounded-xl p-4 border-2 ${colors} transition-all duration-300 hover:scale-[1.02] hover:shadow-xl`}>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-display font-bold text-lg">{node.name}</h3>
-        <span className={`text-xs px-2 py-1 rounded-full ${
-          node.status === "Active" ? "bg-green-500/20 text-green-400"
-          : node.status === "Pending" ? "bg-yellow-500/20 text-yellow-400"
-          : "bg-red-500/20 text-red-400"
-        }`}>{node.status}</span>
+    <div className={`p-4 rounded-lg border-2 ${getColorClasses(node.color)}`}>
+      <div className="flex justify-between items-start mb-3">
+        <div>
+          <h3 className="font-semibold text-base">{node.name}</h3>
+          <p className="text-xs text-muted-foreground">{node.purchaseDate ? format(new Date(node.purchaseDate), "yyyy-MM-dd") : ""}</p>
+        </div>
+        <Badge variant={node.status === "Active" ? "default" : "outline"} className="text-xs">{node.status}</Badge>
       </div>
-      <div className="space-y-2 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">{t.profile.price}</span>
-          <span className="font-semibold">{node.price.toLocaleString()} {t.common.usdt}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">{t.profile.nodeId}</span>
-          <span className="font-semibold">{node.nodeId ?? "-"}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Purchase Date</span>
-          <span className="font-semibold text-xs">
-            {new Date(node.purchaseDate).toLocaleDateString()}
-          </span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-muted-foreground text-xs">Tx Hash</span>
-          {node.transactionHash ? (
-            <a href={`https://bscscan.com/tx/${node.transactionHash}`} target="_blank"
-              rel="noopener noreferrer"
-              className="font-mono text-xs text-primary hover:underline truncate max-w-[120px]"
-              title={node.transactionHash}>
-              {node.transactionHash.slice(0, 6)}...{node.transactionHash.slice(-4)}
-            </a>
-          ) : <span className="text-xs text-muted-foreground">-</span>}
-        </div>
-        {hasReferralCode && (
-          <div className="flex justify-between items-center pt-2 border-t border-border/50">
-            <span className="text-muted-foreground text-xs">Referral Code</span>
-            {/* 항상 고정 DOM 구조 — display 전환으로 insertBefore 방지 */}
-            <div className="flex items-center gap-1">
-              {/* editing 뷰 */}
-              <div style={{ display: isEditing ? "flex" : "none" }} className="items-center gap-1">
-                <Input value={editingCode} onChange={(e) => onEditingCodeChange(e.target.value)}
-                  className="h-6 text-xs font-mono w-24 sm:w-32" placeholder="Enter code" disabled={isSaving} />
-                <Button variant="ghost" size="icon" className="h-5 w-5 sm:h-6 sm:w-6"
-                  onClick={() => onSaveNodeCode(node.nodeId!)} disabled={isSaving}>
-                  {isSaving
-                    ? <RefreshCw className="w-2.5 h-2.5 animate-spin" />
-                    : <Save className="w-2.5 h-2.5 text-green-500" />}
-                </Button>
-                <Button variant="ghost" size="icon" className="h-5 w-5 sm:h-6 sm:w-6"
-                  onClick={onCancelEdit} disabled={isSaving}>
-                  <X className="w-2.5 h-2.5 text-red-500" />
-                </Button>
-              </div>
-              {/* view 뷰 */}
-              <div style={{ display: isEditing ? "none" : "flex" }} className="items-center gap-1">
-                <span className="font-mono text-xs text-primary">{nodeReferralCodes[nodeKey]}</span>
-                <Button variant="ghost" size="icon" className="h-5 w-5 sm:h-6 sm:w-6"
-                  onClick={() => onEditNodeCode(node.nodeId!)}>
-                  <Edit2 className="w-2.5 h-2.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-5 w-5 sm:h-6 sm:w-6"
-                  onClick={() => onCopy(nodeReferralCodes[nodeKey], `node-${node.nodeId}`)}>
-                  {copied[`node-${node.nodeId}`]
-                    ? <Check className="w-2.5 h-2.5 text-green-500" />
-                    : <Copy className="w-2.5 h-2.5" />}
-                </Button>
-              </div>
+      <p className="text-lg font-bold mb-3">{node.price.toLocaleString()} {t.common.usdt}</p>
+      {node.nodeId !== undefined && (
+        <div className="mt-3 pt-3 border-t border-border/30">
+          <p className="text-xs text-muted-foreground mb-1">{t.profile.referralCode}</p>
+          {isEditing ? (
+            <div className="flex gap-2">
+              <input
+                className="flex-1 text-xs border border-border rounded px-2 py-1 bg-background font-mono"
+                value={editingCode}
+                onChange={e => onEditingCodeChange(e.target.value)}
+                placeholder="Enter referral code"
+              />
+              <Button size="icon" variant="ghost" className="h-7 w-7" disabled={isSaving} onClick={() => onSaveNodeCode(node.nodeId!)}>
+                {isSaving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3 text-green-500" />}
+              </Button>
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onCancelEdit}>
+                <X className="w-3 h-3 text-red-500" />
+              </Button>
             </div>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="flex-1 text-xs font-mono text-foreground truncate">
+                {refCode || "No code assigned"}
+              </span>
+              {refCode && (
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onCopy(refCode, `node-${node.nodeId}`)}>
+                  {copied[`node-${node.nodeId}`] ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                </Button>
+              )}
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEditNodeCode(node.nodeId!)}>
+                <Edit2 className="w-3 h-3" />
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
 
-// ──────────────────────────────────────────────────────────────────────────────
-// NodeRefRow — Node Referral Codes 행 독립 컴포넌트
-// <>Fragment + 조건부 버튼이 insertBefore 에러 유발 → 고정된 DOM 구조로 변경
-// ──────────────────────────────────────────────────────────────────────────────
-interface NodeRefRowProps {
-  node: UserNode;
-  refCode: string;
-  isEditing: boolean;
-  editingCode: string;
-  isSaving: boolean;
-  isCopied: boolean;
-  colorClass: string;
-  onEdit: () => void;
-  onSave: () => void;
-  onCancel: () => void;
-  onCopy: () => void;
-  onCodeChange: (val: string) => void;
-}
-
-const NodeRefRow = ({
-  node, refCode, isEditing, editingCode, isSaving, isCopied,
-  colorClass, onEdit, onSave, onCancel, onCopy, onCodeChange,
-}: NodeRefRowProps) => (
-  <div className="card-metallic rounded-xl p-4 border-2 border-border/50 flex items-center justify-between">
-    <div className="flex items-center gap-3 flex-1 min-w-0">
-      <div className={`w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 ${colorClass}`}>
-        <Network className="w-5 h-5" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <h4 className="font-semibold text-foreground mb-1">{node.name}</h4>
-        {/* 항상 같은 DOM 구조 — isEditing에 따라 visibility만 전환 */}
-        <div style={{ display: isEditing ? "block" : "none" }}>
-          <Input value={editingCode} onChange={(e) => onCodeChange(e.target.value)}
-            className="h-7 text-sm font-mono mt-1" placeholder="Enter code" disabled={isSaving} />
-        </div>
-        <div style={{ display: isEditing ? "none" : "block" }}>
-          <p className="text-sm font-mono text-muted-foreground">{refCode}</p>
-        </div>
-      </div>
-    </div>
-    {/* 항상 4개 버튼 유지 — 불필요한 버튼은 hidden */}
-    <div className="flex items-center gap-1">
-      {/* Save 버튼 (editing 상태에서만 표시) */}
-      <Button variant="ghost" size="icon"
-        className={`shrink-0 h-7 w-7 sm:h-8 sm:w-8 ${isEditing ? "" : "hidden"}`}
-        onClick={onSave} disabled={isSaving}>
-        {isSaving
-          ? <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
-          : <Save className="w-3 h-3 sm:w-4 sm:h-4 text-green-500" />}
-      </Button>
-      {/* Cancel 버튼 (editing 상태에서만 표시) */}
-      <Button variant="ghost" size="icon"
-        className={`shrink-0 h-7 w-7 sm:h-8 sm:w-8 ${isEditing ? "" : "hidden"}`}
-        onClick={onCancel} disabled={isSaving}>
-        <X className="w-3 h-3 sm:w-4 sm:h-4 text-red-500" />
-      </Button>
-      {/* Edit 버튼 (비편집 상태에서만 표시) */}
-      <Button variant="ghost" size="icon"
-        className={`shrink-0 h-7 w-7 sm:h-8 sm:w-8 ${isEditing ? "hidden" : ""}`}
-        onClick={onEdit}>
-        <Edit2 className="w-3 h-3 sm:w-4 sm:h-4" />
-      </Button>
-      {/* Copy 버튼 (비편집 상태에서만 표시) */}
-      <Button variant="ghost" size="icon"
-        className={`shrink-0 h-7 w-7 sm:h-8 sm:w-8 ${isEditing ? "hidden" : ""}`}
-        onClick={onCopy}>
-        {isCopied
-          ? <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-500" />
-          : <Copy className="w-3 h-3 sm:w-4 sm:h-4" />}
-      </Button>
-    </div>
-  </div>
-);
-
-const ProfileConnected = ({ address, isConnected }: { address: `0x${string}`; isConnected: boolean }) => {
+// ─────────────────────────────────────────────────────────────────────────────
+// ProfilePage — only mounted when wallet IS connected
+// ─────────────────────────────────────────────────────────────────────────────
+const ProfilePage = ({
+  address,
+  isConnected,
+}: {
+  address: `0x${string}`;
+  isConnected: boolean;
+}) => {
   const { t } = useLanguage();
   const navigate = useNavigate();
 
-  // ── Community state ──
-  interface DirectReferral {
-    address: string;
-    level: string;
-    directPush: { current: number; required: number };
-    personalPerformance: number;
-    communityPerformance: number;
-    thirtySky: number;
-    totalTeamPerformance: number;
-    totalTeamMembers: number;
-  }
+  // ── Team / Community state ────────────────────────────────────────────────
   const [teamPerformance, setTeamPerformance] = useState({
     marketLevel: "W S0", teamNode: 0, personalPerformance: 0,
     regionalPerformance: 0, communityPerformance: 0, thirtySky: 0,
@@ -420,216 +260,151 @@ const ProfileConnected = ({ address, isConnected }: { address: `0x${string}`; is
   const [isLoadingTeam, setIsLoadingTeam] = useState(false);
   const [copiedCommunity, setCopiedCommunity] = useState<Record<string, boolean>>({});
 
-  const handleCopyCommunity = (text: string, key: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedCommunity((prev) => ({ ...prev, [key]: true }));
-    setTimeout(() => setCopiedCommunity((prev) => ({ ...prev, [key]: false })), 2000);
-    // Log referral link copy activity
-    if (address) logActivity(address.toLowerCase(), "referral_link_copy", { copied: text.slice(0, 42) });
-  };
+  const handleCopyCommunity = useCallback((text: string, key: string) => {
+    navigator.clipboard.writeText(text).catch(() => {});
+    setCopiedCommunity(p => ({ ...p, [key]: true }));
+    setTimeout(() => setCopiedCommunity(p => ({ ...p, [key]: false })), 2000);
+    logActivity(address.toLowerCase(), "referral_link_copy", { copied: text.slice(0, 42) });
+  }, [address]);
 
   const loadTeamData = useCallback(async () => {
-    if (!address) return;
     setIsLoadingTeam(true);
     try {
-      const normalizedAddress = address.toLowerCase();
+      const norm = address.toLowerCase();
       const [referrals, activities] = await Promise.all([
-        getReferralsByReferrer(normalizedAddress),
-        getReferralActivitiesByReferrer(normalizedAddress),
+        getReferralsByReferrer(norm),
+        getReferralActivitiesByReferrer(norm),
       ]);
-      const users = referrals.map((ref) => ({ wallet: ref.referredWallet, joinedAt: ref.createdAt }));
+      const users = referrals.map(r => ({ wallet: r.referredWallet, joinedAt: r.createdAt }));
       setReferredUsers(users);
       setReferralActivities(activities);
-      const referralInvestments = await Promise.all(
-        users.map((u) => getUserInvestments(u.wallet).catch(() => []))
-      );
-      let totalPersonalPerformance = 0;
-      const builtDirectReferrals: DirectReferral[] = users.map((user, idx) => {
-        const investments = referralInvestments[idx];
-        const personalPerf = investments.reduce((sum: number, inv: any) => sum + (inv.amount || 0), 0);
-        totalPersonalPerformance += personalPerf;
+      const invResults = await Promise.all(users.map(u => getUserInvestments(u.wallet).catch(() => [])));
+      let totalPerf = 0;
+      const built: DirectReferral[] = users.map((user, idx) => {
+        const perf = invResults[idx].reduce((s: number, inv: { amount?: number }) => s + (inv.amount || 0), 0);
+        totalPerf += perf;
         return {
           address: user.wallet, level: "Direct",
           directPush: { current: 0, required: 1 },
-          personalPerformance: personalPerf, communityPerformance: 0,
-          thirtySky: 0, totalTeamPerformance: personalPerf, totalTeamMembers: 1,
+          personalPerformance: perf, communityPerformance: 0,
+          thirtySky: 0, totalTeamPerformance: perf, totalTeamMembers: 1,
         };
       });
-      setDirectReferrals(builtDirectReferrals);
-      setTeamPerformance((prev) => ({
-        ...prev, teamNode: users.length, totalTeamMembers: users.length,
-        totalTeamPerformance: totalPersonalPerformance,
-      }));
-    } catch (error) {
-      console.error("Failed to load team data:", error);
+      setDirectReferrals(built);
+      setTeamPerformance(p => ({ ...p, teamNode: users.length, totalTeamMembers: users.length, totalTeamPerformance: totalPerf }));
+    } catch (e) {
+      console.error("loadTeamData error:", e);
     } finally {
       setIsLoadingTeam(false);
     }
-  }, [address]);
+  }, [address]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (isConnected && address) loadTeamData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address, isConnected]);
+    loadTeamData();
+  }, [address]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Earnings state ──
+  // ── Earnings state ────────────────────────────────────────────────────────
   const [earningsInvestments, setEarningsInvestments] = useState<any[]>([]);
   const [earningsStakes, setEarningsStakes] = useState<any[]>([]);
   const [earningsLoading, setEarningsLoading] = useState(false);
 
   const loadEarnings = useCallback(async () => {
-    if (!address) return;
     setEarningsLoading(true);
     try {
-      const [invData, stakeData] = await Promise.all([
+      const [inv, stakes] = await Promise.all([
         getUserInvestments(address),
         getActiveUserStakes(address),
       ]);
-      setEarningsInvestments(invData);
-      setEarningsStakes(stakeData);
+      setEarningsInvestments(inv);
+      setEarningsStakes(stakes);
     } catch (e) {
-      console.error(e);
+      console.error("loadEarnings error:", e);
     } finally {
       setEarningsLoading(false);
     }
-  }, [address]);
+  }, [address]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { loadEarnings(); }, [address]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    loadEarnings();
+  }, [address]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── UI-only state (referral info, clipboard, node edit) ──
-  const [referralLink, setReferralLink] = useState<string>("");
-  const [referralCode, setReferralCode] = useState<string>("");
-  const [copied, setCopied] = useState<{ [key: string]: boolean }>({});
-  const [referrerWallet, setReferrerWallet] = useState<string | null>(null);
-
+  // ── UI state ──────────────────────────────────────────────────────────────
+  const [referralLink, setReferralLink] = useState("");
+  const [copied, setCopied] = useState<Record<string, boolean>>({});
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
-  const [editingCode, setEditingCode] = useState<string>("");
+  const [editingCode, setEditingCode] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // ── Contract reads (모바일 크래시 방지: 모든 wagmi contract-read 훅 제거) ──
-  // useUSDTToken/useUSDTDecimals/useTokenBalance/useSeparateInvestment 완전 제거
-  const decimals = 18; // USDT 고정 decimals
-  const tokenBalance: bigint | null = null; // 지갑 잔액은 wagmi 제거로 null 처리
+  useEffect(() => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    setReferralLink(generateReferralLink(origin, address));
+    void getReferrerWallet();
+    void getOrCreateReferralCode(address);
+  }, [address]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── All Firebase / heavy data via custom hook ──
+  // ── Firebase / profile data ───────────────────────────────────────────────
+  const decimals = 18;
   const {
     userNodes,
     isLoadingNodes,
     nodeReferralCodes,
-    investmentsByCategory: _investmentsByCategory,
     isLoadingInvestments,
     bbagWallet,
     sbagWallet,
     cbagWallet,
     targetPlan,
-    refreshSBAG: _refreshSBAG,
   } = useProfileData(address, isConnected, undefined, decimals);
 
-  // ── Referral link / code (UI-only, fast) ──
-  useEffect(() => {
-    if (isConnected && address) {
-      // 도메인 하드코딩 제거 — 항상 현재 origin 사용
-      const origin = typeof window !== "undefined" ? window.location.origin : "";
-      setReferralLink(generateReferralLink(origin, address));
-      const code = getOrCreateReferralCode(address);
-      setReferralCode(code ? `AB-REF-${code}` : "AB-REF-9X27K3");
-      setReferrerWallet(getReferrerWallet());
-    } else {
-      setReferralLink("");
-      setReferralCode("");
-      setReferrerWallet(null);
-    }
-  }, [isConnected, address]);
-
-  // Suppress unused-variable warnings while keeping the values available
-  void referrerWallet;
-  void _investmentsByCategory;
-
-  // ── Community groups ──
-  const communityGroups = [
-    {
-      id: "telegram-global",
-      name: "Telegram Global",
-      url: "https://t.me/alphabagdao",
-      icon: "telegram",
-    },
-    {
-      id: "kakaotalk",
-      name: "KakaoTalk OpenChat",
-      url: "https://open.kakao.com/",
-      icon: "kakao",
-    },
-    {
-      id: "telegram-korea",
-      name: "Telegram Korea",
-      url: "https://t.me/alphabagdao",
-      icon: "telegram",
-    },
-  ];
-
-  // ── Handlers ──
-  const handleCopy = async (text: string, projectId: string) => {
+  // ── Handlers ─────────────────────────────────────────────────────────────
+  const handleCopy = useCallback(async (text: string, key: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopied((prev) => ({ ...prev, [projectId]: true }));
+      setCopied(p => ({ ...p, [key]: true }));
       toast.success(t.profile.copiedToClipboard);
-      setTimeout(() => setCopied((prev) => ({ ...prev, [projectId]: false })), 2000);
+      setTimeout(() => setCopied(p => ({ ...p, [key]: false })), 2000);
     } catch {
       toast.error(t.profile.failedToCopy);
     }
-  };
+  }, [t]);
 
-  const handleEditNodeCode = (nodeId: number) => {
-    const key = nodeId.toString();
-    setEditingNodeId(key);
-    setEditingCode(nodeReferralCodes[key] || "");
-  };
+  const handleEditNodeCode = useCallback((nodeId: number) => {
+    setEditingNodeId(nodeId.toString());
+    setEditingCode(nodeReferralCodes[nodeId.toString()] || "");
+  }, [nodeReferralCodes]);
 
-  const handleCancelEdit = () => {
+  const handleCancelEdit = useCallback(() => {
     setEditingNodeId(null);
     setEditingCode("");
-  };
+  }, []);
 
-  const handleSaveNodeCode = async (nodeId: number) => {
-    if (!address || !editingCode.trim()) {
-      toast.error("Please enter a valid referral code");
-      return;
-    }
+  const handleSaveNodeCode = useCallback(async (nodeId: number) => {
+    if (!editingCode.trim()) return;
     setIsSaving(true);
     try {
-      await updateNodeReferralCode(address, nodeId, editingCode.trim());
-      toast.success("Referral code updated successfully");
+      await updateNodeReferralCode(address.toLowerCase(), nodeId, editingCode.trim());
+      toast.success("Referral code updated");
       setEditingNodeId(null);
-      setEditingCode("");
-    } catch (error) {
-      console.error("Failed to update referral code:", error);
-      toast.error("Failed to update referral code");
+    } catch {
+      toast.error("Failed to save code");
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [address, editingCode]);
 
-  const getColorClasses = (color: string) => {
+  const getColorClasses = useCallback((color: string) => {
     switch (color) {
-      case "gold":
-        return "border-primary/50 text-primary";
-      case "blue":
-        return "border-blue-500/50 text-blue-400";
-      case "green":
-        return "border-green-500/50 text-green-400";
-      case "orange":
-        return "border-orange-500/50 text-orange-400";
-      default:
-        return "border-border text-foreground";
+      case "gold": return "border-yellow-500/50 text-yellow-400";
+      case "silver": return "border-gray-400/50 text-gray-400";
+      case "blue": return "border-blue-500/50 text-blue-400";
+      case "green": return "border-green-500/50 text-green-400";
+      case "red": return "border-red-500/50 text-red-400";
+      case "purple": return "border-purple-500/50 text-purple-400";
+      case "orange": return "border-orange-500/50 text-orange-400";
+      default: return "border-border text-foreground";
     }
-  };
+  }, []);
 
-  // decimals가 undefined일 때 formatUnits 크래시 방지
-  const balanceFormatted = (tokenBalance != null && decimals != null)
-    ? (() => { try { return formatUnits(tokenBalance, decimals); } catch { return "0"; } })()
-    : "0";
-
-  // ── Earnings computed values (useMemo로 격리 — 예외가 re-render를 오염시키지 않도록) ──
+  // ── Earnings computed ─────────────────────────────────────────────────────
   const earningsComputed = useMemo(() => {
     try {
       const eTotalInvested = earningsInvestments.reduce((s, i) => s + (Number(i.amount) || 0), 0);
@@ -644,142 +419,109 @@ const ProfileConnected = ({ address, isConnected }: { address: `0x${string}`; is
           return s + (p * st.dailyRateBps) / 10000;
         } catch { return s; }
       }, 0);
-
       const eCategoryMap: Record<string, number> = {};
-      earningsInvestments.forEach((inv) => {
-        const cat = inv.category || "BBAG";
+      earningsInvestments.forEach(inv => {
+        const cat = inv.category || "Other";
         eCategoryMap[cat] = (eCategoryMap[cat] || 0) + (Number(inv.amount) || 0);
       });
+      if (eStakingPrincipal > 0) eCategoryMap["Staking"] = eStakingPrincipal;
       const ePieData = Object.entries(eCategoryMap).map(([name, value]) => ({ name, value }));
-
-      // investedAt 안전 변환: Firestore Timestamp / number / string / Date 모두 처리
-      const toSafeDate = (val: any): Date | null => {
+      const monthMap: Record<string, number> = {};
+      earningsInvestments.forEach(inv => {
         try {
-          if (!val) return null;
-          if (typeof val === "object" && "seconds" in val) return new Date(val.seconds * 1000);
-          if (typeof val === "object" && "toMillis" in val) return new Date(val.toMillis());
-          const d = new Date(val);
-          return isNaN(d.getTime()) ? null : d;
-        } catch { return null; }
-      };
-
-      const eMonthlyMap: Record<string, number> = {};
-      earningsInvestments.forEach((inv) => {
-        try {
-          const d = toSafeDate(inv.investedAt);
-          if (!d) return;
-          const m = format(d, "yyyy-MM");
-          eMonthlyMap[m] = (eMonthlyMap[m] || 0) + (Number(inv.amount) || 0);
+          const raw = inv.investedAt;
+          const d = raw instanceof Date ? raw
+            : typeof raw === "number" ? new Date(raw > 1e12 ? raw : raw * 1000)
+            : raw?.seconds ? new Date(raw.seconds * 1000)
+            : raw?.toDate ? raw.toDate()
+            : null;
+          if (!d || isNaN(d.getTime())) return;
+          const key = format(d, "MMM yy");
+          monthMap[key] = (monthMap[key] || 0) + (Number(inv.amount) || 0);
         } catch { /* skip */ }
       });
-      const eBarData = Object.entries(eMonthlyMap)
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .slice(-6)
-        .map(([month, amount]) => {
-          try { return { month: format(new Date(month), "MMM yy"), amount }; }
-          catch { return { month, amount }; }
-        });
-
-      return { eTotalInvested, eTotalProfit, eTotalTokenVal, eStakingPrincipal, eStakingDaily, ePieData, eBarData, toSafeDate };
-    } catch (err) {
-      console.error("[Profile] earningsComputed error:", err);
-      return {
-        eTotalInvested: 0, eTotalProfit: 0, eTotalTokenVal: 0,
-        eStakingPrincipal: 0, eStakingDaily: 0,
-        ePieData: [], eBarData: [],
-        toSafeDate: (_: any) => null as Date | null,
-      };
+      const now = new Date();
+      const eBarData = Array.from({ length: 6 }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+        const key = format(d, "MMM yy");
+        return { month: key, amount: monthMap[key] || 0 };
+      });
+      return { eTotalInvested, eTotalProfit, eTotalTokenVal, eStakingPrincipal, eStakingDaily, ePieData, eBarData };
+    } catch {
+      return { eTotalInvested: 0, eTotalProfit: 0, eTotalTokenVal: 0, eStakingPrincipal: 0, eStakingDaily: 0, ePieData: [], eBarData: [] };
     }
   }, [earningsInvestments, earningsStakes]);
 
-  const { eTotalInvested, eTotalProfit, eTotalTokenVal, eStakingPrincipal, eStakingDaily, ePieData, eBarData, toSafeDate } = earningsComputed;
+  const { eTotalInvested, eTotalProfit, eTotalTokenVal, eStakingPrincipal, eStakingDaily, ePieData, eBarData } = earningsComputed;
 
-  // Plan Selection → PlanSelector 컴포넌트로 완전 분리됨
+  // ── Community groups ──────────────────────────────────────────────────────
+  const communityGroups = [
+    { id: "tg-global", name: "Telegram Global", url: "https://t.me/alphabagdao", icon: "telegram" },
+    { id: "kakao",     name: "KakaoTalk OpenChat", url: "https://open.kakao.com/", icon: "kakao" },
+    { id: "tg-korea",  name: "Telegram Korea",  url: "https://t.me/alphabagdao", icon: "telegram" },
+  ];
 
-  // ── Connected UI ──
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main className="pt-[88px] sm:pt-20 pb-12">
         <div className="container mx-auto px-4">
+
           {/* Profile Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="w-8 h-8 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-display font-bold text-foreground">{t.profile.title || "Profile"}</h1>
-                </div>
+          <div className="mb-8 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <User className="w-8 h-8 text-primary" />
               </div>
-              <Button
-                variant="ghost"
-                onClick={() => navigate("/")}
-                className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4"
-              >
-                <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Back Home</span>
-                <span className="sm:hidden">Back</span>
-              </Button>
+              <h1 className="text-3xl font-display font-bold text-foreground">{t.profile.title || "Profile"}</h1>
             </div>
+            <Button variant="ghost" onClick={() => navigate("/")} className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4">
+              <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Back Home</span>
+              <span className="sm:hidden">Back</span>
+            </Button>
           </div>
 
-          {/* ── 투자상품 선택 섹션 (독립 컴포넌트) ── */}
-          <SectionErrorBoundary>
-            <Suspense fallback={<div className="h-24 animate-pulse bg-muted rounded-lg mb-6" />}>
-              <PlanSelector />
-            </Suspense>
-          </SectionErrorBoundary>
+          {/* ── Plan Selector ── */}
+          <LazySection fallbackHeight="h-24">
+            <PlanSelector />
+          </LazySection>
 
-          {/* ── 추천 보상 현황판 ── */}
-          <SectionErrorBoundary>
-            <Suspense fallback={<div className="h-20 animate-pulse bg-muted rounded-lg mb-6" />}>
-              <ReferralDashboard />
-            </Suspense>
-          </SectionErrorBoundary>
+          {/* ── Referral Dashboard ── */}
+          <LazySection fallbackHeight="h-20">
+            <ReferralDashboard />
+          </LazySection>
 
-          {/* ── 레퍼럴 공유 섹션 (선택된 상품 포함) ── */}
-          <SectionErrorBoundary>
-            <Suspense fallback={null}>
-              <ReferralShare />
-            </Suspense>
-          </SectionErrorBoundary>
+          {/* ── Referral Share ── */}
+          <LazySection fallbackHeight="h-4">
+            <ReferralShare />
+          </LazySection>
 
-          {/* Community Groups */}
+          {/* ── Community Groups ── */}
           <Card className="mb-8 border-border/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-primary" />
-                Community Groups
+                {t.community.title}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {communityGroups.map((group) => (
-                  <div
-                    key={group.id}
-                    className="card-metallic rounded-xl p-3 sm:p-4 border-2 border-border/50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3"
-                  >
-                    <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <Users className="w-5 h-5 text-primary" />
+                {communityGroups.map(group => (
+                  <div key={group.id} className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-muted/20">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Share2 className="w-4 h-4 text-primary" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-foreground mb-1 text-sm sm:text-base">
-                          {group.name}
-                        </h4>
-                        <p className="text-xs sm:text-sm text-muted-foreground break-all">
-                          {group.url}
-                        </p>
+                      <div>
+                        <p className="text-sm font-semibold">{group.name}</p>
+                        <p className="text-xs text-muted-foreground">{group.url}</p>
                       </div>
                     </div>
-                    <Button
-                      variant="default"
-                      size="sm"
+                    <Button variant="default" size="sm"
                       onClick={() => window.open(group.url, "_blank", "noopener,noreferrer")}
-                      className="text-xs sm:text-sm px-2 sm:px-3 h-7 sm:h-8 shrink-0 w-full sm:w-auto"
-                    >
+                      className="text-xs sm:text-sm px-2 sm:px-3 h-7 sm:h-8 shrink-0 w-full sm:w-auto">
                       <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                       Join
                     </Button>
@@ -789,7 +531,7 @@ const ProfileConnected = ({ address, isConnected }: { address: `0x${string}`; is
             </CardContent>
           </Card>
 
-          {/* My Nodes Section */}
+          {/* ── My Nodes ── */}
           <Card className="mb-8 border-border/50">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -800,17 +542,9 @@ const ProfileConnected = ({ address, isConnected }: { address: `0x${string}`; is
                   </CardTitle>
                   <CardDescription>{t.profile.myNodesDescription}</CardDescription>
                 </div>
-                {/* Refresh button — delegates to hook's internal reload via page reload */}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => window.location.reload()}
-                  disabled={isLoadingNodes || !address}
-                  className="shrink-0 h-8 w-8 sm:h-10 sm:w-10"
-                >
-                  <RefreshCw
-                    className={`w-3 h-3 sm:w-4 sm:h-4 ${isLoadingNodes ? "animate-spin" : ""}`}
-                  />
+                <Button variant="outline" size="icon" onClick={() => window.location.reload()}
+                  disabled={isLoadingNodes || !address} className="shrink-0 h-8 w-8 sm:h-10 sm:w-10">
+                  <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 ${isLoadingNodes ? "animate-spin" : ""}`} />
                 </Button>
               </div>
             </CardHeader>
@@ -818,7 +552,6 @@ const ProfileConnected = ({ address, isConnected }: { address: `0x${string}`; is
               {isLoadingNodes ? (
                 <div className="text-center py-8">
                   <RefreshCw className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50 animate-spin" />
-                  <p className="text-muted-foreground">Loading nodes...</p>
                 </div>
               ) : userNodes.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -844,54 +577,13 @@ const ProfileConnected = ({ address, isConnected }: { address: `0x${string}`; is
               ) : (
                 <div className="text-center py-8">
                   <Network className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground">
-                    {t.profile.noNodesYet || "You haven't purchased any nodes yet"}
-                  </p>
+                  <p className="text-muted-foreground">{t.profile.noNodesYet || "No nodes yet"}</p>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Node Referral Codes Section — NodeRefRow 컴포넌트로 분리해 insertBefore 완전 방지 */}
-          {userNodes.length > 0 && Object.keys(nodeReferralCodes).length > 0 && (
-            <Card className="mb-8 border-border/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Share2 className="w-5 h-5 text-primary" />
-                  Node Referral Codes
-                </CardTitle>
-                <CardDescription>Your referral codes for purchased nodes</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {userNodes
-                    .filter(
-                      (node) =>
-                        node.nodeId !== undefined && nodeReferralCodes[node.nodeId.toString()]
-                    )
-                    .map((node) => (
-                      <NodeRefRow
-                        key={node.id}
-                        node={node}
-                        refCode={nodeReferralCodes[node.nodeId!.toString()]}
-                        isEditing={editingNodeId === node.nodeId!.toString()}
-                        editingCode={editingCode}
-                        isSaving={isSaving}
-                        isCopied={!!copied[`node-ref-${node.nodeId}`]}
-                        colorClass={getColorClasses(node.color)}
-                        onEdit={() => handleEditNodeCode(node.nodeId!)}
-                        onSave={() => handleSaveNodeCode(node.nodeId!)}
-                        onCancel={handleCancelEdit}
-                        onCopy={() => handleCopy(nodeReferralCodes[node.nodeId!.toString()], `node-ref-${node.nodeId}`)}
-                        onCodeChange={setEditingCode}
-                      />
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Total Investment Summary */}
+          {/* ── Total Investment ── */}
           <Card className="mb-8 border-border/50">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -900,37 +592,25 @@ const ProfileConnected = ({ address, isConnected }: { address: `0x${string}`; is
                     <TrendingUp className="w-5 h-5 text-primary" />
                     {t.profile.myTotalInvestment}
                   </CardTitle>
-                  <CardDescription>
-                    {t.profile.myTotalInvestmentDescription} (Contract + Firebase)
-                  </CardDescription>
+                  <CardDescription>{t.profile.myTotalInvestmentDescription}</CardDescription>
                 </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => window.location.reload()}
-                  disabled={isLoadingInvestments || !address}
-                  className="shrink-0"
-                >
-                  <RefreshCw
-                    className={`w-4 h-4 ${
-                      isLoadingInvestments ? "animate-spin" : ""
-                    }`}
-                  />
+                <Button variant="outline" size="icon" onClick={() => window.location.reload()}
+                  disabled={isLoadingInvestments || !address} className="shrink-0">
+                  <RefreshCw className={`w-4 h-4 ${isLoadingInvestments ? "animate-spin" : ""}`} />
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
               <div className="text-center py-6">
                 <div className="text-4xl font-bold text-foreground mb-2">
-                  {eTotalInvested.toFixed(2)}{" "}
-                  {t.common.usdt}
+                  {eTotalInvested.toFixed(2)} {t.common.usdt}
                 </div>
                 <p className="text-muted-foreground mb-2">{t.profile.totalInvestedAmount}</p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Wallets Section — BBAG / SBAG / CBAG */}
+          {/* ── Wallets BBAG/SBAG/CBAG ── */}
           {targetPlan && (
             <Card className="mb-8 border-border/50">
               <CardHeader>
@@ -938,90 +618,39 @@ const ProfileConnected = ({ address, isConnected }: { address: `0x${string}`; is
                   <Wallet className="w-5 h-5 text-primary" />
                   Wallets — {(targetPlan as InvestmentPlan).name}
                 </CardTitle>
-                <CardDescription>
-                  Transactions and profits for BBAG, SBAG, and CBAG wallets
-                </CardDescription>
+                <CardDescription>Transactions and profits for BBAG, SBAG, and CBAG wallets</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  <WalletSubCard
-                    label="BBAG Wallet"
-                    address={bbagWallet.address}
-                    totalInvestment={bbagWallet.totalInvestment}
-                    totalProfit={bbagWallet.totalProfit}
-                    isLoading={bbagWallet.isLoading}
-                    transfers={bbagWallet.transfers}
-                    conversionRate={(targetPlan as InvestmentPlan).wallet1TokenConversionRate}
-                    tokenPrice={(targetPlan as InvestmentPlan).wallet1TokenPrice}
-                    usdtLabel={t.common.usdt}
-                  />
-                  <WalletSubCard
-                    label="SBAG NUMI"
-                    address={sbagWallet.address}
-                    totalInvestment={sbagWallet.totalInvestment}
-                    totalProfit={sbagWallet.totalProfit}
-                    isLoading={sbagWallet.isLoading}
-                    transfers={sbagWallet.transfers}
-                    conversionRate={(targetPlan as InvestmentPlan).wallet2TokenConversionRate}
-                    tokenPrice={(targetPlan as InvestmentPlan).wallet2TokenPrice}
-                    usdtLabel={t.common.usdt}
-                  />
-                  <WalletSubCard
-                    label="CBAG Wallet"
-                    address={cbagWallet.address}
-                    totalInvestment={cbagWallet.totalInvestment}
-                    totalProfit={cbagWallet.totalProfit}
-                    isLoading={cbagWallet.isLoading}
-                    transfers={cbagWallet.transfers}
-                    usdtLabel={t.common.usdt}
-                  />
+                  <WalletSubCard label="BBAG Wallet" address={bbagWallet.address}
+                    totalInvestment={bbagWallet.totalInvestment} totalProfit={bbagWallet.totalProfit}
+                    isLoading={bbagWallet.isLoading} transfers={bbagWallet.transfers} usdtLabel={t.common.usdt} />
+                  <WalletSubCard label="SBAG NUMI" address={sbagWallet.address}
+                    totalInvestment={sbagWallet.totalInvestment} totalProfit={sbagWallet.totalProfit}
+                    isLoading={sbagWallet.isLoading} transfers={sbagWallet.transfers} usdtLabel={t.common.usdt} />
+                  <WalletSubCard label="CBAG Wallet" address={cbagWallet.address}
+                    totalInvestment={cbagWallet.totalInvestment} totalProfit={cbagWallet.totalProfit}
+                    isLoading={cbagWallet.isLoading} transfers={cbagWallet.transfers} usdtLabel={t.common.usdt} />
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Wallet Balance */}
-          <Card className="mb-8 border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wallet className="w-5 h-5 text-primary" />
-                {t.profile.walletBalance}
-              </CardTitle>
-              <CardDescription>{t.profile.walletBalanceDescription}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <div className="text-4xl font-bold text-foreground mb-2">
-                  {balanceFormatted} {t.common.usdt}
-                </div>
-                <p className="text-muted-foreground">{t.profile.availableForInvestment}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* ══════════════════════════════════════════════════════
-              커뮤니티 섹션 (구 Community 페이지 통합)
-          ══════════════════════════════════════════════════════ */}
-
-          {/* Leaderboard */}
+          {/* ── Leaderboard ── */}
           <div className="mb-8">
-            <SectionErrorBoundary>
-              <Suspense fallback={<div className="h-32 animate-pulse bg-muted rounded-lg" />}>
-                <Leaderboard />
-              </Suspense>
-            </SectionErrorBoundary>
+            <LazySection fallbackHeight="h-32">
+              <Leaderboard />
+            </LazySection>
           </div>
 
-          {/* 추천인 현황 카드 (조직도 트리는 어드민 전용) */}
+          {/* ── OrgChart (user view) ── */}
           <div className="mb-8">
-            <SectionErrorBoundary>
-              <Suspense fallback={<div className="h-24 animate-pulse bg-muted rounded-lg" />}>
-                <OrgChart viewAs="user" />
-              </Suspense>
-            </SectionErrorBoundary>
+            <LazySection fallbackHeight="h-24">
+              <OrgChart viewAs="user" />
+            </LazySection>
           </div>
 
-          {/* ── 전체 팀 성과 + 내 공유 (통합) ── */}
+          {/* ── Team Performance ── */}
           <Card className="mb-8 border-border/50">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -1041,130 +670,130 @@ const ProfileConnected = ({ address, isConnected }: { address: `0x${string}`; is
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* ── 팀 성과 요약 ── */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
                   { label: t.community.marketLevel,         value: teamPerformance.marketLevel },
                   { label: t.community.teamNode,            value: String(teamPerformance.teamNode) },
                   { label: t.community.personalPerformance, value: `$${teamPerformance.personalPerformance.toFixed(2)}` },
                   { label: t.community.regionalPerformance, value: `$${teamPerformance.regionalPerformance.toFixed(2)}` },
-                  { label: `${t.community.communityPerformance} / 30sky`,
-                    value: `$${teamPerformance.communityPerformance.toFixed(2)} / $${teamPerformance.thirtySky.toFixed(2)}` },
+                  { label: `${t.community.communityPerformance} / 30sky`, value: `$${teamPerformance.communityPerformance.toFixed(2)} / $${teamPerformance.thirtySky.toFixed(2)}` },
                   { label: t.community.totalTeamPerformance, value: `$${teamPerformance.totalTeamPerformance.toFixed(2)}` },
                 ].map(({ label, value }) => (
                   <div key={label} className="rounded-lg border border-border/40 bg-muted/20 px-3 py-2">
                     <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
-                    <p className="text-sm font-semibold text-foreground">{value}</p>
+                    <p className="text-sm font-semibold">{value}</p>
                   </div>
                 ))}
               </div>
 
-              {/* ── 직접 추천 멤버 목록 ── */}
+              {/* Direct referral list */}
               <div>
                 <p className="text-sm font-semibold text-muted-foreground mb-3">
                   {t.community.myShare} ({referredUsers.length})
                 </p>
-              {isLoadingTeam ? (
-                <div className="text-center py-8">
-                  <RefreshCw className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-50 animate-spin" />
-                  <p className="text-muted-foreground text-sm">Loading referred users...</p>
-                </div>
-              ) : referredUsers.length > 0 ? (
-                <div className="space-y-4">
-                  {referredUsers.map((user, index) => {
-                    const userActivities = referralActivities.filter(
-                      (a) => a.referredWallet.toLowerCase() === user.wallet.toLowerCase()
-                    );
-                    const perfData = directReferrals.find(
-                      (r) => r.address.toLowerCase() === user.wallet.toLowerCase()
-                    );
-                    return (
-                      <div key={index} className="card-metallic rounded-xl p-4 border-2 border-border/50">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                              <User className="w-5 h-5 text-primary" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-mono text-sm text-foreground truncate">{user.wallet}</p>
-                              <p className="text-xs text-muted-foreground">
-                                Joined: {new Date(user.joinedAt).toLocaleDateString()}
-                                {perfData && <span className="ml-2 text-primary font-medium">{perfData.level}</span>}
-                              </p>
-                            </div>
-                          </div>
-                          <Button variant="ghost" size="icon" className="shrink-0 h-7 w-7 sm:h-8 sm:w-8"
-                            onClick={() => handleCopyCommunity(user.wallet, `user-${index}`)}>
-                            {copiedCommunity[`user-${index}`]
-                              ? <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-500" />
-                              : <Copy className="w-3 h-3 sm:w-4 sm:h-4" />}
-                          </Button>
-                        </div>
-                        {/* 성과 데이터 */}
-                        {perfData && (
-                          <div className="mt-2 mb-3 grid grid-cols-2 gap-1.5 text-xs pl-3 border-l-2 border-primary/30">
-                            <div className="flex justify-between gap-1">
-                              <span className="text-muted-foreground">{t.community.numberOfDirectPush}</span>
-                              <span className="font-medium">{perfData.directPush.current}/{perfData.directPush.required}</span>
-                            </div>
-                            <div className="flex justify-between gap-1">
-                              <span className="text-muted-foreground">{t.community.personalPerformance}</span>
-                              <span className="font-medium">${perfData.personalPerformance.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between gap-1">
-                              <span className="text-muted-foreground">{t.community.communityPerformance} / 30sky</span>
-                              <span className="font-medium">${perfData.communityPerformance.toFixed(2)} / ${perfData.thirtySky.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between gap-1">
-                              <span className="text-muted-foreground">{t.community.totalTeamPerformance}</span>
-                              <span className="font-medium">${perfData.totalTeamPerformance.toFixed(2)}</span>
-                            </div>
-                          </div>
-                        )}
-                        {userActivities.length > 0 ? (
-                          <div className="mt-3 pt-3 border-t border-border/30 space-y-2">
-                            <p className="text-xs font-semibold text-muted-foreground mb-2">Activities:</p>
-                            {userActivities.map((activity) => (
-                              <div key={activity.id} className="flex items-start gap-2 text-xs text-muted-foreground">
-                                <span className="text-primary mt-0.5">•</span>
-                                <div className="flex-1 min-w-0">
-                                  {activity.activityType === "plan_added_to_cart" && (
-                                    <span>Added plan <span className="font-semibold text-foreground">{activity.planName || activity.planId}</span> to cart</span>
-                                  )}
-                                  {activity.activityType === "plan_invested" && (
-                                    <span>Invested {activity.amount ? `${activity.amount} USDT` : ""} in <span className="font-semibold text-foreground">{activity.planName || activity.planId}</span></span>
-                                  )}
-                                  {activity.activityType === "node_purchased" && (
-                                    <span>Purchased node <span className="font-semibold text-foreground">{activity.nodeName || `Node ${activity.nodeId}`}</span>{activity.nodePrice && ` (${activity.nodePrice} USDT)`}</span>
-                                  )}
-                                  <span className="text-[10px] text-muted-foreground/70 ml-1">
-                                    {new Date(activity.createdAt).toLocaleDateString()}
-                                  </span>
-                                </div>
+                {isLoadingTeam ? (
+                  <div className="text-center py-8">
+                    <RefreshCw className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-50 animate-spin" />
+                  </div>
+                ) : referredUsers.length > 0 ? (
+                  <div className="space-y-4">
+                    {referredUsers.map((user, index) => {
+                      const userActivities = referralActivities.filter(
+                        a => a.referredWallet.toLowerCase() === user.wallet.toLowerCase()
+                      );
+                      const perfData = directReferrals.find(
+                        r => r.address.toLowerCase() === user.wallet.toLowerCase()
+                      );
+                      return (
+                        <div key={index} className="rounded-xl p-4 border-2 border-border/50">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                <User className="w-5 h-5 text-primary" />
                               </div>
-                            ))}
+                              <div className="flex-1 min-w-0">
+                                <p className="font-mono text-sm truncate">{user.wallet}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Joined: {new Date(user.joinedAt).toLocaleDateString()}
+                                  {perfData && <span className="ml-2 text-primary font-medium">{perfData.level}</span>}
+                                </p>
+                              </div>
+                            </div>
+                            <Button variant="ghost" size="icon" className="shrink-0 h-7 w-7 sm:h-8 sm:w-8"
+                              onClick={() => handleCopyCommunity(user.wallet, `user-${index}`)}>
+                              {copiedCommunity[`user-${index}`]
+                                ? <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-500" />
+                                : <Copy className="w-3 h-3 sm:w-4 sm:h-4" />}
+                            </Button>
                           </div>
-                        ) : (
-                          <div className="mt-3 pt-3 border-t border-border/30">
-                            <p className="text-xs text-muted-foreground">No activities yet</p>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Share2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground">No referred users yet</p>
-                  <p className="text-sm text-muted-foreground mt-2">Share your referral link to invite others</p>
+                          {perfData && (
+                            <div className="mt-2 mb-3 grid grid-cols-2 gap-1.5 text-xs pl-3 border-l-2 border-primary/30">
+                              {[
+                                [t.community.numberOfDirectPush, `${perfData.directPush.current}/${perfData.directPush.required}`],
+                                [t.community.personalPerformance, `$${perfData.personalPerformance.toFixed(2)}`],
+                                [`${t.community.communityPerformance} / 30sky`, `$${perfData.communityPerformance.toFixed(2)} / $${perfData.thirtySky.toFixed(2)}`],
+                                [t.community.totalTeamPerformance, `$${perfData.totalTeamPerformance.toFixed(2)}`],
+                              ].map(([lbl, val]) => (
+                                <div key={lbl} className="flex justify-between gap-1">
+                                  <span className="text-muted-foreground">{lbl}</span>
+                                  <span className="font-medium">{val}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {userActivities.length > 0 ? (
+                            <div className="mt-3 pt-3 border-t border-border/30 space-y-2">
+                              <p className="text-xs font-semibold text-muted-foreground mb-2">Activities:</p>
+                              {userActivities.map(activity => (
+                                <div key={activity.id} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                  <span className="text-primary mt-0.5">•</span>
+                                  <div className="flex-1 min-w-0">
+                                    {activity.activityType === "plan_added_to_cart" && <span>Added plan <span className="font-semibold text-foreground">{activity.planName || activity.planId}</span> to cart</span>}
+                                    {activity.activityType === "plan_invested" && <span>Invested {activity.amount ? `${activity.amount} USDT` : ""} in <span className="font-semibold text-foreground">{activity.planName || activity.planId}</span></span>}
+                                    {activity.activityType === "node_purchased" && <span>Purchased node <span className="font-semibold text-foreground">{activity.nodeName || `Node ${activity.nodeId}`}</span>{activity.nodePrice && ` (${activity.nodePrice} USDT)`}</span>}
+                                    <span className="text-[10px] text-muted-foreground/70 ml-1">{new Date(activity.createdAt).toLocaleDateString()}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="mt-3 pt-3 border-t border-border/30">
+                              <p className="text-xs text-muted-foreground">No activities yet</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Share2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground">No referred users yet</p>
+                    <p className="text-sm text-muted-foreground mt-2">Share your referral link to invite others</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Referral link quick-copy */}
+              {referralLink && (
+                <div className="pt-4 border-t border-border/40">
+                  <p className="text-xs text-muted-foreground mb-2">My Referral Link</p>
+                  <div className="flex gap-2">
+                    <input
+                      readOnly
+                      value={referralLink}
+                      className="flex-1 text-xs font-mono border border-border rounded px-3 py-2 bg-muted/30 truncate"
+                    />
+                    <Button size="sm" variant="outline" onClick={() => handleCopy(referralLink, "ref-link")}>
+                      {copied["ref-link"] ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                    </Button>
+                  </div>
                 </div>
               )}
-              </div>
             </CardContent>
           </Card>
 
-          {/* ── EARNINGS SECTION ── */}
+          {/* ── EARNINGS ── */}
           <Card className="mb-8 border-border/50">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -1182,14 +811,14 @@ const ProfileConnected = ({ address, isConnected }: { address: `0x${string}`; is
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* KPI Cards */}
+              {/* KPI */}
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {[
-                  { label: "Total Invested",   value: `$${eTotalInvested.toLocaleString(undefined,{maximumFractionDigits:2})}`,  sub: "USDT",                                              icon: DollarSign, color: "border-l-primary" },
-                  { label: "Total Token Value", value: `$${eTotalTokenVal.toLocaleString(undefined,{maximumFractionDigits:2})}`,  sub: "Current value",                                    icon: BarChart3,   color: "border-l-blue-500" },
-                  { label: "Unrealized P/L",    value: `${eTotalProfit>=0?"+":""}$${eTotalProfit.toLocaleString(undefined,{maximumFractionDigits:2})}`, sub: eTotalInvested?`${((eTotalProfit/eTotalInvested)*100).toFixed(1)}%`:"0%", icon: TrendingUp, color: eTotalProfit>=0?"border-l-green-500":"border-l-red-500" },
-                  { label: "Staking Daily",     value: `+$${eStakingDaily.toFixed(2)}`,                                            sub: `Principal: $${eStakingPrincipal.toFixed(2)}`,     icon: Wallet,      color: "border-l-purple-500" },
-                ].map((kpi) => (
+                  { label: "Total Invested",   value: `$${eTotalInvested.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, sub: "USDT",                  icon: DollarSign, color: "border-l-primary" },
+                  { label: "Total Token Value", value: `$${eTotalTokenVal.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, sub: "Current value",          icon: BarChart3,   color: "border-l-blue-500" },
+                  { label: "Unrealized P/L",    value: `${eTotalProfit >= 0 ? "+" : ""}$${eTotalProfit.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, sub: eTotalInvested ? `${((eTotalProfit / eTotalInvested) * 100).toFixed(1)}%` : "0%", icon: TrendingUp, color: eTotalProfit >= 0 ? "border-l-green-500" : "border-l-red-500" },
+                  { label: "Staking Daily",     value: `+$${eStakingDaily.toFixed(2)}`,                                                                             sub: `Principal: $${eStakingPrincipal.toFixed(2)}`,    icon: Wallet,      color: "border-l-purple-500" },
+                ].map(kpi => (
                   <Card key={kpi.label} className={`border-l-4 ${kpi.color}`}>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium">{kpi.label}</CardTitle>
@@ -1205,7 +834,6 @@ const ProfileConnected = ({ address, isConnected }: { address: `0x${string}`; is
 
               {/* Charts */}
               <div className="grid gap-6 md:grid-cols-2">
-                {/* Pie */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-base">
@@ -1214,33 +842,28 @@ const ProfileConnected = ({ address, isConnected }: { address: `0x${string}`; is
                     <CardDescription>Investment by category</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {earningsLoading ? (
-                      <Skeleton className="h-60 w-full" />
-                    ) : ePieData.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-60 text-muted-foreground gap-2">
-                        <AlertCircle className="w-8 h-8" />
-                        <p className="text-sm">No investment data</p>
-                      </div>
-                    ) : (
-                      <div className="h-60">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <RechartsPie>
-                            <Pie data={ePieData} cx="50%" cy="50%" outerRadius={80} dataKey="value"
-                              label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`}>
-                              {ePieData.map((entry) => (
-                                <Cell key={entry.name} fill={EARNINGS_COLORS[entry.name] || "#6b7280"} />
-                              ))}
-                            </Pie>
-                            <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, "Amount"]} />
-                            <Legend />
-                          </RechartsPie>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
+                    {earningsLoading ? <Skeleton className="h-60 w-full" /> :
+                      ePieData.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-60 text-muted-foreground gap-2">
+                          <AlertCircle className="w-8 h-8" /><p className="text-sm">No investment data</p>
+                        </div>
+                      ) : (
+                        <div className="h-60">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <RechartsPie>
+                              <Pie data={ePieData} cx="50%" cy="50%" outerRadius={80} dataKey="value"
+                                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                                {ePieData.map(entry => <Cell key={entry.name} fill={EARNINGS_COLORS[entry.name] || "#6b7280"} />)}
+                              </Pie>
+                              <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, "Amount"]} />
+                              <Legend />
+                            </RechartsPie>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
                   </CardContent>
                 </Card>
 
-                {/* Bar */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-base">
@@ -1249,31 +872,29 @@ const ProfileConnected = ({ address, isConnected }: { address: `0x${string}`; is
                     <CardDescription>Last 6 months</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {earningsLoading ? (
-                      <Skeleton className="h-60 w-full" />
-                    ) : eBarData.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-60 text-muted-foreground gap-2">
-                        <AlertCircle className="w-8 h-8" />
-                        <p className="text-sm">No investment data</p>
-                      </div>
-                    ) : (
-                      <div className="h-60">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={eBarData}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="month" fontSize={11} tickLine={false} axisLine={false} />
-                            <YAxis fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
-                            <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, "Invested"]} />
-                            <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[4,4,0,0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
+                    {earningsLoading ? <Skeleton className="h-60 w-full" /> :
+                      eBarData.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-60 text-muted-foreground gap-2">
+                          <AlertCircle className="w-8 h-8" /><p className="text-sm">No investment data</p>
+                        </div>
+                      ) : (
+                        <div className="h-60">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={eBarData}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                              <XAxis dataKey="month" fontSize={11} tickLine={false} axisLine={false} />
+                              <YAxis fontSize={11} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} />
+                              <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, "Invested"]} />
+                              <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Investment List */}
+              {/* Investment list */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Investment Details</CardTitle>
@@ -1286,50 +907,62 @@ const ProfileConnected = ({ address, isConnected }: { address: `0x${string}`; is
                     </div>
                   ) : earningsInvestments.length === 0 ? (
                     <div className="flex flex-col items-center py-10 text-muted-foreground gap-2">
-                      <AlertCircle className="w-8 h-8" />
-                      <p className="text-sm">No investments found</p>
+                      <AlertCircle className="w-8 h-8" /><p className="text-sm">No investments found</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {earningsInvestments.map((inv) => (
-                        <div key={inv.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border/50">
-                          <div className="flex items-center gap-3">
-                            <Badge variant="outline" className="text-xs font-mono">{inv.category}</Badge>
-                            <div>
-                              <p className="text-sm font-medium">{inv.projectName}</p>
-                              <p className="text-xs text-muted-foreground">{(() => { try { const d = toSafeDate(inv.investedAt); return d ? format(d, "yyyy-MM-dd") : "-"; } catch { return "-"; } })()}</p>
+                      {earningsInvestments.map(inv => {
+                        let dateStr = "-";
+                        try {
+                          const raw = inv.investedAt;
+                          const d = raw instanceof Date ? raw
+                            : typeof raw === "number" ? new Date(raw > 1e12 ? raw : raw * 1000)
+                            : raw?.seconds ? new Date(raw.seconds * 1000)
+                            : raw?.toDate ? raw.toDate() : null;
+                          if (d && !isNaN(d.getTime())) dateStr = format(d, "yyyy-MM-dd");
+                        } catch { /* skip */ }
+                        return (
+                          <div key={inv.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border/50">
+                            <div className="flex items-center gap-3">
+                              <Badge variant="outline" className="text-xs font-mono">{inv.category}</Badge>
+                              <div>
+                                <p className="text-sm font-medium">{inv.projectName}</p>
+                                <p className="text-xs text-muted-foreground">{dateStr}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-semibold">${(inv.amount || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                              {inv.profit !== undefined && (
+                                <p className={`text-xs font-medium ${inv.profit >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                  {inv.profit >= 0 ? "+" : ""}{(inv.profit || 0).toFixed(2)} P/L
+                                </p>
+                              )}
+                              <InvestmentCertificateButton
+                                investorAddress={address}
+                                planName={inv.projectName || inv.category || "AlphaBag"}
+                                amount={inv.amount || 0}
+                                date={dateStr}
+                              />
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm font-semibold">${(inv.amount||0).toLocaleString(undefined,{maximumFractionDigits:2})}</p>
-                            {inv.profit !== undefined && (
-                              <p className={`text-xs font-medium ${inv.profit>=0?"text-green-500":"text-red-500"}`}>
-                                {inv.profit>=0?"+":""}{ (inv.profit||0).toFixed(2)} P/L
-                              </p>
-                            )}
-                            <InvestmentCertificateButton
-                              investorAddress={address}
-                              planName={inv.projectName || inv.category || "AlphaBag"}
-                              amount={inv.amount || 0}
-                              date={(() => { try { const d = toSafeDate(inv.investedAt); return d ? format(d, "yyyy-MM-dd") : "-"; } catch { return "-"; } })()}
-                            />
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
               </Card>
             </CardContent>
           </Card>
+
         </div>
       </main>
     </div>
   );
 };
 
-// ── 게이트 컴포넌트: 미연결 시 intro, 연결 시 ProfileMain ──
-// 이 구조는 미연결 상태에서 무거운 contract hooks가 호출되지 않도록 보장합니다.
+// ─────────────────────────────────────────────────────────────────────────────
+// ProfileIntroPage — shown when wallet is NOT connected (no hooks at all)
+// ─────────────────────────────────────────────────────────────────────────────
 const ProfileIntroPage = () => {
   const { t } = useLanguage();
   return (
@@ -1338,7 +971,6 @@ const ProfileIntroPage = () => {
       <main className="pt-[88px] sm:pt-20 pb-12">
         <div className="container mx-auto px-4">
           <div className="max-w-2xl mx-auto mt-12 space-y-6">
-            {/* Main CTA card */}
             <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-background to-primary/10 overflow-hidden">
               <CardContent className="pt-8 pb-8 text-center relative">
                 <div className="absolute inset-0 pointer-events-none">
@@ -1352,21 +984,16 @@ const ProfileIntroPage = () => {
                   <p className="text-muted-foreground mb-6 max-w-sm mx-auto">{t.profile.connectWalletDescription}</p>
                   <div className="grid grid-cols-3 gap-3 mt-4 mb-6">
                     {([
-                      { label: "Investments", icon: DollarSign },
-                      { label: "Referrals",   icon: Share2 },
-                      { label: "Earnings",    icon: TrendingUp },
-                    ] as const).map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <div key={item.label} className="bg-muted/40 rounded-lg p-3 text-center">
-                          <div className="flex justify-center mb-1">
-                            <Icon className="w-6 h-6 text-muted-foreground/60" />
-                          </div>
-                          <div className="text-xs text-muted-foreground font-medium">{item.label}</div>
-                          <div className="text-sm font-bold text-muted-foreground/50 mt-0.5">—</div>
-                        </div>
-                      );
-                    })}
+                      { label: "Investments", Icon: DollarSign },
+                      { label: "Referrals",   Icon: Share2 },
+                      { label: "Earnings",    Icon: TrendingUp },
+                    ] as const).map(({ label, Icon }) => (
+                      <div key={label} className="bg-muted/40 rounded-lg p-3 text-center">
+                        <div className="flex justify-center mb-1"><Icon className="w-6 h-6 text-muted-foreground/60" /></div>
+                        <div className="text-xs text-muted-foreground font-medium">{label}</div>
+                        <div className="text-sm font-bold text-muted-foreground/50 mt-0.5">—</div>
+                      </div>
+                    ))}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Connect your wallet using the button in the top navigation bar.
@@ -1374,37 +1001,19 @@ const ProfileIntroPage = () => {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Feature highlights */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {([
-                {
-                  Icon: BarChart3,
-                  title: "Investment Dashboard",
-                  desc: "Track all your BBAG & SBAG investments, profits, and portfolio allocation in one place.",
-                },
-                {
-                  Icon: Network,
-                  title: "Referral Network",
-                  desc: "Share your unique referral link and earn rewards from your growing team.",
-                },
-                {
-                  Icon: TrendingUp,
-                  title: "Leaderboard",
-                  desc: "See how you rank among top investors and referrers in the community.",
-                },
-                {
-                  Icon: AlertCircle,
-                  title: "Account Settings",
-                  desc: "Manage your profile, update your username, and secure your account.",
-                },
-              ] as const).map((feat) => (
-                <Card key={feat.title} className="border-border/50 hover:border-primary/30 transition-colors">
+                { Icon: BarChart3,   title: "Investment Dashboard", desc: "Track all your BBAG & SBAG investments, profits, and portfolio allocation in one place." },
+                { Icon: Network,     title: "Referral Network",     desc: "Share your unique referral link and earn rewards from your growing team." },
+                { Icon: TrendingUp,  title: "Leaderboard",          desc: "See how you rank among top investors and referrers in the community." },
+                { Icon: AlertCircle, title: "Account Settings",     desc: "Manage your profile, update your username, and secure your account." },
+              ] as const).map(({ Icon, title, desc }) => (
+                <Card key={title} className="border-border/50 hover:border-primary/30 transition-colors">
                   <CardContent className="pt-5 pb-4 flex gap-3">
-                    <feat.Icon className="w-6 h-6 text-primary/60 shrink-0 mt-0.5" />
+                    <Icon className="w-6 h-6 text-primary/60 shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-semibold text-sm mb-0.5">{feat.title}</p>
-                      <p className="text-xs text-muted-foreground">{feat.desc}</p>
+                      <p className="font-semibold text-sm mb-0.5">{title}</p>
+                      <p className="text-xs text-muted-foreground">{desc}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -1417,13 +1026,16 @@ const ProfileIntroPage = () => {
   );
 };
 
-// ── 게이트 컴포넌트: 진짜 분리된 컴포넌트 구조 ──
-// ProfileConnected는 오직 여기서만 조건부 마운트됨
-// → 미연결 시 ProfileConnected 자체가 마운트되지 않으므로 내부 훅이 전혀 실행되지 않음
+// ─────────────────────────────────────────────────────────────────────────────
+// ProfileGate — default export
+//   · useAccount only (no other hooks)
+//   · Disconnected → <ProfileIntroPage />  (zero data hooks)
+//   · Connected    → <ProfilePage />       (all data hooks, only mounted here)
+// ─────────────────────────────────────────────────────────────────────────────
 const ProfileGate = () => {
   const { address, isConnected } = useAccount();
   if (!isConnected || !address) return <ProfileIntroPage />;
-  return <ProfileConnected address={address} isConnected={isConnected} />;
+  return <ProfilePage address={address} isConnected={isConnected} />;
 };
 
 export default ProfileGate;
