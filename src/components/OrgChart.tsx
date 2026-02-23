@@ -125,10 +125,13 @@ function UserReferralCard({ address, className }: { address?: string; className?
 export function OrgChart({ className, viewAs }: OrgChartProps) {
   const { address } = useAccount();
 
+  // viewAs="user" 가 명시되면 localStorage 무관하게 무조건 유저뷰
   const isAdmin =
-    viewAs === "admin" ||
-    (typeof window !== "undefined" &&
-      localStorage.getItem("alphabag_admin_authenticated") === "true");
+    viewAs === "user"
+      ? false
+      : viewAs === "admin" ||
+        (typeof window !== "undefined" &&
+          localStorage.getItem("alphabag_admin_authenticated") === "true");
 
   // ── 유저 뷰 ──────────────────────────────
   if (!isAdmin) {
