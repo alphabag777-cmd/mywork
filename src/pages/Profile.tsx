@@ -473,7 +473,8 @@ const Profile = () => {
 
   useEffect(() => {
     if (isConnected && address) loadTeamData();
-  }, [address, isConnected, loadTeamData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, isConnected]);
 
   // ── Earnings state ──
   const [earningsInvestments, setEarningsInvestments] = useState<any[]>([]);
@@ -497,7 +498,7 @@ const Profile = () => {
     }
   }, [address]);
 
-  useEffect(() => { loadEarnings(); }, [loadEarnings]);
+  useEffect(() => { loadEarnings(); }, [address]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── UI-only state (referral info, clipboard, node edit) ──
   const [referralLink, setReferralLink] = useState<string>("");
