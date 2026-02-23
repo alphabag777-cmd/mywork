@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ZoomIn, ZoomOut, RefreshCw, UserCheck, Activity, DollarSign, Home, Download, Search, Undo2, Lock } from "lucide-react";
+import { Loader2, ZoomIn, ZoomOut, RefreshCw, UserCheck, Activity, DollarSign, Home, Download, Search, Undo2, Lock, Network, TreePine } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
@@ -16,6 +16,12 @@ import { ImportOrgData } from "@/components/ImportOrgData";
 interface OrgChartProps {
   className?: string;
   viewAs?: "admin" | "user"; // Allow override, but default to auto-detect
+}
+
+// Local helper
+function formatAddress(address: string): string {
+  if (!address) return "Unknown";
+  return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
 }
 
 export function OrgChart({ className, viewAs }: OrgChartProps) {
@@ -36,6 +42,7 @@ export function OrgChart({ className, viewAs }: OrgChartProps) {
   const [viewMode, setViewMode] = useState<"full" | "subtree">("full");
   const [subtreeRoot, setSubtreeRoot] = useState<OrgNode | null>(null);
   const [depthFilter, setDepthFilter] = useState<string>("all"); // "5", "10", "15", "all"
+  const [showAllRoots, setShowAllRoots] = useState(false); // false = show main tree only
 
   // Access Control
   const isAdmin = viewAs === "admin" || (typeof window !== "undefined" && localStorage.getItem("alphabag_admin_authenticated") === "true");
@@ -183,13 +190,23 @@ export function OrgChart({ className, viewAs }: OrgChartProps) {
     handleCenter();
   };
 
-  const updateView = (roots: OrgNode[], subtreeNode: OrgNode | null) => {
+  const updateView = (roots: OrgNode[], subtreeNode: OrgNode | null, showAll?: boolean) => {
     let nodesToRender = roots;
     let viewName = "Network Root";
 
     if (subtreeNode) {
       nodesToRender = [subtreeNode];
       viewName = `Subtree: ${subtreeNode.walletAddress.substring(0, 6)}...`;
+    } else {
+      // By default, show only the main (largest) tree unless showAllRoots is true
+      const displayAll = showAll !== undefined ? showAll : showAllRoots;
+      if (!displayAll && roots.length > 0) {
+        // roots are already sorted by teamSales descending; take the largest
+        nodesToRender = [roots[0]];
+        viewName = `Main Network (${formatAddress(roots[0].walletAddress)})`;
+      } else {
+        viewName = "All Networks";
+      }
     }
 
     // Recalculate stats for the CURRENT VIEW
@@ -203,11 +220,11 @@ export function OrgChart({ className, viewAs }: OrgChartProps) {
     };
     countNodes(nodesToRender);
 
-    setStats({
-      ...stats,
+    setStats(prev => ({
+      ...prev,
       totalUsers: count,
       totalVolume: currentTotalVolume,
-    });
+    }));
 
     const treeData = {
       name: viewName,
@@ -356,6 +373,22 @@ export function OrgChart({ className, viewAs }: OrgChartProps) {
           
           <div className="flex items-center gap-2">
             {isAdmin && <ImportOrgData onSuccess={handleRefresh} />}
+            {/* Toggle between main tree and all trees */}
+            {viewMode !== "subtree" && (
+              <Button
+                variant={showAllRoots ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  const next = !showAllRoots;
+                  setShowAllRoots(next);
+                  updateView(originalRoots, null, next);
+                }}
+                className="gap-2"
+              >
+                {showAllRoots ? <Network className="h-4 w-4" /> : <TreePine className="h-4 w-4" />}
+                {showAllRoots ? `All Trees (${originalRoots.length})` : "Main Tree"}
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={handleExport} className="gap-2">
               <Download className="h-4 w-4" />
               Export CSV

@@ -1,6 +1,5 @@
 import { User, getAllUsers } from "./users";
 import { UserInvestment, getAllUserInvestments } from "./userInvestments";
-import { getAllReferrals } from "./referrals";
 
 export interface OrgNode extends User {
   id: string; // Wallet address
@@ -19,28 +18,18 @@ interface BuildOrgTreeOptions {
 /**
  * Builds the organization tree with sales data.
  * Fetches all users and investments, aggregates sales, and builds the hierarchy.
- * Uses referrals collection as a fallback when users.referrerWallet is not set.
+ * Uses users.referrerWallet as the authoritative source for the hierarchy.
+ * Orphan nodes (no parent found) are grouped under their own subtrees and sorted by size.
  */
 export async function buildOrgTree(options: BuildOrgTreeOptions = {}): Promise<OrgNode[]> {
   try {
     const { startDate, endDate } = options;
 
-    // 1. Fetch all users, investments, and referrals in parallel
-    const [users, investments, referrals] = await Promise.all([
+    // 1. Fetch all users and investments in parallel
+    const [users, investments] = await Promise.all([
       getAllUsers(),
       getAllUserInvestments(),
-      getAllReferrals(),
     ]);
-
-    // 1b. Build referral map: referredWallet → referrerWallet (from referrals collection)
-    const referralMap = new Map<string, string>();
-    referrals.forEach((ref) => {
-      const referred = ref.referredWallet?.toLowerCase();
-      const referrer = ref.referrerWallet?.toLowerCase();
-      if (referred && referrer && !referralMap.has(referred)) {
-        referralMap.set(referred, referrer);
-      }
-    });
 
     // 2. Aggregate personal sales for each user
     const salesMap = new Map<string, number>();
@@ -58,11 +47,7 @@ export async function buildOrgTree(options: BuildOrgTreeOptions = {}): Promise<O
     const nodeMap = new Map<string, OrgNode>();
     users.forEach((user) => {
       const userId = user.walletAddress.toLowerCase();
-      // Prefer referrerWallet from user doc; fall back to referrals collection
-      const effectiveReferrer =
-        user.referrerWallet?.toLowerCase() ||
-        referralMap.get(userId) ||
-        null;
+      const effectiveReferrer = user.referrerWallet?.toLowerCase() || null;
 
       nodeMap.set(userId, {
         ...user,
@@ -73,42 +58,6 @@ export async function buildOrgTree(options: BuildOrgTreeOptions = {}): Promise<O
         teamSales: 0,
         children: [],
       });
-    });
-
-    // Also add wallets that appear in referrals but NOT in users collection
-    referralMap.forEach((referrer, referred) => {
-      if (!nodeMap.has(referred)) {
-        nodeMap.set(referred, {
-          id: referred,
-          walletAddress: referred,
-          name: referred,
-          referralCode: "",
-          referrerWallet: referrer,
-          isRegistered: false,
-          createdAt: 0,
-          updatedAt: 0,
-          lastConnectedAt: 0,
-          personalSales: salesMap.get(referred) || 0,
-          teamSales: 0,
-          children: [],
-        } as OrgNode);
-      }
-      if (!nodeMap.has(referrer)) {
-        nodeMap.set(referrer, {
-          id: referrer,
-          walletAddress: referrer,
-          name: referrer,
-          referralCode: "",
-          referrerWallet: null,
-          isRegistered: false,
-          createdAt: 0,
-          updatedAt: 0,
-          lastConnectedAt: 0,
-          personalSales: salesMap.get(referrer) || 0,
-          teamSales: 0,
-          children: [],
-        } as OrgNode);
-      }
     });
 
     // 4. Build the tree structure based on referrerWallet
@@ -124,7 +73,7 @@ export async function buildOrgTree(options: BuildOrgTreeOptions = {}): Promise<O
       }
     });
 
-    // 5. Recursively calculate team sales
+    // 5. Recursively calculate team sales and levels
     function calculateTeamSales(node: OrgNode, currentLevel: number = 0): number {
       node.level = currentLevel;
       let total = node.personalSales;
@@ -139,8 +88,21 @@ export async function buildOrgTree(options: BuildOrgTreeOptions = {}): Promise<O
 
     roots.forEach((root) => calculateTeamSales(root));
 
-    // Sort roots by team sales descending (optional)
-    roots.sort((a, b) => b.teamSales - a.teamSales);
+    // 6. Sort roots: biggest tree first (by teamSales, then by subtree count)
+    function countSubtree(node: OrgNode): number {
+      let count = 1;
+      node.children.forEach((child) => {
+        count += countSubtree(child);
+      });
+      return count;
+    }
+
+    roots.sort((a, b) => {
+      // First sort by team sales descending
+      if (b.teamSales !== a.teamSales) return b.teamSales - a.teamSales;
+      // Then by subtree size descending
+      return countSubtree(b) - countSubtree(a);
+    });
 
     return roots;
   } catch (error) {
