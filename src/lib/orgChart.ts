@@ -88,7 +88,7 @@ export async function buildOrgTree(options: BuildOrgTreeOptions = {}): Promise<O
 
     roots.forEach((root) => calculateTeamSales(root));
 
-    // 6. Sort roots: biggest tree first (by teamSales, then by subtree count)
+    // 6. Pre-calculate subtree sizes for all roots
     function countSubtree(node: OrgNode): number {
       let count = 1;
       node.children.forEach((child) => {
@@ -97,11 +97,19 @@ export async function buildOrgTree(options: BuildOrgTreeOptions = {}): Promise<O
       return count;
     }
 
+    // Pre-compute sizes to avoid repeated traversal during sort
+    const subtreeSizeMap = new Map<string, number>();
+    roots.forEach((root) => {
+      subtreeSizeMap.set(root.id, countSubtree(root));
+    });
+
     roots.sort((a, b) => {
-      // First sort by team sales descending
-      if (b.teamSales !== a.teamSales) return b.teamSales - a.teamSales;
-      // Then by subtree size descending
-      return countSubtree(b) - countSubtree(a);
+      // Primary: subtree size descending (most members first)
+      const sizeA = subtreeSizeMap.get(a.id) || 1;
+      const sizeB = subtreeSizeMap.get(b.id) || 1;
+      if (sizeB !== sizeA) return sizeB - sizeA;
+      // Secondary: team sales descending
+      return b.teamSales - a.teamSales;
     });
 
     return roots;

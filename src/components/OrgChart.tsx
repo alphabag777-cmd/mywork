@@ -74,8 +74,9 @@ export function OrgChart({ className, viewAs }: OrgChartProps) {
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = async (currentShowAllRoots?: boolean) => {
     setLoading(true);
+    const useShowAll = currentShowAllRoots !== undefined ? currentShowAllRoots : showAllRoots;
     try {
       // Pass date range to builder
       const roots = await buildOrgTree({
@@ -87,7 +88,7 @@ export function OrgChart({ className, viewAs }: OrgChartProps) {
       
       // If Admin, prepare full tree
       if (isAdmin) {
-        updateView(roots, viewMode === "subtree" ? subtreeRoot : null);
+        updateView(roots, viewMode === "subtree" ? subtreeRoot : null, useShowAll);
       } else {
         // If User, find their node and show stats
         if (address) {
@@ -262,7 +263,7 @@ export function OrgChart({ className, viewAs }: OrgChartProps) {
   };
 
   const handleRefresh = () => {
-    fetchData();
+    fetchData(showAllRoots);
   };
 
   const handleZoomIn = () => {
