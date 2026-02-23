@@ -19,11 +19,31 @@ interface State {
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false, error: null, componentStack: null, copied: false };
 
+  // 구글 번역 관련 DOM 에러인지 판별
+  static isTranslationError(error: Error): boolean {
+    const msg = error?.message ?? "";
+    return (
+      msg.includes("removeChild") ||
+      msg.includes("insertBefore") ||
+      msg.includes("NotFoundError") ||
+      msg.includes("The node to be removed") ||
+      msg.includes("not a child of this node") ||
+      msg.includes("Failed to execute") && msg.includes("Node")
+    );
+  }
+
   static getDerivedStateFromError(error: Error): Partial<State> {
+    // 번역 관련 DOM 에러는 ErrorBoundary가 잡지 않음 → 크래시 UI 표시 안 함
+    if (ErrorBoundary.isTranslationError(error)) {
+      console.warn("[번역 호환] ErrorBoundary: DOM 에러 무시됨:", error.message);
+      return { hasError: false, error: null };
+    }
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    // 번역 에러는 localStorage 저장도 스킵
+    if (ErrorBoundary.isTranslationError(error)) return;
     this.setState({ componentStack: info.componentStack || null });
     try {
       const debugInfo = JSON.stringify({

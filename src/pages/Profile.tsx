@@ -80,8 +80,29 @@ class SectionErrorBoundary extends Component<
   { hasError: boolean; errMsg: string }
 > {
   state = { hasError: false, errMsg: "" };
-  static getDerivedStateFromError(e: Error) { return { hasError: true, errMsg: e.message }; }
+
+  // 구글 번역 관련 DOM 에러 판별
+  static isTranslationError(e: Error): boolean {
+    const msg = e?.message ?? "";
+    return (
+      msg.includes("removeChild") ||
+      msg.includes("insertBefore") ||
+      msg.includes("NotFoundError") ||
+      msg.includes("not a child of this node") ||
+      (msg.includes("Failed to execute") && msg.includes("Node"))
+    );
+  }
+
+  static getDerivedStateFromError(e: Error) {
+    if (SectionErrorBoundary.isTranslationError(e)) {
+      console.warn("[SectionErrorBoundary] 번역 DOM 에러 무시:", e.message);
+      return { hasError: false, errMsg: "" };
+    }
+    return { hasError: true, errMsg: e.message };
+  }
+
   componentDidCatch(e: Error, info: ErrorInfo) {
+    if (SectionErrorBoundary.isTranslationError(e)) return;
     const name = (this.props as { name?: string }).name || "unknown";
     const log = `[${name}] ${e.message}\n${info.componentStack}`;
     console.warn("[SectionErrorBoundary]", log);

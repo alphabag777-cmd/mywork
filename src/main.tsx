@@ -2,20 +2,32 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-/* ─────────────────────────────────────────────────────────────────
-   구글 번역 / 크롬 자동번역 완전 차단
-   Chrome Android 자동번역이 React 텍스트 노드를 직접 변경하면
-   → React DOM reconciliation removeChild NotFoundError 발생
-   → 아래 코드로 번역 시도 자체를 차단
-───────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════
+   구글 번역 / Chrome 자동번역 호환성 패치
+   
+   [문제]
+   Chrome Android 자동번역이 React 텍스트 노드를 <font> 태그로 감싸면:
+     <p>텍스트</p>  →  <p><font>번역된텍스트</font></p>
+   이후 React가 원본 텍스트 노드를 찾아 업데이트하려 할 때
+   노드가 <font> 안으로 이동했으므로 removeChild/insertBefore 실패
+   → NotFoundError: Failed to execute 'removeChild' on 'Node'
 
-// 1) HTML 루트에 translate="no" + notranslate 클래스 강제 설정
+   [해결 전략]
+   1. translate="no" + notranslate 로 번역 자체를 차단 시도
+   2. 번역이 강행되어도 React가 크래시하지 않도록:
+      - createRoot의 onRecoverableError로 DOM 불일치 에러 suppress
+      - MutationObserver로 <font> 태그 삽입 즉시 언래핑(unwrap)
+        → <font>번역텍스트</font>를 텍스트노드로 다시 교체하지 않고
+          <font>를 제거하고 내용을 원 위치에 유지 (React DOM 보호)
+   3. 번역 클래스(translated-ltr/rtl) 감지 시 조용히 제거
+═══════════════════════════════════════════════════════════════════ */
+
+// ─── 1. translate="no" 강제 설정 ────────────────────────────────────
 const html = document.documentElement;
 html.setAttribute("translate", "no");
 html.classList.add("notranslate");
 html.setAttribute("lang", "ko");
 
-// 2) meta google notranslate 동적 삽입 (혹시 누락된 경우 대비)
 if (!document.querySelector('meta[name="google"]')) {
   const m = document.createElement("meta");
   m.setAttribute("name", "google");
@@ -23,89 +35,96 @@ if (!document.querySelector('meta[name="google"]')) {
   document.head.appendChild(m);
 }
 
-// 3) root 엘리먼트에도 translate="no" 강제
 const rootEl = document.getElementById("root")!;
 rootEl.setAttribute("translate", "no");
 rootEl.classList.add("notranslate");
 
-// 4) MutationObserver: Chrome이 번역을 시작하면 즉시 페이지 리로드
-//    - Chrome 번역은 <html class="translated-ltr"> 또는 "translated-rtl" 추가
-//    - font.gstatic.com 스크립트 삽입 등의 패턴으로 감지
-let _translationReloadScheduled = false;
-const _translateObserver = new MutationObserver((mutations) => {
-  for (const m of mutations) {
-    // HTML 클래스 변경 감지 (Chrome 번역 시작 신호)
-    if (
-      m.type === "attributes" &&
-      m.attributeName === "class" &&
-      m.target === html
-    ) {
-      const cls = html.className || "";
-      if (cls.includes("translated-ltr") || cls.includes("translated-rtl")) {
-        // 번역 클래스 즉시 제거
-        html.classList.remove("translated-ltr", "translated-rtl");
-        // notranslate 재설정
-        html.classList.add("notranslate");
-        html.setAttribute("translate", "no");
-        return;
-      }
-    }
-    // 번역 스크립트/iframe 삽입 감지
-    if (m.type === "childList") {
-      m.addedNodes.forEach((node) => {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          const el = node as Element;
-          const src = el.getAttribute?.("src") || "";
-          const id = el.getAttribute?.("id") || "";
-          if (
-            src.includes("translate.googleapis") ||
-            src.includes("gstatic.com/translate") ||
-            id === "google_translate_element" ||
-            id.startsWith("goog-gt")
-          ) {
-            el.remove();
-          }
-        }
-      });
-    }
+// ─── 2. Chrome 번역 클래스 감지 → 조용히 제거 ────────────────────────
+const _htmlObserver = new MutationObserver(() => {
+  if (
+    html.classList.contains("translated-ltr") ||
+    html.classList.contains("translated-rtl")
+  ) {
+    html.classList.remove("translated-ltr", "translated-rtl");
+    html.classList.add("notranslate");
   }
 });
-_translateObserver.observe(html, {
+_htmlObserver.observe(html, {
   attributes: true,
-  attributeFilter: ["class", "translate"],
-  childList: true,
-  subtree: false,
+  attributeFilter: ["class"],
 });
 
-// 5) body에서도 번역 관련 노드 삽입 차단
-const _bodyObserver = new MutationObserver((mutations) => {
-  for (const m of mutations) {
-    if (m.type === "childList") {
-      m.addedNodes.forEach((node) => {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          const el = node as Element;
-          const id = el.getAttribute?.("id") || "";
-          const cls = el.getAttribute?.("class") || "";
-          if (
-            id.startsWith("goog-") ||
-            cls.includes("goog-te") ||
-            id === "google_translate_element" ||
-            el.tagName === "FONT" // Chrome 번역이 텍스트 노드를 <font>로 감싸는 패턴
-          ) {
-            el.remove();
-          }
-        }
-      });
+// ─── 3. <font> 언래핑: Chrome 번역이 삽입한 <font> 태그를
+//        React DOM을 건드리지 않는 방식으로 처리 ────────────────────────
+//
+//  [핵심 전략]
+//  Chrome 번역이 삽입한 <font> 태그를 React가 처리하기 전에
+//  제거하지 않고, 번역 후 <font> 노드를 그대로 DOM에 유지시킨다.
+//  React는 텍스트 노드를 참조하는데, <font>로 감싸진 경우
+//  부모 노드에서 원본 텍스트 노드를 찾을 수 없어 에러가 발생한다.
+//  → <font> 태그를 즉시 unwrap(내용만 남기고 태그 제거)하면
+//    React의 참조가 다시 유효해진다.
+
+function unwrapFontTags(root: Node) {
+  // #root 하위의 모든 <font> 태그를 unwrap
+  const fonts = (root as Element).querySelectorAll?.("font");
+  if (!fonts) return;
+  fonts.forEach((font) => {
+    const parent = font.parentNode;
+    if (!parent) return;
+    // <font> 안의 내용을 부모에 직접 삽입
+    while (font.firstChild) {
+      parent.insertBefore(font.firstChild, font);
     }
-  }
-});
-// body가 준비되면 observe
-if (document.body) {
-  _bodyObserver.observe(document.body, { childList: true, subtree: false });
-} else {
-  document.addEventListener("DOMContentLoaded", () => {
-    _bodyObserver.observe(document.body, { childList: true, subtree: false });
+    parent.removeChild(font);
   });
 }
 
-createRoot(rootEl).render(<App />);
+// body 전체를 감시: <font> 태그가 삽입되면 즉시 언래핑
+const _fontObserver = new MutationObserver((mutations) => {
+  let hasFontInsert = false;
+  for (const m of mutations) {
+    if (m.type === "childList") {
+      m.addedNodes.forEach((node) => {
+        if (
+          node.nodeType === Node.ELEMENT_NODE &&
+          (node as Element).tagName === "FONT"
+        ) {
+          hasFontInsert = true;
+        }
+      });
+    }
+  }
+  if (hasFontInsert) {
+    // 마이크로태스크 대기 후 한꺼번에 처리 (성능 최적화)
+    queueMicrotask(() => unwrapFontTags(rootEl));
+  }
+});
+
+// ─── 4. React 마운트 ────────────────────────────────────────────────
+// onRecoverableError: DOM 불일치 에러를 콘솔에만 출력하고 크래시 방지
+const root = createRoot(rootEl, {
+  onRecoverableError(error: unknown) {
+    const msg = (error as Error)?.message ?? String(error);
+    // 번역 관련 DOM 에러는 무시 (크래시 방지)
+    if (
+      msg.includes("removeChild") ||
+      msg.includes("insertBefore") ||
+      msg.includes("NotFoundError") ||
+      msg.includes("The node to be removed") ||
+      msg.includes("not a child of this node")
+    ) {
+      console.warn("[번역 호환] DOM 불일치 에러 무시됨:", msg);
+      return;
+    }
+    // 그 외 에러는 콘솔에 출력
+    console.error("[RecoverableError]", error);
+  },
+});
+
+root.render(<App />);
+
+// React 마운트 후 font 감시 시작 (마운트 전 감시 불필요)
+if (document.body) {
+  _fontObserver.observe(document.body, { childList: true, subtree: true });
+}

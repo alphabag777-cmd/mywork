@@ -69,7 +69,7 @@ const queryClient = new QueryClient({
 });
 
 const App = () => (
-  <div translate="no" className="notranslate">
+  <div translate="no" className="notranslate" suppressHydrationWarning>
   <ErrorBoundary>
     <BrowserRouter>
       <LanguageProvider>
