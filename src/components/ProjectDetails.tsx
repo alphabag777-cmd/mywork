@@ -9,6 +9,15 @@ import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { wasReferred } from "@/lib/referral";
 import { translateContent } from "@/lib/translator";
 
+interface LangContent {
+  description?: string;
+  detailDescription?: string;
+  materials?: Array<{ title: string; url: string }>;
+  pdfFiles?: Array<{ title: string; url: string }>;
+  detailImages?: Array<{ url: string; caption: string }>;
+  youtubeUrls?: Array<{ url: string; title: string }>;
+}
+
 interface ProjectDetailsProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -49,6 +58,13 @@ interface ProjectDetailsProps {
     currentParticipants?: string;
     noticeText?: string;
     pdfFiles?: Array<{ title: string; url: string }>;
+    // 언어별 콘텐츠
+    langContent?: {
+      en?: LangContent;
+      zh?: LangContent;
+      ko?: LangContent;
+      ja?: LangContent;
+    };
   };
 }
 
@@ -216,10 +232,17 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
     // 언어 변경 또는 팝업 열릴 때 번역 실행
     let cancelled = false;
     const run = async () => {
+      // langContent에 해당 언어 데이터가 있으면 번역 API 호출 없이 바로 사용
+      const lcKey = language === "ko" ? "ko" : language === "en" ? "en" : language === "zh" ? "zh" : language === "ja" ? "ja" : null;
+      const lcData = lcKey ? (project.langContent?.[lcKey as "ko"|"en"|"zh"|"ja"] ?? null) : null;
+
+      const srcDescription = lcData?.description || project.description || "";
+      const srcDetailDescription = lcData?.detailDescription || project.detailDescription || "";
+
       const [desc, focus, detail, audit, qaDesc, notice] = await Promise.all([
-        translateContent(project.description || "", language),
+        lcData?.description ? Promise.resolve(lcData.description) : translateContent(project.description || "", language),
         translateContent(project.focus || "", language),
-        translateContent(project.detailDescription || "", language),
+        lcData?.detailDescription ? Promise.resolve(lcData.detailDescription) : translateContent(project.detailDescription || "", language),
         translateContent(project.auditInfo || "", language),
         translateContent(project.quickActionsDescription || "", language),
         translateContent(project.noticeText || "", language),
@@ -252,8 +275,40 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
   const [referralDialogOpen, setReferralDialogOpen] = useState(false);
   const [referralCodeInput, setReferralCodeInput] = useState("");
 
+  /* ── 언어 코드 매핑 (LanguageContext → langContent key) ── */
+  const langKey = (language === "ko" ? "ko" : language === "en" ? "en" : language === "zh" ? "zh" : language === "ja" ? "ja" : null) as "ko"|"en"|"zh"|"ja"|null;
+
+  /* ── 현재 언어의 langContent (없으면 null) ── */
+  const lc: LangContent | null = langKey ? (project.langContent?.[langKey] ?? null) : null;
+
+  /* ── 언어별 PDF: langContent 우선, 없으면 기본 pdfFiles ── */
+  const activePdfFiles = (lc?.pdfFiles && lc.pdfFiles.length > 0)
+    ? lc.pdfFiles
+    : (project.pdfFiles ?? []);
+
+  /* ── 언어별 참고자료: langContent 우선, 없으면 기본 materials ── */
+  const activeMaterials = (lc?.materials && lc.materials.length > 0)
+    ? lc.materials
+    : (project.materials ?? []);
+
+  /* ── 언어별 YouTube: langContent 우선, 없으면 기본 youtubeUrls/youtubeUrl ── */
+  const activeLangYoutubeList: Array<{ url: string; title: string }> =
+    (lc?.youtubeUrls && lc.youtubeUrls.length > 0)
+      ? lc.youtubeUrls
+      : project.youtubeUrls && project.youtubeUrls.length > 0
+        ? project.youtubeUrls
+        : project.youtubeUrl
+          ? [{ url: project.youtubeUrl, title: "" }]
+          : [];
+
+  /* ── 언어별 이미지: langContent 우선, 없으면 기본 detailImages ── */
+  const activeLangImages: Array<{ url: string; caption: string }> =
+    (lc?.detailImages && lc.detailImages.length > 0)
+      ? lc.detailImages
+      : normalizeImages(project.detailImages);
+
   /* ── 이미지 정규화 ── */
-  const normalizedImages = normalizeImages(project.detailImages);
+  const normalizedImages = activeLangImages;
 
   /* ── i18n 헬퍼: 번역된 state 반환 ── */
   const getTranslated = useCallback((field: "focus" | "description" | "quickActionsDescription") => {
@@ -326,13 +381,8 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
     return null;
   };
 
-  // 다중 YouTube 영상 목록 (youtubeUrls 우선, 없으면 youtubeUrl 단일 → 배열)
-  const youtubeList: Array<{ url: string; title: string }> =
-    project.youtubeUrls && project.youtubeUrls.length > 0
-      ? project.youtubeUrls
-      : project.youtubeUrl
-        ? [{ url: project.youtubeUrl, title: "" }]
-        : [];
+  // 다중 YouTube 영상 목록 (언어별 langContent 우선)
+  const youtubeList: Array<{ url: string; title: string }> = activeLangYoutubeList;
   const youtubeEmbedList = youtubeList
     .map((item) => ({ ...item, embedUrl: getYoutubeEmbedUrl(item.url) }))
     .filter((item) => !!item.embedUrl);
@@ -544,13 +594,13 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
               )}
 
               {/* PDF 첨부 파일 목록 */}
-              {project.pdfFiles && project.pdfFiles.length > 0 && (
+              {activePdfFiles.length > 0 && (
                 <div className="p-3 rounded-xl bg-muted/30 border border-border/60">
                   <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-1.5">
-                    <FileText className="w-4 h-4 text-red-500" /> 📄 첨부 자료 ({project.pdfFiles.length}개)
+                    <FileText className="w-4 h-4 text-red-500" /> 📄 첨부 자료 ({activePdfFiles.length}개)
                   </h4>
                   <div className="space-y-2">
-                    {project.pdfFiles.map((pdf, i) => (
+                    {activePdfFiles.map((pdf, i) => (
                       <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-background/60 border border-border/40 hover:border-primary/40 transition-colors">
                         <FileText className="w-4 h-4 text-red-500 flex-shrink-0" />
                         <span className="text-xs font-medium text-foreground flex-1 truncate">{pdf.title || `문서 ${i + 1}`}</span>
@@ -616,11 +666,11 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
               </div>
 
               {/* 참고 자료 링크 */}
-              {project.materials && project.materials.length > 0 && (
+              {activeMaterials.length > 0 && (
                 <div>
                   <h4 className="text-sm font-semibold mb-2">🔗 {t.projectDetails.referenceMaterials ?? "참고 자료"}</h4>
                   <div className="flex flex-col gap-1.5">
-                    {project.materials.map((m, i) => (
+                    {activeMaterials.map((m, i) => (
                       <a
                         key={i}
                         href={m.url}

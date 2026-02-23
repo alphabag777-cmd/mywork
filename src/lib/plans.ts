@@ -86,13 +86,14 @@ export interface InvestmentPlan {
   updatedAt: number;
 }
 
-/** 언어별 콘텐츠 (설명, 이미지, PDF) */
+/** 언어별 콘텐츠 (설명, 이미지, PDF, YouTube) */
 export interface LangContent {
   description?: string;       // 해당 언어 설명
   detailDescription?: string; // 해당 언어 상세 설명
   materials?: Array<{ title: string; url: string }>; // 해당 언어 참고 자료
   pdfFiles?: Array<{ title: string; url: string }>;  // 해당 언어 PDF
   detailImages?: Array<{ url: string; caption: string }>; // 해당 언어 이미지
+  youtubeUrls?: Array<{ url: string; title: string }>; // 해당 언어 YouTube
 }
 
 const PLANS_COLLECTION = "investment_plans";

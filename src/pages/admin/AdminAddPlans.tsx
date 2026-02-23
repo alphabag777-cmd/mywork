@@ -1501,6 +1501,18 @@ export const AdminAddPlans = () => {
                                 onChange={(imgs) => update({ detailImages: imgs })}
                               />
                             </div>
+
+                            {/* YouTube 영상 */}
+                            <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
+                              <Label className="text-sm font-semibold">
+                                <span className="text-red-500 mr-1">▶</span>
+                                {langLabels[lang]} YouTube 영상
+                              </Label>
+                              <YoutubeEditor
+                                items={lc.youtubeUrls || []}
+                                onChange={(items) => update({ youtubeUrls: items })}
+                              />
+                            </div>
                           </div>
                         );
                       })}
