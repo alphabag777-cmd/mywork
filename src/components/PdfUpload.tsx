@@ -25,7 +25,7 @@ interface Props {
   maxSizeMB?: number;
 }
 
-const MAX_SIZE_MB = 10;
+const MAX_SIZE_MB = 30;
 
 export function PdfUpload({ files, onChange, folder = "plans/pdf", maxSizeMB = MAX_SIZE_MB }: Props) {
   const [uploading, setUploading] = useState(false);

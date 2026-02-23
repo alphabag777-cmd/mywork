@@ -25,7 +25,7 @@ export function getCloudinaryUploadUrl(): string {
 }
 
 /**
- * Upload image to Cloudinary
+ * Upload image to Cloudinary (최대 30MB 지원)
  */
 export async function uploadImageToCloudinary(
   file: File,

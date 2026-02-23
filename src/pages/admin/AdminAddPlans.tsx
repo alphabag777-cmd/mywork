@@ -252,7 +252,7 @@ function DetailImageEditor({
               onChange={(url) => { if (url) onChange([...images, { url, caption: "" }]); }}
               label="이미지 추가 (클릭하여 업로드)"
               folder="alphabag/plans/detail"
-              maxSizeMB={10}
+              maxSizeMB={30}
             />
           ) : (
             <div className="space-y-2">
@@ -1167,7 +1167,7 @@ export const AdminAddPlans = () => {
                           </div>
                         )}
                         <div className="space-y-2">
-                          <ImageUpload value={formData.logo} onChange={(url) => setFormData({ ...formData, logo: url })} label="플랜 로고 *" folder="alphabag/plans" maxSizeMB={2} />
+                          <ImageUpload value={formData.logo} onChange={(url) => setFormData({ ...formData, logo: url })} label="플랜 로고 *" folder="alphabag/plans" maxSizeMB={30} />
                         </div>
                       </div>
                       <div className="space-y-2">
@@ -1387,13 +1387,13 @@ export const AdminAddPlans = () => {
                       <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
                         <h4 className="text-sm font-semibold flex items-center gap-2">
                           <FileText className="w-4 h-4 text-red-500" /> PDF 첨부 파일
-                          <span className="text-xs font-normal text-muted-foreground">계약서, 백서, 인증서 등 (최대 10MB)</span>
+                          <span className="text-xs font-normal text-muted-foreground">언제서, 백서, 인증서 등 (최대 30MB)</span>
                         </h4>
                         <PdfUpload
                           files={pdfFiles}
                           onChange={setPdfFiles}
                           folder="alphabag/plans/pdf"
-                          maxSizeMB={10}
+                          maxSizeMB={30}
                         />
                       </div>
                     </TabsContent>
@@ -1486,7 +1486,7 @@ export const AdminAddPlans = () => {
                                 files={lc.pdfFiles || []}
                                 onChange={(files) => update({ pdfFiles: files })}
                                 folder={`alphabag/plans/pdf/${lang}`}
-                                maxSizeMB={10}
+                                maxSizeMB={30}
                               />
                             </div>
 

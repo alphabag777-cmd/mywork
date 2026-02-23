@@ -273,7 +273,7 @@ export const AdminAds = () => {
               onChange={(url) => setFormData({ ...formData, imageUrl: url })}
               label="Ad Image *"
               folder="alphabag/ads"
-              maxSizeMB={5}
+              maxSizeMB={30}
             />
             <div className="bg-muted/50 p-3 rounded-lg border border-border/50">
               <p className="text-sm font-semibold mb-2">Recommended Image Dimensions:</p>

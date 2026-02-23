@@ -336,7 +336,7 @@ export const AdminNodes = () => {
                   onChange={(url) => setFormData({ ...formData, icon: url })}
                   label="Node Icon"
                   folder="alphabag/nodes"
-                  maxSizeMB={2}
+                  maxSizeMB={30}
                 />
               </div>
               <div className="space-y-2 md:col-span-2">
