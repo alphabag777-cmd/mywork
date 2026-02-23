@@ -26,7 +26,7 @@ import { useRef, useEffect } from "react";
 import ProjectDetails from "@/components/ProjectDetails";
 import { getAllPlans, InvestmentPlan } from "@/lib/plans";
 import { getFixedAd, getRotatingAds, AdImage } from "@/lib/ads";
-import { getActiveNotice, Notice } from "@/lib/notices";
+import { getAllNotices, Notice } from "@/lib/notices";
 import { useCart } from "@/contexts/CartContext";
 import { getUserSelectedPlans, UserSelectedPlans } from "@/lib/userSelectedPlans";
 
@@ -42,8 +42,8 @@ const StakingSection = () => {
   const [translatedFixedAd, setTranslatedFixedAd] = useState<AdImage | null>(null);
   const [translatedRotatingAds, setTranslatedRotatingAds] = useState<AdImage[]>([]);
   const [currentRotatingIndex, setCurrentRotatingIndex] = useState(0);
-  const [notice, setNotice] = useState<Notice | null>(null);
-  const [translatedNotice, setTranslatedNotice] = useState<Notice | null>(null);
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [translatedNotices, setTranslatedNotices] = useState<Notice[]>([]);
   const [selectedProject, setSelectedProject] = useState<InvestmentPlan | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [referralDialogOpen, setReferralDialogOpen] = useState(false);
@@ -100,29 +100,28 @@ const StakingSection = () => {
     loadPlans();
   }, [translate]);
 
-  // Load notice from Firebase
+  // Load notices from Firebase (여러 개 표시)
   useEffect(() => {
-    const loadNotice = async () => {
+    const loadNotices = async () => {
       try {
-        const activeNotice = await getActiveNotice();
-        setNotice(activeNotice);
-        
-        // Translate notice points if needed
-        if (activeNotice) {
-          const translatedPoints = await Promise.all(
-            activeNotice.points.map(point => translate(point))
-          );
-          setTranslatedNotice({
-            ...activeNotice,
-            points: translatedPoints,
-          });
-        }
+        const all = await getAllNotices();
+        const active = all
+          .filter((n) => n.isActive !== false)
+          .sort((a, b) => a.sortOrder - b.sortOrder || b.createdAt - a.createdAt);
+        setNotices(active);
+        // Translate
+        const translated = await Promise.all(
+          active.map(async (n) => ({
+            ...n,
+            points: await Promise.all(n.points.map((p) => translate(p))),
+          }))
+        );
+        setTranslatedNotices(translated);
       } catch (error) {
-        console.error("Error loading notice:", error);
+        console.error("Error loading notices:", error);
       }
     };
-    
-    loadNotice();
+    loadNotices();
   }, [translate]);
 
   // Load ad images from Firebase
@@ -386,7 +385,7 @@ const StakingSection = () => {
       <div className="absolute inset-0 bg-gradient-radial from-primary/5 via-transparent to-transparent pointer-events-none" />
       
       {/* Ad Placements + Notice in One Row */}
-      {((translatedFixedAd || fixedAd) || (translatedRotatingAds.length > 0 ? translatedRotatingAds : rotatingAds).length > 0 || (translatedNotice || notice)) && (
+      {((translatedFixedAd || fixedAd) || (translatedRotatingAds.length > 0 ? translatedRotatingAds : rotatingAds).length > 0 || (translatedNotices.length > 0 || notices.length > 0)) && (
         <div className="container mx-auto px-2 md:px-4 mb-4 md:mb-6">
           <div className="flex flex-col md:flex-row items-stretch gap-3 md:gap-4">
             {/* Fixed Ad Placement */}
@@ -456,24 +455,48 @@ const StakingSection = () => {
             )}
 
             {/* Notice Section */}
-            {(translatedNotice || notice) && (
+            {(translatedNotices.length > 0 || notices.length > 0) && (
               <div className="flex-1 min-w-0 bg-card/50 backdrop-blur-sm border border-border/60 rounded-xl p-3 md:p-6">
                 <div className="flex items-center justify-between mb-2 md:mb-3 gap-2">
                   <h3 className="text-sm md:text-lg font-semibold text-foreground whitespace-nowrap">
                     Notice
                   </h3>
-                  <Button variant="outline" size="sm" className="h-6 md:h-7 text-[10px] md:text-xs px-2 md:px-3 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 md:h-7 text-[10px] md:text-xs px-2 md:px-3 shrink-0"
+                    onClick={() => navigate("/notices")}
+                  >
                     NOTICE
                   </Button>
                 </div>
                 <ul className="space-y-1.5 md:space-y-2">
-                  {(translatedNotice || notice)!.points.map((point, index) => (
-                    <li key={index} className="flex items-start gap-2 text-xs md:text-sm text-muted-foreground break-words">
-                      <span className="text-primary mt-0.5 md:mt-1 shrink-0">•</span>
-                      <span className="flex-1 min-w-0">{point}</span>
-                    </li>
-                  ))}
+                  {(translatedNotices.length > 0 ? translatedNotices : notices).map((n) =>
+                    n.points.map((point, index) => (
+                      <li
+                        key={n.id + "-" + index}
+                        className="flex items-start gap-2 text-xs md:text-sm text-muted-foreground break-words cursor-pointer hover:text-foreground transition-colors"
+                        onClick={() => navigate(`/notices/${n.id}`)}
+                      >
+                        <span className="text-primary mt-0.5 md:mt-1 shrink-0">•</span>
+                        <span className="flex-1 min-w-0">
+                          {n.title && index === 0 && (
+                            <span className="font-medium text-foreground/80 mr-1">[{n.title}]</span>
+                          )}
+                          {point}
+                        </span>
+                      </li>
+                    ))
+                  )}
                 </ul>
+                {(translatedNotices.length > 0 ? translatedNotices : notices).length > 1 && (
+                  <button
+                    className="mt-2 text-[10px] text-primary hover:underline"
+                    onClick={() => navigate("/notices")}
+                  >
+                    전체 공지 보기 →
+                  </button>
+                )}
               </div>
             )}
           </div>
