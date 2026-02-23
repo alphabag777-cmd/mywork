@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ExternalLink, ChevronLeft, ChevronRight, X, AlertTriangle, Globe, Coins, Lock, DollarSign, Clock, RefreshCw, Percent, FileText, ShieldCheck, Users, BarChart3, Eye, Download } from "lucide-react";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useAccount } from "wagmi";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
@@ -232,15 +232,12 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
     // 언어 변경 또는 팝업 열릴 때 번역 실행
     let cancelled = false;
     const run = async () => {
-      // langContent에 해당 언어 데이터가 있으면 번역 API 호출 없이 바로 사용
+      // langContent에 해당 언어 직접 텍스트가 있으면 번역 API 불필요
       const lcKey = language === "ko" ? "ko" : language === "en" ? "en" : language === "zh" ? "zh" : language === "ja" ? "ja" : null;
       const lcData = lcKey ? (project.langContent?.[lcKey as "ko"|"en"|"zh"|"ja"] ?? null) : null;
 
-      const srcDescription = lcData?.description || project.description || "";
-      const srcDetailDescription = lcData?.detailDescription || project.detailDescription || "";
-
       const [desc, focus, detail, audit, qaDesc, notice] = await Promise.all([
-        lcData?.description ? Promise.resolve(lcData.description) : translateContent(project.description || "", language),
+        lcData?.description    ? Promise.resolve(lcData.description)    : translateContent(project.description || "", language),
         translateContent(project.focus || "", language),
         lcData?.detailDescription ? Promise.resolve(lcData.detailDescription) : translateContent(project.detailDescription || "", language),
         translateContent(project.auditInfo || "", language),
@@ -271,44 +268,52 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
     run();
     prevLangRef.current = language;
     return () => { cancelled = true; };
-  }, [language, open, project.id]);
+  }, [language, open, project.id, project.langContent]);
   const [referralDialogOpen, setReferralDialogOpen] = useState(false);
   const [referralCodeInput, setReferralCodeInput] = useState("");
 
   /* ── 언어 코드 매핑 (LanguageContext → langContent key) ── */
-  const langKey = (language === "ko" ? "ko" : language === "en" ? "en" : language === "zh" ? "zh" : language === "ja" ? "ja" : null) as "ko"|"en"|"zh"|"ja"|null;
+  /* ── 언어별 콘텐츠 (language 변경 시 즉시 재계산) ── */
+  const langKey = useMemo(() =>
+    (language === "ko" ? "ko" : language === "en" ? "en" : language === "zh" ? "zh" : language === "ja" ? "ja" : null) as "ko"|"en"|"zh"|"ja"|null
+  , [language]);
 
-  /* ── 현재 언어의 langContent (없으면 null) ── */
-  const lc: LangContent | null = langKey ? (project.langContent?.[langKey] ?? null) : null;
+  /* ── 현재 언어의 langContent ── */
+  const lc = useMemo(() =>
+    langKey ? (project.langContent?.[langKey] ?? null) : null
+  , [langKey, language, project.langContent, project.id]);
 
   /* ── 언어별 PDF: langContent 우선, 없으면 기본 pdfFiles ── */
-  const activePdfFiles = (lc?.pdfFiles && lc.pdfFiles.length > 0)
-    ? lc.pdfFiles
-    : (project.pdfFiles ?? []);
+  const activePdfFiles = useMemo(() =>
+    (lc?.pdfFiles && lc.pdfFiles.length > 0)
+      ? lc.pdfFiles
+      : (project.pdfFiles ?? [])
+  , [lc, project.pdfFiles]);
 
   /* ── 언어별 참고자료: langContent 우선, 없으면 기본 materials ── */
-  const activeMaterials = (lc?.materials && lc.materials.length > 0)
-    ? lc.materials
-    : (project.materials ?? []);
+  const activeMaterials = useMemo(() =>
+    (lc?.materials && lc.materials.length > 0)
+      ? lc.materials
+      : (project.materials ?? [])
+  , [lc, project.materials]);
 
   /* ── 언어별 YouTube: langContent 우선, 없으면 기본 youtubeUrls/youtubeUrl ── */
-  const activeLangYoutubeList: Array<{ url: string; title: string }> =
+  const activeLangYoutubeList = useMemo((): Array<{ url: string; title: string }> =>
     (lc?.youtubeUrls && lc.youtubeUrls.length > 0)
       ? lc.youtubeUrls
       : project.youtubeUrls && project.youtubeUrls.length > 0
         ? project.youtubeUrls
         : project.youtubeUrl
           ? [{ url: project.youtubeUrl, title: "" }]
-          : [];
+          : []
+  , [lc, project.youtubeUrls, project.youtubeUrl]);
 
   /* ── 언어별 이미지: langContent 우선, 없으면 기본 detailImages ── */
-  const activeLangImages: Array<{ url: string; caption: string }> =
+  const normalizedImages = useMemo(() =>
     (lc?.detailImages && lc.detailImages.length > 0)
       ? lc.detailImages
-      : normalizeImages(project.detailImages);
-
-  /* ── 이미지 정규화 ── */
-  const normalizedImages = activeLangImages;
+      : normalizeImages(project.detailImages)
+  , [lc, project.detailImages]);
 
   /* ── i18n 헬퍼: 번역된 state 반환 ── */
   const getTranslated = useCallback((field: "focus" | "description" | "quickActionsDescription") => {

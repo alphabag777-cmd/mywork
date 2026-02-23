@@ -166,6 +166,7 @@ function fromFirestore(docData: any, id: string): InvestmentPlan {
     category: docData.category || undefined, // undefined = legacy plan (ABAG/BBAG/CBAG mixed)
     pdfFiles: docData.pdfFiles || [],
     sortOrder: docData.sortOrder !== undefined ? docData.sortOrder : 999999, // Default to high number if not set
+    langContent: docData.langContent || undefined,
     createdAt: timestampToNumber(docData.createdAt),
     updatedAt: timestampToNumber(docData.updatedAt),
   };
@@ -212,6 +213,7 @@ function toFirestore(plan: Partial<InvestmentPlan>): any {
     noticeText: plan.noticeText || "",
     category: plan.category || null, // null = legacy plan
     pdfFiles: plan.pdfFiles || [],
+    langContent: plan.langContent || null,
     sortOrder: plan.sortOrder !== undefined ? plan.sortOrder : 999999,
     wallet1: plan.wallet1 || "",
     wallet1Percentage: plan.wallet1Percentage !== undefined ? plan.wallet1Percentage : 0,
