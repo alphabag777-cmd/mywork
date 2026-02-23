@@ -17,6 +17,7 @@ import Footer from "@/components/Footer";
 import BottomNav from "@/components/BottomNav";
 import { StakingMaturityChecker } from "@/components/StakingMaturityChecker";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
+import { RouteChangeGuard } from "@/components/RouteChangeGuard";
 
 // ── Always-eager (small, critical path) ─────────────────────────────────────
 import Index from "./pages/Index";
@@ -77,6 +78,7 @@ const App = () => (
           <CartProvider>
             <QueryClientProvider client={queryClient}>
               <TooltipProvider>
+                <RouteChangeGuard />
                 <TermsAgreement />
                 <UserNoticePopup />
                 <ReferralTracker />
