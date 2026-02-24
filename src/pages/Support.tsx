@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
+import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -170,19 +171,27 @@ export default function Support() {
 
   if (!address) {
     return (
-      <div className="container py-10 flex justify-center">
-        <Card className="w-full max-w-md text-center">
-          <CardHeader>
-            <CardTitle>Connect Wallet</CardTitle>
-            <CardDescription>Please connect your wallet to access support.</CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="pt-[88px] sm:pt-20">
+          <div className="container py-10 flex justify-center">
+            <Card className="w-full max-w-md text-center">
+              <CardHeader>
+                <CardTitle>Connect Wallet</CardTitle>
+                <CardDescription>Please connect your wallet to access support.</CardDescription>
+              </CardHeader>
+            </Card>
+          </div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="container py-10 max-w-4xl mx-auto">
+    <div className="min-h-screen bg-background">
+      <Header />
+      <main className="pt-[88px] sm:pt-20">
+      <div className="container py-10 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">{t.support.title}</h1>
         {/* Button removed, form is always visible */}
@@ -424,6 +433,8 @@ export default function Support() {
           </Card>
         </div>
       )}
+      </div>
+      </main>
     </div>
   );
 }
