@@ -167,7 +167,7 @@ const Header = () => {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
       {/* 모바일 전용 상단 바 – 가격 ticker */}
-      <div className="flex md:hidden items-center px-3 py-1.5 bg-muted/60 border-b border-border/30">
+      <div className="flex md:hidden items-center justify-center px-3 py-1 bg-muted/60 border-b border-border/30">
         <TokenPriceWidget compact />
       </div>
 
@@ -175,14 +175,14 @@ const Header = () => {
         {/* Logo */}
         <button
           onClick={() => navigate("/")}
-          className="flex items-center gap-2 sm:gap-3 flex-shrink-0 hover:opacity-80 transition-opacity cursor-pointer"
+          className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 hover:opacity-80 transition-opacity cursor-pointer min-w-0"
         >
           <img 
             src="/logo.png" 
             alt="AlphaBag Investment Logo" 
-            className="w-16 h-16 sm:w-20 sm:h-20 object-contain"
+            className="w-9 h-9 sm:w-11 sm:h-11 object-contain flex-shrink-0"
           />
-          <span className="font-display font-bold text-lg sm:text-xl text-foreground">
+          <span className="font-display font-bold text-base sm:text-lg text-foreground truncate">
             AlphaBag
           </span>
         </button>
@@ -276,12 +276,12 @@ const Header = () => {
         </div>
 
         {/* ─── Mobile Navigation ─── */}
-        <div className="flex md:hidden items-center gap-1 flex-shrink-0">
+        <div className="flex md:hidden items-center gap-1.5 flex-shrink-0">
           {/* 지갑 버튼 */}
           <Button 
             variant="gold" 
             size="sm" 
-            className="gap-1 px-2 h-8 w-auto" 
+            className="gap-1 px-2 h-8 max-w-[120px]" 
             onClick={handleWalletClick}
             disabled={isSwitching}
           >
@@ -290,12 +290,12 @@ const Header = () => {
             ) : isConnected ? (
               <>
                 <Wallet className="w-3.5 h-3.5 flex-shrink-0" />
-                <span className="text-xs font-mono">{address ? formatAddress(address, 4) : ""}</span>
+                <span className="text-xs font-mono truncate">{address ? formatAddress(address, 4) : ""}</span>
               </>
             ) : (
               <>
                 <Coins className="w-3.5 h-3.5 flex-shrink-0" />
-                <span className="text-xs">{t.header.connectWallet}</span>
+                <span className="text-xs whitespace-nowrap">지갑연결</span>
               </>
             )}
           </Button>
@@ -306,7 +306,7 @@ const Header = () => {
           {/* 햄버거 메뉴 */}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="px-1.5 h-8 w-8">
+              <Button variant="outline" size="sm" className="px-1.5 h-8 w-8 flex-shrink-0">
                 <Menu className="w-4 h-4" />
               </Button>
             </SheetTrigger>
@@ -437,7 +437,7 @@ function MobileLangDropdown() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 px-2 gap-1 text-xs">
+        <Button variant="outline" size="sm" className="h-8 px-2 gap-1 text-xs flex-shrink-0">
           <Globe className="w-3.5 h-3.5 flex-shrink-0" />
           <span>{current.flag}</span>
           <span className="hidden xs:inline">{current.label}</span>
