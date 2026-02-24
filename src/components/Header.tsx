@@ -1,4 +1,4 @@
-import { Coins, Wallet, User, Users, Menu, ShoppingCart, Lock, MessageSquare, RefreshCw, Gift } from "lucide-react";
+import { Coins, Wallet, User, Users, Menu, ShoppingCart, Lock, MessageSquare, RefreshCw, Gift, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAccount, useDisconnect, useConnect } from "wagmi";
 import { useWeb3Modal } from "@web3modal/wagmi/react";
@@ -16,8 +16,15 @@ import {
 } from "@/lib/referral";
 import { saveUser, updateUserConnection } from "@/lib/users";
 import { saveReferral } from "@/lib/referrals";
-import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { LanguageSelector, LanguageSelectorBar } from "@/components/LanguageSelector";
+
+import { LanguageSelector } from "@/components/LanguageSelector";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useLanguage, type Language } from "@/lib/i18n/LanguageContext";
 import { EventBannerStrip } from "@/components/EventBannerStrip";
 import { useCart } from "@/contexts/CartContext";
 import {
@@ -159,14 +166,9 @@ const Header = () => {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
-      {/* 모바일 전용 상단 바 – 가격 ticker + 언어 선택 (크게, 2줄) */}
-      <div className="flex md:hidden flex-col gap-1.5 px-3 py-2 bg-muted/60 border-b border-border/30">
-        {/* 1줄: NUMI 시세 */}
-        <div className="flex items-center justify-between">
-          <TokenPriceWidget compact />
-        </div>
-        {/* 2줄: 언어 선택 */}
-        <LanguageSelectorBar />
+      {/* 모바일 전용 상단 바 – 가격 ticker */}
+      <div className="flex md:hidden items-center px-3 py-1.5 bg-muted/60 border-b border-border/30">
+        <TokenPriceWidget compact />
       </div>
 
       <div className="container mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-2">
@@ -298,6 +300,9 @@ const Header = () => {
             )}
           </Button>
 
+          {/* 언어 선택 드롭다운 버튼 (모바일 전용) */}
+          <MobileLangDropdown />
+
           {/* 햄버거 메뉴 */}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
@@ -416,5 +421,42 @@ const Header = () => {
     </header>
   );
 };
+
+// ── 모바일 전용 언어 선택 드롭다운 버튼 ─────────────────────────────────────
+const LANGUAGES = [
+  { code: "en" as Language, flag: "🇺🇸", label: "EN" },
+  { code: "zh" as Language, flag: "🇨🇳", label: "中文" },
+  { code: "ko" as Language, flag: "🇰🇷", label: "한국어" },
+  { code: "ja" as Language, flag: "🇯🇵", label: "日本語" },
+];
+
+function MobileLangDropdown() {
+  const { language, setLanguage } = useLanguage();
+  const current = LANGUAGES.find((l) => l.code === language) ?? LANGUAGES[0];
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="h-8 px-2 gap-1 text-xs">
+          <Globe className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>{current.flag}</span>
+          <span className="hidden xs:inline">{current.label}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="z-[200] min-w-[130px]">
+        {LANGUAGES.map((lang) => (
+          <DropdownMenuItem
+            key={lang.code}
+            onClick={() => setLanguage(lang.code)}
+            className={`gap-2 ${language === lang.code ? "bg-secondary font-semibold" : ""}`}
+          >
+            <span className="text-base">{lang.flag}</span>
+            <span className="text-sm">{lang.label}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export default Header;
