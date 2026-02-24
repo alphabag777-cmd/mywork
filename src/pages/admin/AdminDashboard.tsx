@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BarChart3, Users, Share2, Loader2, TrendingUp, DollarSign, Activity, PieChart, KeyRound, UserCog, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { BarChart3, Users, Share2, Loader2, TrendingUp, DollarSign, Activity, PieChart, KeyRound, UserCog, Eye, EyeOff, ShieldCheck, RefreshCw } from "lucide-react";
 import { useAdminAnalytics } from "@/hooks/useAdminAnalytics";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
