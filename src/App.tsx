@@ -40,6 +40,7 @@ const Notices             = lazy(() => import("./pages/Notices"));
 const NoticeDetail        = lazy(() => import("./pages/NoticeDetail"));
 const Community           = lazy(() => import("./pages/Community"));
 const Earnings            = lazy(() => import("./pages/Earnings"));
+const Airdrop             = lazy(() => import("./pages/Airdrop"));
 
 // Admin pages — separate chunk
 const AdminLogin    = lazy(() => import("./pages/admin/AdminLogin"));
@@ -124,6 +125,7 @@ const App = () => (
                     <Route path="/profile"    element={<ErrorBoundary inline><Profile /></ErrorBoundary>} />
                     <Route path="/history"    element={<ErrorBoundary><InvestmentHistory /></ErrorBoundary>} />
                     <Route path="/earnings"   element={<ErrorBoundary><Earnings /></ErrorBoundary>} />
+                    <Route path="/airdrop"    element={<ErrorBoundary><Airdrop /></ErrorBoundary>} />
                     <Route path="/community"  element={<ErrorBoundary><Community /></ErrorBoundary>} />
                     <Route path="/introduction" element={<ErrorBoundary><Introduction /></ErrorBoundary>} />
                     <Route path="/tutorial"     element={<ErrorBoundary><Tutorial /></ErrorBoundary>} />
