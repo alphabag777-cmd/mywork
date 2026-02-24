@@ -1,14 +1,13 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Share2, GitGraph, Building2, Bell, Gift } from "lucide-react";
+import { Users, Share2, GitGraph, Building2, Bell } from "lucide-react";
 import { AdminUsers } from "./AdminUsers";
 import { AdminReferred } from "./AdminReferred";
 import AdminOrganization from "./AdminOrganization";
 import AdminCompanyApplications from "./AdminCompanyApplications";
 import AdminNotify from "./AdminNotify";
-import AdminAirdrop from "./AdminAirdrop";
 import { useSearchParams, useNavigate } from "react-router-dom";
 
-const VALID_TABS = ["users", "referrals", "organization", "applications", "notify", "airdrop"];
+const VALID_TABS = ["users", "referrals", "organization", "applications", "notify"];
 
 const AdminUsersOrg = () => {
   const [searchParams] = useSearchParams();
@@ -43,9 +42,6 @@ const AdminUsersOrg = () => {
           <TabsTrigger value="notify" className="flex items-center gap-1.5">
             <Bell className="w-4 h-4" /> Notify
           </TabsTrigger>
-          <TabsTrigger value="airdrop" className="flex items-center gap-1.5">
-            <Gift className="w-4 h-4" /> Airdrop
-          </TabsTrigger>
         </TabsList>
         <TabsContent value="users">
           <AdminUsers />
@@ -61,9 +57,6 @@ const AdminUsersOrg = () => {
         </TabsContent>
         <TabsContent value="notify">
           <AdminNotify />
-        </TabsContent>
-        <TabsContent value="airdrop">
-          <AdminAirdrop />
         </TabsContent>
       </Tabs>
     </div>
