@@ -17,15 +17,18 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import {
   Gift, Plus, Loader2, Send, Users, Trash2, Edit2, Eye, CheckCircle2,
   XCircle, PauseCircle, PlayCircle, BarChart3, Download, RefreshCw,
+  Wallet, Network, Settings, Save, Globe, Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  AirdropCampaign, AirdropClaim, AirdropStatus,
+  AirdropCampaign, AirdropClaim, AirdropStatus, AirdropNetwork, AirdropSettings,
   createAirdropCampaign, updateAirdropCampaign, deleteAirdropCampaign,
   getAllAirdropCampaigns, distributeAirdrop, getCampaignClaims, getAllClaims,
+  getAirdropSettings, saveAirdropSettings,
 } from "@/lib/airdrop";
 import { getAllUsers } from "@/lib/users";
 
@@ -64,7 +67,7 @@ function downloadCSV(rows: string[][], filename: string) {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
-  a.href     = url; a.download = filename; a.click();
+  a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -73,6 +76,7 @@ const DEFAULT_FORM = {
   title:            "",
   description:      "",
   tokenSymbol:      "NUMI",
+  networkId:        "bsc",
   tokenAmount:      0,
   totalBudget:      0,
   targetType:       "all" as "all" | "selected",
@@ -86,12 +90,33 @@ const DEFAULT_FORM = {
   claimMessage:     "에어드랍이 성공적으로 지급되었습니다!",
 };
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ── Empty network form ────────────────────────────────────────────────────────
+const EMPTY_NETWORK: Omit<AirdropNetwork, "id"> = {
+  name:           "",
+  chainId:        "",
+  rpcUrl:         "",
+  explorerUrl:    "",
+  nativeCurrency: "",
+  enabled:        true,
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
 export default function AdminAirdrop() {
   const [campaigns, setCampaigns]         = useState<AirdropCampaign[]>([]);
   const [claims, setClaims]               = useState<AirdropClaim[]>([]);
   const [loadingCamp, setLoadingCamp]     = useState(true);
   const [loadingClaims, setLoadingClaims] = useState(false);
+
+  // Settings
+  const [settings, setSettings]         = useState<AirdropSettings | null>(null);
+  const [loadingSettings, setLoadingSettings] = useState(true);
+  const [savingSettings, setSavingSettings]   = useState(false);
+  const [adminWallet, setAdminWallet]         = useState("");
+  const [adminWalletNote, setAdminWalletNote] = useState("");
+  const [networks, setNetworks]               = useState<AirdropNetwork[]>([]);
+  const [showNetworkForm, setShowNetworkForm] = useState(false);
+  const [editNetworkIdx, setEditNetworkIdx]   = useState<number | null>(null);
+  const [networkForm, setNetworkForm]         = useState<Omit<AirdropNetwork,"id"> & { id: string }>({ id: "", ...EMPTY_NETWORK });
 
   // Create / Edit dialog
   const [showForm, setShowForm]     = useState(false);
@@ -102,86 +127,139 @@ export default function AdminAirdrop() {
   const [walletsText, setWalletsText] = useState("");
 
   // Distribute dialog
-  const [distribCamp, setDistribCamp]     = useState<AirdropCampaign | null>(null);
-  const [distribText, setDistribText]     = useState("");
+  const [distribCamp, setDistribCamp]       = useState<AirdropCampaign | null>(null);
+  const [distribText, setDistribText]       = useState("");
   const [distribLoading, setDistribLoading] = useState(false);
   const [distribResult, setDistribResult]   = useState<{ success: number; skipped: number } | null>(null);
   const [distributeToAll, setDistributeToAll] = useState(false);
 
   // Claims detail dialog
-  const [detailCamp, setDetailCamp]   = useState<AirdropCampaign | null>(null);
+  const [detailCamp, setDetailCamp]     = useState<AirdropCampaign | null>(null);
   const [detailClaims, setDetailClaims] = useState<AirdropClaim[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  // ── Load campaigns ──────────────────────────────────────────────────────────
+  // ── Loaders ──────────────────────────────────────────────────────────────────
   const loadCampaigns = useCallback(async () => {
     setLoadingCamp(true);
-    try {
-      const data = await getAllAirdropCampaigns();
-      setCampaigns(data);
-    } catch { toast.error("캠페인 로드 실패"); }
+    try { setCampaigns(await getAllAirdropCampaigns()); }
+    catch { toast.error("캠페인 로드 실패"); }
     finally { setLoadingCamp(false); }
   }, []);
 
   const loadClaims = useCallback(async () => {
     setLoadingClaims(true);
-    try {
-      const data = await getAllClaims(200);
-      setClaims(data);
-    } catch { toast.error("클레임 로드 실패"); }
+    try { setClaims(await getAllClaims(200)); }
+    catch { toast.error("클레임 로드 실패"); }
     finally { setLoadingClaims(false); }
   }, []);
 
-  useEffect(() => { loadCampaigns(); loadClaims(); }, [loadCampaigns, loadClaims]);
+  const loadSettings = useCallback(async () => {
+    setLoadingSettings(true);
+    try {
+      const s = await getAirdropSettings();
+      setSettings(s);
+      setAdminWallet(s.adminWalletAddress);
+      setAdminWalletNote(s.adminWalletNote);
+      setNetworks(s.networks);
+    } catch { toast.error("설정 로드 실패"); }
+    finally { setLoadingSettings(false); }
+  }, []);
 
-  // ── Open create form ────────────────────────────────────────────────────────
+  useEffect(() => {
+    loadCampaigns();
+    loadClaims();
+    loadSettings();
+  }, [loadCampaigns, loadClaims, loadSettings]);
+
+  // ── Settings save ─────────────────────────────────────────────────────────
+  async function handleSaveSettings() {
+    setSavingSettings(true);
+    try {
+      await saveAirdropSettings({
+        adminWalletAddress: adminWallet.trim(),
+        adminWalletNote:    adminWalletNote.trim(),
+        networks,
+      });
+      toast.success("설정이 저장되었습니다.");
+    } catch { toast.error("설정 저장 실패"); }
+    finally { setSavingSettings(false); }
+  }
+
+  // ── Network CRUD ─────────────────────────────────────────────────────────
+  function openAddNetwork() {
+    setEditNetworkIdx(null);
+    setNetworkForm({ id: "", ...EMPTY_NETWORK });
+    setShowNetworkForm(true);
+  }
+
+  function openEditNetwork(idx: number) {
+    setEditNetworkIdx(idx);
+    setNetworkForm({ ...networks[idx] });
+    setShowNetworkForm(true);
+  }
+
+  function saveNetwork() {
+    if (!networkForm.name.trim())           { toast.error("네트워크 이름을 입력하세요."); return; }
+    if (!networkForm.nativeCurrency.trim()) { toast.error("기본 통화를 입력하세요."); return; }
+    const id = networkForm.id.trim() ||
+      networkForm.name.toLowerCase().replace(/[^a-z0-9]/g, "_");
+
+    const updated: AirdropNetwork = { ...networkForm, id };
+    if (editNetworkIdx !== null) {
+      setNetworks(prev => prev.map((n, i) => i === editNetworkIdx ? updated : n));
+    } else {
+      if (networks.find(n => n.id === id)) { toast.error("같은 ID의 네트워크가 이미 있습니다."); return; }
+      setNetworks(prev => [...prev, updated]);
+    }
+    setShowNetworkForm(false);
+  }
+
+  function removeNetwork(idx: number) {
+    if (!confirm("이 네트워크를 삭제하시겠습니까?")) return;
+    setNetworks(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  function toggleNetworkEnabled(idx: number) {
+    setNetworks(prev => prev.map((n, i) => i === idx ? { ...n, enabled: !n.enabled } : n));
+  }
+
+  // ── Campaign form ────────────────────────────────────────────────────────
   function openCreate() {
     setEditTarget(null);
     setFormData({ ...DEFAULT_FORM, startAt: Date.now() });
-    setEndDateStr("");
-    setWalletsText("");
+    setEndDateStr(""); setWalletsText("");
     setShowForm(true);
   }
 
-  // ── Open edit form ──────────────────────────────────────────────────────────
   function openEdit(c: AirdropCampaign) {
     setEditTarget(c);
     setFormData({
-      title:            c.title,
-      description:      c.description,
-      tokenSymbol:      c.tokenSymbol,
-      tokenAmount:      c.tokenAmount,
-      totalBudget:      c.totalBudget,
-      targetType:       c.targetType,
-      targetWallets:    c.targetWallets,
-      status:           c.status,
-      startAt:          c.startAt,
-      endAt:            c.endAt,
-      imageUrl:         c.imageUrl ?? "",
-      requiresReferral: c.requiresReferral,
-      maxClaimCount:    c.maxClaimCount,
-      claimMessage:     c.claimMessage,
+      title: c.title, description: c.description,
+      tokenSymbol: c.tokenSymbol, networkId: c.networkId ?? "bsc",
+      tokenAmount: c.tokenAmount, totalBudget: c.totalBudget,
+      targetType: c.targetType, targetWallets: c.targetWallets,
+      status: c.status, startAt: c.startAt, endAt: c.endAt,
+      imageUrl: c.imageUrl ?? "", requiresReferral: c.requiresReferral,
+      maxClaimCount: c.maxClaimCount, claimMessage: c.claimMessage,
     });
     setEndDateStr(c.endAt ? fmtInput(c.endAt) : "");
     setWalletsText(c.targetWallets.join("\n"));
     setShowForm(true);
   }
 
-  // ── Save campaign ───────────────────────────────────────────────────────────
   async function saveCampaign() {
-    if (!formData.title.trim())        { toast.error("제목을 입력하세요."); return; }
-    if (formData.tokenAmount <= 0)     { toast.error("토큰 수량을 입력하세요."); return; }
-    if (formData.totalBudget <= 0)     { toast.error("총 예산을 입력하세요."); return; }
+    if (!formData.title.trim())    { toast.error("제목을 입력하세요."); return; }
+    if (formData.tokenAmount <= 0) { toast.error("토큰 수량을 입력하세요."); return; }
+    if (formData.totalBudget <= 0) { toast.error("총 예산을 입력하세요."); return; }
 
-    const wallets = walletsText
-      .split(/[\n,]+/)
+    const wallets = walletsText.split(/[\n,]+/)
       .map(w => w.trim().toLowerCase())
       .filter(w => w.startsWith("0x") && w.length === 42);
 
     const payload = {
       ...formData,
       targetWallets: formData.targetType === "selected" ? wallets : [],
-      endAt:         endDateStr ? new Date(endDateStr).getTime() : null,
+      endAt: endDateStr ? new Date(endDateStr).getTime() : null,
     };
 
     setSaving(true);
@@ -199,39 +277,33 @@ export default function AdminAirdrop() {
     finally { setSaving(false); }
   }
 
-  // ── Toggle status ───────────────────────────────────────────────────────────
   async function toggleStatus(c: AirdropCampaign) {
     const next: AirdropStatus = c.status === "active" ? "paused" : "active";
     try {
       await updateAirdropCampaign(c.id, { status: next });
-      toast.success(`상태가 ${STATUS_BADGE[next].label}로 변경되었습니다.`);
+      toast.success(`상태: ${STATUS_BADGE[next].label}`);
       loadCampaigns();
     } catch { toast.error("상태 변경 실패"); }
   }
 
-  // ── Delete campaign ─────────────────────────────────────────────────────────
   async function handleDelete(c: AirdropCampaign) {
     if (!confirm(`"${c.title}" 캠페인을 종료하시겠습니까?`)) return;
     try {
       await deleteAirdropCampaign(c.id);
-      toast.success("캠페인이 종료되었습니다.");
+      toast.success("종료되었습니다.");
       loadCampaigns();
     } catch { toast.error("삭제 실패"); }
   }
 
-  // ── Open distribute dialog ──────────────────────────────────────────────────
+  // ── Distribute ──────────────────────────────────────────────────────────
   function openDistribute(c: AirdropCampaign) {
-    setDistribCamp(c);
-    setDistribText("");
-    setDistribResult(null);
+    setDistribCamp(c); setDistribText(""); setDistribResult(null);
     setDistributeToAll(c.targetType === "all");
   }
 
-  // ── Run distribute ──────────────────────────────────────────────────────────
   async function runDistribute() {
     if (!distribCamp) return;
-    setDistribLoading(true);
-    setDistribResult(null);
+    setDistribLoading(true); setDistribResult(null);
     try {
       let wallets: string[] = [];
       if (distributeToAll) {
@@ -239,48 +311,41 @@ export default function AdminAirdrop() {
         wallets = users.map(u => u.walletAddress.toLowerCase());
         toast.info(`전체 ${wallets.length}명에게 배포 중...`);
       } else {
-        wallets = distribText
-          .split(/[\n,]+/)
+        wallets = distribText.split(/[\n,]+/)
           .map(w => w.trim().toLowerCase())
           .filter(w => w.startsWith("0x") && w.length === 42);
-        if (wallets.length === 0) { toast.error("유효한 지갑 주소가 없습니다."); setDistribLoading(false); return; }
+        if (!wallets.length) { toast.error("유효한 주소 없음"); setDistribLoading(false); return; }
       }
       const result = await distributeAirdrop(distribCamp, wallets);
       setDistribResult(result);
-      toast.success(`배포 완료: ${result.success}명 성공, ${result.skipped}명 건너뜀`);
+      toast.success(`완료: ${result.success}명 성공, ${result.skipped}명 건너뜀`);
       loadCampaigns();
     } catch { toast.error("배포 실패"); }
     finally { setDistribLoading(false); }
   }
 
-  // ── Open claim detail ───────────────────────────────────────────────────────
   async function openDetail(c: AirdropCampaign) {
-    setDetailCamp(c);
-    setDetailLoading(true);
-    try {
-      const data = await getCampaignClaims(c.id);
-      setDetailClaims(data);
-    } catch { toast.error("클레임 데이터 로드 실패"); }
+    setDetailCamp(c); setDetailLoading(true);
+    try { setDetailClaims(await getCampaignClaims(c.id)); }
+    catch { toast.error("클레임 로드 실패"); }
     finally { setDetailLoading(false); }
   }
 
-  // ── Export CSV ──────────────────────────────────────────────────────────────
   function exportClaims() {
     const rows = [
-      ["Campaign", "Wallet", "Token", "Amount", "Status", "Claimed At", "Created At"],
-      ...claims.map(c => [
-        c.campaignTitle, c.userId, c.tokenSymbol,
-        c.tokenAmount.toString(), c.status,
-        fmtDate(c.claimedAt), fmtDate(c.createdAt),
-      ]),
+      ["Campaign","Wallet","Token","Amount","Status","Claimed At","Created At"],
+      ...claims.map(c => [c.campaignTitle, c.userId, c.tokenSymbol,
+        c.tokenAmount.toString(), c.status, fmtDate(c.claimedAt), fmtDate(c.createdAt)]),
     ];
     downloadCSV(rows, `airdrop_claims_${fmtFile()}.csv`);
   }
 
-  // ─── Render ──────────────────────────────────────────────────────────────────
-  const totalClaimed  = campaigns.reduce((s, c) => s + (c.claimedCount ?? 0), 0);
-  const totalBudget   = campaigns.reduce((s, c) => s + (c.totalBudget  ?? 0), 0);
-  const activeCnt     = campaigns.filter(c => c.status === "active").length;
+  // ── Render stats ──────────────────────────────────────────────────────────
+  const totalClaimed = campaigns.reduce((s, c) => s + (c.claimedCount ?? 0), 0);
+  const totalBudget  = campaigns.reduce((s, c) => s + (c.totalBudget  ?? 0), 0);
+  const activeCnt    = campaigns.filter(c => c.status === "active").length;
+
+  const enabledNetworks = networks.filter(n => n.enabled);
 
   return (
     <div className="space-y-6">
@@ -302,10 +367,10 @@ export default function AdminAirdrop() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Campaigns",    value: campaigns.length,          icon: Gift,         color: "text-primary" },
-          { label: "Active Campaigns",   value: activeCnt,                 icon: PlayCircle,   color: "text-green-500" },
-          { label: "Total Claims",       value: totalClaimed,              icon: CheckCircle2, color: "text-blue-500" },
-          { label: "Total Budget",       value: `${totalBudget.toLocaleString()} tokens`, icon: BarChart3, color: "text-yellow-500" },
+          { label: "Total Campaigns",  value: campaigns.length,                        icon: Gift,         color: "text-primary" },
+          { label: "Active Campaigns", value: activeCnt,                               icon: PlayCircle,   color: "text-green-500" },
+          { label: "Total Claims",     value: totalClaimed,                            icon: CheckCircle2, color: "text-blue-500" },
+          { label: "Total Budget",     value: `${totalBudget.toLocaleString()} tokens`,icon: BarChart3,    color: "text-yellow-500" },
         ].map(s => (
           <Card key={s.label}>
             <CardContent className="pt-5 pb-4">
@@ -326,6 +391,9 @@ export default function AdminAirdrop() {
         <TabsList>
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
           <TabsTrigger value="claims">All Claims</TabsTrigger>
+          <TabsTrigger value="settings" className="gap-1">
+            <Settings className="w-3.5 h-3.5" /> Settings
+          </TabsTrigger>
         </TabsList>
 
         {/* ── Campaigns Tab ── */}
@@ -351,7 +419,7 @@ export default function AdminAirdrop() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Campaign</TableHead>
-                        <TableHead>Token</TableHead>
+                        <TableHead>Token / Network</TableHead>
                         <TableHead>Per User</TableHead>
                         <TableHead>Budget</TableHead>
                         <TableHead>Claimed</TableHead>
@@ -363,9 +431,10 @@ export default function AdminAirdrop() {
                     </TableHeader>
                     <TableBody>
                       {campaigns.map(c => {
-                        const sb = STATUS_BADGE[c.status];
+                        const sb  = STATUS_BADGE[c.status];
                         const pct = c.totalBudget > 0
                           ? Math.round((c.totalClaimed / c.totalBudget) * 100) : 0;
+                        const net = networks.find(n => n.id === c.networkId);
                         return (
                           <TableRow key={c.id}>
                             <TableCell>
@@ -374,7 +443,12 @@ export default function AdminAirdrop() {
                                 <p className="text-xs text-muted-foreground line-clamp-1">{c.description}</p>
                               </div>
                             </TableCell>
-                            <TableCell className="font-mono text-sm">{c.tokenSymbol}</TableCell>
+                            <TableCell>
+                              <p className="font-mono text-sm font-semibold">{c.tokenSymbol}</p>
+                              {net && (
+                                <p className="text-xs text-muted-foreground">{net.name}</p>
+                              )}
+                            </TableCell>
                             <TableCell className="font-semibold">{c.tokenAmount.toLocaleString()}</TableCell>
                             <TableCell>
                               <div className="text-sm">
@@ -382,10 +456,8 @@ export default function AdminAirdrop() {
                                 <span className="text-muted-foreground"> / {c.totalBudget.toLocaleString()}</span>
                               </div>
                               <div className="w-24 h-1.5 bg-muted rounded-full mt-1">
-                                <div
-                                  className="h-1.5 bg-primary rounded-full"
-                                  style={{ width: `${Math.min(pct, 100)}%` }}
-                                />
+                                <div className="h-1.5 bg-primary rounded-full"
+                                  style={{ width: `${Math.min(pct, 100)}%` }} />
                               </div>
                             </TableCell>
                             <TableCell>
@@ -409,22 +481,13 @@ export default function AdminAirdrop() {
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center justify-end gap-1 flex-wrap">
-                                <Button
-                                  size="icon" variant="ghost" className="w-8 h-8"
-                                  title="View Claims"
-                                  onClick={() => openDetail(c)}
-                                >
+                                <Button size="icon" variant="ghost" className="w-8 h-8" title="View Claims" onClick={() => openDetail(c)}>
                                   <Eye className="w-4 h-4" />
                                 </Button>
-                                <Button
-                                  size="icon" variant="ghost" className="w-8 h-8"
-                                  title="Distribute"
-                                  onClick={() => openDistribute(c)}
-                                >
+                                <Button size="icon" variant="ghost" className="w-8 h-8" title="Distribute" onClick={() => openDistribute(c)}>
                                   <Send className="w-4 h-4 text-primary" />
                                 </Button>
-                                <Button
-                                  size="icon" variant="ghost" className="w-8 h-8"
+                                <Button size="icon" variant="ghost" className="w-8 h-8"
                                   title={c.status === "active" ? "Pause" : "Resume"}
                                   onClick={() => toggleStatus(c)}
                                 >
@@ -432,18 +495,10 @@ export default function AdminAirdrop() {
                                     ? <PauseCircle className="w-4 h-4 text-yellow-500" />
                                     : <PlayCircle  className="w-4 h-4 text-green-500" />}
                                 </Button>
-                                <Button
-                                  size="icon" variant="ghost" className="w-8 h-8"
-                                  title="Edit"
-                                  onClick={() => openEdit(c)}
-                                >
+                                <Button size="icon" variant="ghost" className="w-8 h-8" title="Edit" onClick={() => openEdit(c)}>
                                   <Edit2 className="w-4 h-4" />
                                 </Button>
-                                <Button
-                                  size="icon" variant="ghost" className="w-8 h-8"
-                                  title="End Campaign"
-                                  onClick={() => handleDelete(c)}
-                                >
+                                <Button size="icon" variant="ghost" className="w-8 h-8" title="End Campaign" onClick={() => handleDelete(c)}>
                                   <Trash2 className="w-4 h-4 text-red-500" />
                                 </Button>
                               </div>
@@ -496,18 +551,14 @@ export default function AdminAirdrop() {
                           <TableRow key={cl.id}>
                             <TableCell className="text-sm">{cl.campaignTitle}</TableCell>
                             <TableCell className="font-mono text-xs text-muted-foreground">
-                              {cl.userId.slice(0, 8)}…{cl.userId.slice(-6)}
+                              {cl.userId.slice(0,8)}…{cl.userId.slice(-6)}
                             </TableCell>
                             <TableCell className="font-mono text-sm">{cl.tokenSymbol}</TableCell>
                             <TableCell className="font-semibold">{cl.tokenAmount.toLocaleString()}</TableCell>
                             <TableCell>
-                              <Badge variant="outline" className={`text-xs ${cb.className}`}>
-                                {cb.label}
-                              </Badge>
+                              <Badge variant="outline" className={`text-xs ${cb.className}`}>{cb.label}</Badge>
                             </TableCell>
-                            <TableCell className="text-xs text-muted-foreground">
-                              {fmtDate(cl.claimedAt)}
-                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{fmtDate(cl.claimedAt)}</TableCell>
                           </TableRow>
                         );
                       })}
@@ -518,7 +569,237 @@ export default function AdminAirdrop() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ── Settings Tab ── */}
+        <TabsContent value="settings" className="mt-4 space-y-6">
+
+          {/* ▸ Admin Wallet 카드 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-primary" /> 에어드랍 송금 지갑
+              </CardTitle>
+              <CardDescription>
+                에어드랍 토큰을 발송하는 Admin 지갑 주소입니다. 사용자 클레임 페이지에 표시됩니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {loadingSettings ? (
+                <div className="flex justify-center py-6"><Loader2 className="animate-spin" /></div>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Admin Wallet Address</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={adminWallet}
+                        onChange={e => setAdminWallet(e.target.value)}
+                        placeholder="0x... 또는 TRC-20 주소"
+                        className="font-mono"
+                      />
+                      {adminWallet && (
+                        <Button
+                          variant="outline" size="icon"
+                          title="복사"
+                          onClick={() => { navigator.clipboard.writeText(adminWallet); toast.success("복사됨"); }}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      이 주소로 에어드랍 토큰을 미리 전송해 두세요.
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">메모 (선택)</Label>
+                    <Input
+                      value={adminWalletNote}
+                      onChange={e => setAdminWalletNote(e.target.value)}
+                      placeholder="예: BSC 메인넷 전용 지갑"
+                    />
+                  </div>
+                  {adminWallet && (
+                    <div className="p-3 rounded-lg bg-muted/50 border text-sm space-y-1">
+                      <p className="text-xs text-muted-foreground font-medium">현재 설정된 지갑</p>
+                      <p className="font-mono text-xs break-all">{adminWallet}</p>
+                      {adminWalletNote && <p className="text-xs text-muted-foreground">{adminWalletNote}</p>}
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ▸ Networks 카드 */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-primary" /> 코인 네트워크 관리
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    에어드랍 캠페인에서 선택할 수 있는 네트워크 목록입니다.
+                  </CardDescription>
+                </div>
+                <Button size="sm" onClick={openAddNetwork} className="gap-1">
+                  <Plus className="w-3.5 h-3.5" /> 네트워크 추가
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {networks.length === 0 ? (
+                <div className="text-center p-8 text-muted-foreground text-sm">
+                  네트워크가 없습니다. 추가해 주세요.
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>네트워크</TableHead>
+                      <TableHead>Chain ID</TableHead>
+                      <TableHead>기본 통화</TableHead>
+                      <TableHead>Explorer</TableHead>
+                      <TableHead>활성화</TableHead>
+                      <TableHead className="text-right">관리</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {networks.map((net, idx) => (
+                      <TableRow key={net.id}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-sm">{net.name}</p>
+                            <p className="text-xs text-muted-foreground font-mono">{net.id}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{net.chainId || "-"}</TableCell>
+                        <TableCell className="font-semibold text-sm">{net.nativeCurrency}</TableCell>
+                        <TableCell>
+                          {net.explorerUrl ? (
+                            <a href={net.explorerUrl} target="_blank" rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline truncate max-w-[120px] block">
+                              {net.explorerUrl.replace("https://", "")}
+                            </a>
+                          ) : "-"}
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={net.enabled}
+                            onCheckedChange={() => toggleNetworkEnabled(idx)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button size="icon" variant="ghost" className="w-7 h-7" onClick={() => openEditNetwork(idx)}>
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="w-7 h-7" onClick={() => removeNetwork(idx)}>
+                              <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Save button */}
+          <div className="flex justify-end">
+            <Button onClick={handleSaveSettings} disabled={savingSettings} className="gap-2 px-6">
+              {savingSettings
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> 저장 중...</>
+                : <><Save className="w-4 h-4" /> 설정 저장</>}
+            </Button>
+          </div>
+        </TabsContent>
       </Tabs>
+
+      {/* ══ Network Form Dialog ══ */}
+      <Dialog open={showNetworkForm} onOpenChange={setShowNetworkForm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-primary" />
+              {editNetworkIdx !== null ? "네트워크 편집" : "네트워크 추가"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2 space-y-1">
+                <Label className="text-xs">네트워크 이름 *</Label>
+                <Input
+                  value={networkForm.name}
+                  onChange={e => setNetworkForm(p => ({ ...p, name: e.target.value }))}
+                  placeholder="예: BNB Smart Chain (BSC)"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">ID (영문/숫자/_)</Label>
+                <Input
+                  value={networkForm.id}
+                  onChange={e => setNetworkForm(p => ({ ...p, id: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,"") }))}
+                  placeholder="예: bsc (비워두면 자동)"
+                  disabled={editNetworkIdx !== null}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Chain ID</Label>
+                <Input
+                  value={networkForm.chainId ?? ""}
+                  onChange={e => setNetworkForm(p => ({ ...p, chainId: e.target.value }))}
+                  placeholder="예: 56"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">기본 통화 *</Label>
+                <Input
+                  value={networkForm.nativeCurrency}
+                  onChange={e => setNetworkForm(p => ({ ...p, nativeCurrency: e.target.value.toUpperCase() }))}
+                  placeholder="예: BNB"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">활성화</Label>
+                <div className="flex items-center gap-2 h-9">
+                  <Switch
+                    checked={networkForm.enabled}
+                    onCheckedChange={v => setNetworkForm(p => ({ ...p, enabled: v }))}
+                  />
+                  <span className="text-sm">{networkForm.enabled ? "활성" : "비활성"}</span>
+                </div>
+              </div>
+              <div className="col-span-2 space-y-1">
+                <Label className="text-xs">Explorer URL</Label>
+                <Input
+                  value={networkForm.explorerUrl ?? ""}
+                  onChange={e => setNetworkForm(p => ({ ...p, explorerUrl: e.target.value }))}
+                  placeholder="예: https://bscscan.com"
+                />
+              </div>
+              <div className="col-span-2 space-y-1">
+                <Label className="text-xs">RPC URL (선택)</Label>
+                <Input
+                  value={networkForm.rpcUrl ?? ""}
+                  onChange={e => setNetworkForm(p => ({ ...p, rpcUrl: e.target.value }))}
+                  placeholder="예: https://bsc-dataseed.binance.org"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNetworkForm(false)}>취소</Button>
+            <Button onClick={saveNetwork} className="gap-2">
+              <Save className="w-4 h-4" />
+              {editNetworkIdx !== null ? "저장" : "추가"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ══ Create / Edit Campaign Dialog ══ */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
@@ -545,6 +826,8 @@ export default function AdminAirdrop() {
                   className="min-h-[70px]"
                 />
               </div>
+
+              {/* Token Symbol */}
               <div className="space-y-1">
                 <Label className="text-xs">Token Symbol *</Label>
                 <Select
@@ -553,12 +836,36 @@ export default function AdminAirdrop() {
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {["NUMI","USDT","BNB","SBAG"].map(t => (
+                    {["NUMI","USDT","BNB","SBAG","BBAG"].map(t => (
                       <SelectItem key={t} value={t}>{t}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Network */}
+              <div className="space-y-1">
+                <Label className="text-xs">네트워크 *</Label>
+                <Select
+                  value={formData.networkId}
+                  onValueChange={v => setFormData(p => ({ ...p, networkId: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="네트워크 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(enabledNetworks.length > 0 ? enabledNetworks : networks).map(n => (
+                      <SelectItem key={n.id} value={n.id}>
+                        {n.name} ({n.nativeCurrency})
+                      </SelectItem>
+                    ))}
+                    {networks.length === 0 && (
+                      <SelectItem value="bsc" disabled>Settings에서 네트워크를 추가하세요</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-1">
                 <Label className="text-xs">Amount per User *</Label>
                 <Input
@@ -590,7 +897,7 @@ export default function AdminAirdrop() {
                 <Label className="text-xs">Target</Label>
                 <Select
                   value={formData.targetType}
-                  onValueChange={v => setFormData(p => ({ ...p, targetType: v as "all" | "selected" }))}
+                  onValueChange={v => setFormData(p => ({ ...p, targetType: v as "all"|"selected" }))}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -642,6 +949,17 @@ export default function AdminAirdrop() {
                   </p>
                 </div>
               )}
+
+              {/* 송금 지갑 안내 */}
+              {adminWallet && (
+                <div className="col-span-2 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm space-y-1">
+                  <p className="text-xs font-medium text-primary flex items-center gap-1">
+                    <Wallet className="w-3.5 h-3.5" /> 에어드랍 송금 지갑
+                  </p>
+                  <p className="font-mono text-xs break-all text-muted-foreground">{adminWallet}</p>
+                  {adminWalletNote && <p className="text-xs text-muted-foreground">{adminWalletNote}</p>}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -659,8 +977,7 @@ export default function AdminAirdrop() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Send className="w-5 h-5 text-primary" />
-              Distribute Airdrop
+              <Send className="w-5 h-5 text-primary" /> Distribute Airdrop
             </DialogTitle>
           </DialogHeader>
           {distribCamp && (
@@ -668,27 +985,18 @@ export default function AdminAirdrop() {
               <div className="p-3 rounded-lg bg-muted/50 border text-sm space-y-1">
                 <p><span className="text-muted-foreground">Campaign:</span> <strong>{distribCamp.title}</strong></p>
                 <p><span className="text-muted-foreground">Token:</span> <strong>{distribCamp.tokenSymbol} × {distribCamp.tokenAmount.toLocaleString()}</strong> per user</p>
+                {adminWallet && (
+                  <p className="text-xs"><span className="text-muted-foreground">From Wallet:</span> <span className="font-mono">{adminWallet.slice(0,10)}…{adminWallet.slice(-6)}</span></p>
+                )}
               </div>
-
               <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant={distributeToAll ? "default" : "outline"}
-                  className="gap-1"
-                  onClick={() => setDistributeToAll(true)}
-                >
+                <Button size="sm" variant={distributeToAll ? "default" : "outline"} className="gap-1" onClick={() => setDistributeToAll(true)}>
                   <Users className="w-3 h-3" /> All Users
                 </Button>
-                <Button
-                  size="sm"
-                  variant={!distributeToAll ? "default" : "outline"}
-                  className="gap-1"
-                  onClick={() => setDistributeToAll(false)}
-                >
+                <Button size="sm" variant={!distributeToAll ? "default" : "outline"} className="gap-1" onClick={() => setDistributeToAll(false)}>
                   <Edit2 className="w-3 h-3" /> Custom List
                 </Button>
               </div>
-
               {!distributeToAll && (
                 <div className="space-y-1">
                   <Label className="text-xs">Wallet Addresses (한 줄에 하나씩)</Label>
@@ -703,7 +1011,6 @@ export default function AdminAirdrop() {
                   </p>
                 </div>
               )}
-
               {distribResult && (
                 <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-sm space-y-1">
                   <p className="font-semibold text-green-500">✓ 배포 완료</p>
@@ -748,20 +1055,12 @@ export default function AdminAirdrop() {
                     const cb = CLAIM_BADGE[cl.status] ?? CLAIM_BADGE.pending;
                     return (
                       <TableRow key={cl.id}>
-                        <TableCell className="font-mono text-xs">
-                          {cl.userId.slice(0, 10)}…{cl.userId.slice(-6)}
-                        </TableCell>
-                        <TableCell className="font-semibold">
-                          {cl.tokenAmount.toLocaleString()} {cl.tokenSymbol}
-                        </TableCell>
+                        <TableCell className="font-mono text-xs">{cl.userId.slice(0,10)}…{cl.userId.slice(-6)}</TableCell>
+                        <TableCell className="font-semibold">{cl.tokenAmount.toLocaleString()} {cl.tokenSymbol}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={`text-xs ${cb.className}`}>
-                            {cb.label}
-                          </Badge>
+                          <Badge variant="outline" className={`text-xs ${cb.className}`}>{cb.label}</Badge>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {fmtDate(cl.claimedAt)}
-                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{fmtDate(cl.claimedAt)}</TableCell>
                       </TableRow>
                     );
                   })}
@@ -777,17 +1076,12 @@ export default function AdminAirdrop() {
             </div>
           )}
           <DialogFooter>
-            <Button
-              variant="outline" size="sm"
+            <Button variant="outline" size="sm" className="gap-1"
               onClick={() => {
-                const rows = [
-                  ["Wallet","Amount","Token","Status","Claimed At"],
-                  ...detailClaims.map(c => [c.userId, c.tokenAmount.toString(), c.tokenSymbol, c.status, fmtDate(c.claimedAt)]),
-                ];
+                const rows = [["Wallet","Amount","Token","Status","Claimed At"],
+                  ...detailClaims.map(c => [c.userId, c.tokenAmount.toString(), c.tokenSymbol, c.status, fmtDate(c.claimedAt)])];
                 downloadCSV(rows, `claims_${detailCamp?.id ?? "export"}.csv`);
-              }}
-              className="gap-1"
-            >
+              }}>
               <Download className="w-3 h-3" /> Export CSV
             </Button>
           </DialogFooter>

@@ -3,3 +3,5 @@ dist/
 moonexe-clone/
 .env.local
 .env
+.env
+.env.local

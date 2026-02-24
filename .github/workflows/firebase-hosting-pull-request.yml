@@ -14,6 +14,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: npm ci && npm run build
+        env:
+          VITE_FIREBASE_API_KEY: AIzaSyBlh2qMg78wd-xCTX-31N7rrNHukbwkpAg
+          VITE_FIREBASE_AUTH_DOMAIN: numine-dev-e4ec1.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: numine-dev-e4ec1
+          VITE_FIREBASE_STORAGE_BUCKET: numine-dev-e4ec1.firebasestorage.app
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "962488561502"
+          VITE_FIREBASE_APP_ID: 1:962488561502:web:6086fc9de6ee121a5de9cf
+          VITE_FIREBASE_MEASUREMENT_ID: G-HR3LPHPJM9
+          NODE_OPTIONS: "--max-old-space-size=4096"
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
