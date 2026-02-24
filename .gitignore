@@ -1,8 +1,5 @@
 node_modules/
 dist/
+moonexe-clone/
+.env.local
 .env
-.DS_Store
-*.local
-.envcore
-core
-*.png

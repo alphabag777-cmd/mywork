@@ -17,6 +17,7 @@ import {
   User,
   Wallet,
   Megaphone,
+  Gift,
 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 
@@ -42,13 +43,14 @@ export default function BottomNav() {
   const connectedTabs: TabItem[] = [
     { label: "홈",     icon: Home,        path: "/" },
     { label: "스테이킹", icon: Lock,       path: "/staking" },
+    { label: "에어드랍", icon: Gift,       path: "/airdrop" },
     { label: "홍보",   icon: Megaphone,   path: "/promo" },
     { label: "프로필", icon: User,         path: "/profile" },
   ];
 
   const disconnectedTabs: TabItem[] = [
     { label: "홈",     icon: Home,        path: "/" },
-    { label: "홍보",   icon: Megaphone,   path: "/promo" },
+    { label: "에어드랍", icon: Gift,       path: "/airdrop" },
     { label: "스테이킹", icon: Lock,      path: "/staking" },
     {
       label: "지갑연결",
@@ -76,7 +78,7 @@ export default function BottomNav() {
       className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background/90 backdrop-blur-xl border-t border-border/50"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
-      <div className={`grid h-16 ${tabs.length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
+      <div className={`grid h-16 ${tabs.length === 5 ? "grid-cols-5" : tabs.length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
         {tabs.map((tab) => {
           const active = tab.path ? isActive(tab.path) : false;
           const Icon   = tab.icon;

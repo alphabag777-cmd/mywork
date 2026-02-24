@@ -1,4 +1,4 @@
-import { Coins, Wallet, User, Users, Menu, ShoppingCart, Lock, MessageSquare, RefreshCw } from "lucide-react";
+import { Coins, Wallet, User, Users, Menu, ShoppingCart, Lock, MessageSquare, RefreshCw, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAccount, useDisconnect, useConnect } from "wagmi";
 import { useWeb3Modal } from "@web3modal/wagmi/react";
@@ -200,6 +200,15 @@ const Header = () => {
             <Lock className="w-4 h-4" />
             Staking
           </Button>
+          <Button
+            variant="outline"
+            size="default"
+            className="gap-2"
+            onClick={() => navigate("/airdrop")}
+          >
+            <Gift className="w-4 h-4" />
+            Airdrop
+          </Button>
           <div className={`contents ${isConnected ? '' : 'hidden'}`} style={{ display: isConnected ? 'contents' : 'none' }}>
             <NotificationCenter />
             <Button 
@@ -339,6 +348,14 @@ const Header = () => {
                 >
                   <Lock className="w-4 h-4" />
                   Staking
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={() => { navigate("/airdrop"); setMobileMenuOpen(false); }}
+                >
+                  <Gift className="w-4 h-4" />
+                  Airdrop
                 </Button>
                 <Button 
                   variant="outline" 
