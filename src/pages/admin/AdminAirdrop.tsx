@@ -21,11 +21,12 @@ import { Switch } from "@/components/ui/switch";
 import {
   Gift, Plus, Loader2, Send, Users, Trash2, Edit2, Eye, CheckCircle2,
   XCircle, PauseCircle, PlayCircle, BarChart3, Download, RefreshCw,
-  Wallet, Network, Settings, Save, Globe, Copy,
+  Wallet, Settings, Save, Globe, Copy, Coins,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  AirdropCampaign, AirdropClaim, AirdropStatus, AirdropNetwork, AirdropSettings,
+  AirdropCampaign, AirdropClaim, AirdropStatus,
+  AirdropNetwork, AirdropSettings, AirdropTokenSymbol,
   createAirdropCampaign, updateAirdropCampaign, deleteAirdropCampaign,
   getAllAirdropCampaigns, distributeAirdrop, getCampaignClaims, getAllClaims,
   getAirdropSettings, saveAirdropSettings,
@@ -90,15 +91,11 @@ const DEFAULT_FORM = {
   claimMessage:     "에어드랍이 성공적으로 지급되었습니다!",
 };
 
-// ── Empty network form ────────────────────────────────────────────────────────
+// ── Empty forms ───────────────────────────────────────────────────────────────
 const EMPTY_NETWORK: Omit<AirdropNetwork, "id"> = {
-  name:           "",
-  chainId:        "",
-  rpcUrl:         "",
-  explorerUrl:    "",
-  nativeCurrency: "",
-  enabled:        true,
+  name: "", chainId: "", rpcUrl: "", explorerUrl: "", nativeCurrency: "", enabled: true,
 };
+const EMPTY_TOKEN: AirdropTokenSymbol = { symbol: "", name: "", enabled: true };
 
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function AdminAirdrop() {
@@ -107,35 +104,42 @@ export default function AdminAirdrop() {
   const [loadingCamp, setLoadingCamp]     = useState(true);
   const [loadingClaims, setLoadingClaims] = useState(false);
 
-  // Settings
-  const [settings, setSettings]         = useState<AirdropSettings | null>(null);
+  // ── Settings state ──────────────────────────────────────────────────────────
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [savingSettings, setSavingSettings]   = useState(false);
   const [adminWallet, setAdminWallet]         = useState("");
   const [adminWalletNote, setAdminWalletNote] = useState("");
   const [networks, setNetworks]               = useState<AirdropNetwork[]>([]);
+  const [tokenSymbols, setTokenSymbols]       = useState<AirdropTokenSymbol[]>([]);
+
+  // Network form dialog
   const [showNetworkForm, setShowNetworkForm] = useState(false);
   const [editNetworkIdx, setEditNetworkIdx]   = useState<number | null>(null);
-  const [networkForm, setNetworkForm]         = useState<Omit<AirdropNetwork,"id"> & { id: string }>({ id: "", ...EMPTY_NETWORK });
+  const [networkForm, setNetworkForm]         = useState<AirdropNetwork>({ id: "", ...EMPTY_NETWORK });
 
-  // Create / Edit dialog
-  const [showForm, setShowForm]     = useState(false);
-  const [editTarget, setEditTarget] = useState<AirdropCampaign | null>(null);
-  const [formData, setFormData]     = useState({ ...DEFAULT_FORM });
-  const [saving, setSaving]         = useState(false);
-  const [endDateStr, setEndDateStr] = useState("");
+  // Token symbol form dialog
+  const [showTokenForm, setShowTokenForm]   = useState(false);
+  const [editTokenIdx, setEditTokenIdx]     = useState<number | null>(null);
+  const [tokenForm, setTokenForm]           = useState<AirdropTokenSymbol>({ ...EMPTY_TOKEN });
+
+  // ── Campaign form ───────────────────────────────────────────────────────────
+  const [showForm, setShowForm]       = useState(false);
+  const [editTarget, setEditTarget]   = useState<AirdropCampaign | null>(null);
+  const [formData, setFormData]       = useState({ ...DEFAULT_FORM });
+  const [saving, setSaving]           = useState(false);
+  const [endDateStr, setEndDateStr]   = useState("");
   const [walletsText, setWalletsText] = useState("");
 
-  // Distribute dialog
-  const [distribCamp, setDistribCamp]       = useState<AirdropCampaign | null>(null);
-  const [distribText, setDistribText]       = useState("");
-  const [distribLoading, setDistribLoading] = useState(false);
-  const [distribResult, setDistribResult]   = useState<{ success: number; skipped: number } | null>(null);
+  // ── Distribute dialog ───────────────────────────────────────────────────────
+  const [distribCamp, setDistribCamp]         = useState<AirdropCampaign | null>(null);
+  const [distribText, setDistribText]         = useState("");
+  const [distribLoading, setDistribLoading]   = useState(false);
+  const [distribResult, setDistribResult]     = useState<{ success: number; skipped: number } | null>(null);
   const [distributeToAll, setDistributeToAll] = useState(false);
 
-  // Claims detail dialog
-  const [detailCamp, setDetailCamp]     = useState<AirdropCampaign | null>(null);
-  const [detailClaims, setDetailClaims] = useState<AirdropClaim[]>([]);
+  // ── Claims detail dialog ────────────────────────────────────────────────────
+  const [detailCamp, setDetailCamp]       = useState<AirdropCampaign | null>(null);
+  const [detailClaims, setDetailClaims]   = useState<AirdropClaim[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
 
   // ── Loaders ──────────────────────────────────────────────────────────────────
@@ -156,11 +160,11 @@ export default function AdminAirdrop() {
   const loadSettings = useCallback(async () => {
     setLoadingSettings(true);
     try {
-      const s = await getAirdropSettings();
-      setSettings(s);
+      const s: AirdropSettings = await getAirdropSettings();
       setAdminWallet(s.adminWalletAddress);
       setAdminWalletNote(s.adminWalletNote);
       setNetworks(s.networks);
+      setTokenSymbols(s.tokenSymbols);
     } catch { toast.error("설정 로드 실패"); }
     finally { setLoadingSettings(false); }
   }, []);
@@ -171,7 +175,7 @@ export default function AdminAirdrop() {
     loadSettings();
   }, [loadCampaigns, loadClaims, loadSettings]);
 
-  // ── Settings save ─────────────────────────────────────────────────────────
+  // ── Settings save ──────────────────────────────────────────────────────────
   async function handleSaveSettings() {
     setSavingSettings(true);
     try {
@@ -179,31 +183,29 @@ export default function AdminAirdrop() {
         adminWalletAddress: adminWallet.trim(),
         adminWalletNote:    adminWalletNote.trim(),
         networks,
+        tokenSymbols,
       });
       toast.success("설정이 저장되었습니다.");
     } catch { toast.error("설정 저장 실패"); }
     finally { setSavingSettings(false); }
   }
 
-  // ── Network CRUD ─────────────────────────────────────────────────────────
+  // ── Network CRUD ──────────────────────────────────────────────────────────
   function openAddNetwork() {
     setEditNetworkIdx(null);
     setNetworkForm({ id: "", ...EMPTY_NETWORK });
     setShowNetworkForm(true);
   }
-
   function openEditNetwork(idx: number) {
     setEditNetworkIdx(idx);
     setNetworkForm({ ...networks[idx] });
     setShowNetworkForm(true);
   }
-
   function saveNetwork() {
     if (!networkForm.name.trim())           { toast.error("네트워크 이름을 입력하세요."); return; }
     if (!networkForm.nativeCurrency.trim()) { toast.error("기본 통화를 입력하세요."); return; }
     const id = networkForm.id.trim() ||
       networkForm.name.toLowerCase().replace(/[^a-z0-9]/g, "_");
-
     const updated: AirdropNetwork = { ...networkForm, id };
     if (editNetworkIdx !== null) {
       setNetworks(prev => prev.map((n, i) => i === editNetworkIdx ? updated : n));
@@ -213,24 +215,57 @@ export default function AdminAirdrop() {
     }
     setShowNetworkForm(false);
   }
-
   function removeNetwork(idx: number) {
     if (!confirm("이 네트워크를 삭제하시겠습니까?")) return;
     setNetworks(prev => prev.filter((_, i) => i !== idx));
   }
-
   function toggleNetworkEnabled(idx: number) {
     setNetworks(prev => prev.map((n, i) => i === idx ? { ...n, enabled: !n.enabled } : n));
   }
 
-  // ── Campaign form ────────────────────────────────────────────────────────
+  // ── Token Symbol CRUD ─────────────────────────────────────────────────────
+  function openAddToken() {
+    setEditTokenIdx(null);
+    setTokenForm({ ...EMPTY_TOKEN });
+    setShowTokenForm(true);
+  }
+  function openEditToken(idx: number) {
+    setEditTokenIdx(idx);
+    setTokenForm({ ...tokenSymbols[idx] });
+    setShowTokenForm(true);
+  }
+  function saveToken() {
+    const sym = tokenForm.symbol.trim().toUpperCase();
+    if (!sym) { toast.error("토큰 심볼을 입력하세요."); return; }
+    const updated: AirdropTokenSymbol = { ...tokenForm, symbol: sym };
+    if (editTokenIdx !== null) {
+      setTokenSymbols(prev => prev.map((t, i) => i === editTokenIdx ? updated : t));
+    } else {
+      if (tokenSymbols.find(t => t.symbol === sym)) { toast.error("같은 심볼이 이미 있습니다."); return; }
+      setTokenSymbols(prev => [...prev, updated]);
+    }
+    setShowTokenForm(false);
+  }
+  function removeToken(idx: number) {
+    if (!confirm("이 토큰 심볼을 삭제하시겠습니까?")) return;
+    setTokenSymbols(prev => prev.filter((_, i) => i !== idx));
+  }
+  function toggleTokenEnabled(idx: number) {
+    setTokenSymbols(prev => prev.map((t, i) => i === idx ? { ...t, enabled: !t.enabled } : t));
+  }
+
+  // ── Campaign form ──────────────────────────────────────────────────────────
+  const enabledTokens   = tokenSymbols.filter(t => t.enabled);
+  const enabledNetworks = networks.filter(n => n.enabled);
+
   function openCreate() {
     setEditTarget(null);
-    setFormData({ ...DEFAULT_FORM, startAt: Date.now() });
+    const firstToken = enabledTokens[0]?.symbol ?? "NUMI";
+    const firstNet   = enabledNetworks[0]?.id   ?? "bsc";
+    setFormData({ ...DEFAULT_FORM, startAt: Date.now(), tokenSymbol: firstToken, networkId: firstNet });
     setEndDateStr(""); setWalletsText("");
     setShowForm(true);
   }
-
   function openEdit(c: AirdropCampaign) {
     setEditTarget(c);
     setFormData({
@@ -246,22 +281,18 @@ export default function AdminAirdrop() {
     setWalletsText(c.targetWallets.join("\n"));
     setShowForm(true);
   }
-
   async function saveCampaign() {
     if (!formData.title.trim())    { toast.error("제목을 입력하세요."); return; }
     if (formData.tokenAmount <= 0) { toast.error("토큰 수량을 입력하세요."); return; }
     if (formData.totalBudget <= 0) { toast.error("총 예산을 입력하세요."); return; }
-
     const wallets = walletsText.split(/[\n,]+/)
       .map(w => w.trim().toLowerCase())
       .filter(w => w.startsWith("0x") && w.length === 42);
-
     const payload = {
       ...formData,
       targetWallets: formData.targetType === "selected" ? wallets : [],
       endAt: endDateStr ? new Date(endDateStr).getTime() : null,
     };
-
     setSaving(true);
     try {
       if (editTarget) {
@@ -285,7 +316,6 @@ export default function AdminAirdrop() {
       loadCampaigns();
     } catch { toast.error("상태 변경 실패"); }
   }
-
   async function handleDelete(c: AirdropCampaign) {
     if (!confirm(`"${c.title}" 캠페인을 종료하시겠습니까?`)) return;
     try {
@@ -295,12 +325,11 @@ export default function AdminAirdrop() {
     } catch { toast.error("삭제 실패"); }
   }
 
-  // ── Distribute ──────────────────────────────────────────────────────────
+  // ── Distribute ─────────────────────────────────────────────────────────────
   function openDistribute(c: AirdropCampaign) {
     setDistribCamp(c); setDistribText(""); setDistribResult(null);
     setDistributeToAll(c.targetType === "all");
   }
-
   async function runDistribute() {
     if (!distribCamp) return;
     setDistribLoading(true); setDistribResult(null);
@@ -340,13 +369,12 @@ export default function AdminAirdrop() {
     downloadCSV(rows, `airdrop_claims_${fmtFile()}.csv`);
   }
 
-  // ── Render stats ──────────────────────────────────────────────────────────
+  // ── Stats ───────────────────────────────────────────────────────────────────
   const totalClaimed = campaigns.reduce((s, c) => s + (c.claimedCount ?? 0), 0);
   const totalBudget  = campaigns.reduce((s, c) => s + (c.totalBudget  ?? 0), 0);
   const activeCnt    = campaigns.filter(c => c.status === "active").length;
 
-  const enabledNetworks = networks.filter(n => n.enabled);
-
+  // ═══════════════════════════════════════════════════════════════════════════
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -367,10 +395,10 @@ export default function AdminAirdrop() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Campaigns",  value: campaigns.length,                        icon: Gift,         color: "text-primary" },
-          { label: "Active Campaigns", value: activeCnt,                               icon: PlayCircle,   color: "text-green-500" },
-          { label: "Total Claims",     value: totalClaimed,                            icon: CheckCircle2, color: "text-blue-500" },
-          { label: "Total Budget",     value: `${totalBudget.toLocaleString()} tokens`,icon: BarChart3,    color: "text-yellow-500" },
+          { label: "Total Campaigns",  value: campaigns.length,                         icon: Gift,         color: "text-primary" },
+          { label: "Active Campaigns", value: activeCnt,                                icon: PlayCircle,   color: "text-green-500" },
+          { label: "Total Claims",     value: totalClaimed,                             icon: CheckCircle2, color: "text-blue-500" },
+          { label: "Total Budget",     value: `${totalBudget.toLocaleString()} tokens`, icon: BarChart3,    color: "text-yellow-500" },
         ].map(s => (
           <Card key={s.label}>
             <CardContent className="pt-5 pb-4">
@@ -445,9 +473,7 @@ export default function AdminAirdrop() {
                             </TableCell>
                             <TableCell>
                               <p className="font-mono text-sm font-semibold">{c.tokenSymbol}</p>
-                              {net && (
-                                <p className="text-xs text-muted-foreground">{net.name}</p>
-                              )}
+                              {net && <p className="text-xs text-muted-foreground">{net.name}</p>}
                             </TableCell>
                             <TableCell className="font-semibold">{c.tokenAmount.toLocaleString()}</TableCell>
                             <TableCell>
@@ -489,8 +515,7 @@ export default function AdminAirdrop() {
                                 </Button>
                                 <Button size="icon" variant="ghost" className="w-8 h-8"
                                   title={c.status === "active" ? "Pause" : "Resume"}
-                                  onClick={() => toggleStatus(c)}
-                                >
+                                  onClick={() => toggleStatus(c)}>
                                   {c.status === "active"
                                     ? <PauseCircle className="w-4 h-4 text-yellow-500" />
                                     : <PlayCircle  className="w-4 h-4 text-green-500" />}
@@ -573,14 +598,14 @@ export default function AdminAirdrop() {
         {/* ── Settings Tab ── */}
         <TabsContent value="settings" className="mt-4 space-y-6">
 
-          {/* ▸ Admin Wallet 카드 */}
+          {/* ▸ Admin Wallet */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-primary" /> 에어드랍 송금 지갑
               </CardTitle>
               <CardDescription>
-                에어드랍 토큰을 발송하는 Admin 지갑 주소입니다. 사용자 클레임 페이지에 표시됩니다.
+                에어드랍 토큰을 발송하는 Admin 지갑 주소입니다. 캠페인 생성·배포 화면에 표시됩니다.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -598,18 +623,13 @@ export default function AdminAirdrop() {
                         className="font-mono"
                       />
                       {adminWallet && (
-                        <Button
-                          variant="outline" size="icon"
-                          title="복사"
-                          onClick={() => { navigator.clipboard.writeText(adminWallet); toast.success("복사됨"); }}
-                        >
+                        <Button variant="outline" size="icon" title="복사"
+                          onClick={() => { navigator.clipboard.writeText(adminWallet); toast.success("복사됨"); }}>
                           <Copy className="w-4 h-4" />
                         </Button>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      이 주소로 에어드랍 토큰을 미리 전송해 두세요.
-                    </p>
+                    <p className="text-xs text-muted-foreground">이 주소로 에어드랍 토큰을 미리 전송해 두세요.</p>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">메모 (선택)</Label>
@@ -631,7 +651,68 @@ export default function AdminAirdrop() {
             </CardContent>
           </Card>
 
-          {/* ▸ Networks 카드 */}
+          {/* ▸ Token Symbols */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-primary" /> 토큰 심볼 관리
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    캠페인 생성 시 선택할 수 있는 토큰 심볼 목록입니다.
+                  </CardDescription>
+                </div>
+                <Button size="sm" onClick={openAddToken} className="gap-1">
+                  <Plus className="w-3.5 h-3.5" /> 토큰 추가
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {tokenSymbols.length === 0 ? (
+                <div className="text-center p-8 text-muted-foreground text-sm">토큰 심볼이 없습니다. 추가해 주세요.</div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>심볼</TableHead>
+                      <TableHead>이름</TableHead>
+                      <TableHead>활성화</TableHead>
+                      <TableHead className="text-right">관리</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tokenSymbols.map((tok, idx) => (
+                      <TableRow key={tok.symbol}>
+                        <TableCell>
+                          <span className="font-mono font-bold text-sm">{tok.symbol}</span>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{tok.name || "-"}</TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={tok.enabled}
+                            onCheckedChange={() => toggleTokenEnabled(idx)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button size="icon" variant="ghost" className="w-7 h-7" onClick={() => openEditToken(idx)}>
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="w-7 h-7" onClick={() => removeToken(idx)}>
+                              <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ▸ Networks */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -650,9 +731,7 @@ export default function AdminAirdrop() {
             </CardHeader>
             <CardContent className="p-0">
               {networks.length === 0 ? (
-                <div className="text-center p-8 text-muted-foreground text-sm">
-                  네트워크가 없습니다. 추가해 주세요.
-                </div>
+                <div className="text-center p-8 text-muted-foreground text-sm">네트워크가 없습니다. 추가해 주세요.</div>
               ) : (
                 <Table>
                   <TableHeader>
@@ -685,10 +764,7 @@ export default function AdminAirdrop() {
                           ) : "-"}
                         </TableCell>
                         <TableCell>
-                          <Switch
-                            checked={net.enabled}
-                            onCheckedChange={() => toggleNetworkEnabled(idx)}
-                          />
+                          <Switch checked={net.enabled} onCheckedChange={() => toggleNetworkEnabled(idx)} />
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center justify-end gap-1">
@@ -719,6 +795,52 @@ export default function AdminAirdrop() {
         </TabsContent>
       </Tabs>
 
+      {/* ══ Token Symbol Form Dialog ══ */}
+      <Dialog open={showTokenForm} onOpenChange={setShowTokenForm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Coins className="w-4 h-4 text-primary" />
+              {editTokenIdx !== null ? "토큰 심볼 편집" : "토큰 심볼 추가"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs">토큰 심볼 * (예: USDT, BNB)</Label>
+              <Input
+                value={tokenForm.symbol}
+                onChange={e => setTokenForm(p => ({ ...p, symbol: e.target.value.toUpperCase() }))}
+                placeholder="예: NUMI"
+                disabled={editTokenIdx !== null}
+                className="font-mono font-bold"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">토큰 이름 (선택)</Label>
+              <Input
+                value={tokenForm.name}
+                onChange={e => setTokenForm(p => ({ ...p, name: e.target.value }))}
+                placeholder="예: NUMI Token"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={tokenForm.enabled}
+                onCheckedChange={v => setTokenForm(p => ({ ...p, enabled: v }))}
+              />
+              <Label className="text-sm">{tokenForm.enabled ? "활성화" : "비활성화"}</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTokenForm(false)}>취소</Button>
+            <Button onClick={saveToken} className="gap-2">
+              <Save className="w-4 h-4" />
+              {editTokenIdx !== null ? "저장" : "추가"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ══ Network Form Dialog ══ */}
       <Dialog open={showNetworkForm} onOpenChange={setShowNetworkForm}>
         <DialogContent className="max-w-md">
@@ -743,7 +865,7 @@ export default function AdminAirdrop() {
                 <Input
                   value={networkForm.id}
                   onChange={e => setNetworkForm(p => ({ ...p, id: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,"") }))}
-                  placeholder="예: bsc (비워두면 자동)"
+                  placeholder="예: bsc"
                   disabled={editNetworkIdx !== null}
                 />
               </div>
@@ -827,32 +949,42 @@ export default function AdminAirdrop() {
                 />
               </div>
 
-              {/* Token Symbol */}
+              {/* Token Symbol — Settings에서 관리하는 목록 사용 */}
               <div className="space-y-1">
-                <Label className="text-xs">Token Symbol *</Label>
+                <Label className="text-xs">
+                  Token Symbol *
+                  <span className="ml-1 text-muted-foreground font-normal">(Settings에서 추가 가능)</span>
+                </Label>
                 <Select
                   value={formData.tokenSymbol}
                   onValueChange={v => setFormData(p => ({ ...p, tokenSymbol: v }))}
                 >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="토큰 선택" /></SelectTrigger>
                   <SelectContent>
-                    {["NUMI","USDT","BNB","SBAG","BBAG"].map(t => (
-                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    {(enabledTokens.length > 0 ? enabledTokens : tokenSymbols).map(t => (
+                      <SelectItem key={t.symbol} value={t.symbol}>
+                        <span className="font-mono font-bold">{t.symbol}</span>
+                        {t.name && <span className="ml-2 text-muted-foreground text-xs">{t.name}</span>}
+                      </SelectItem>
                     ))}
+                    {tokenSymbols.length === 0 && (
+                      <SelectItem value="_none" disabled>Settings에서 토큰을 추가하세요</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Network */}
               <div className="space-y-1">
-                <Label className="text-xs">네트워크 *</Label>
+                <Label className="text-xs">
+                  네트워크 *
+                  <span className="ml-1 text-muted-foreground font-normal">(Settings에서 추가 가능)</span>
+                </Label>
                 <Select
                   value={formData.networkId}
                   onValueChange={v => setFormData(p => ({ ...p, networkId: v }))}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="네트워크 선택" />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="네트워크 선택" /></SelectTrigger>
                   <SelectContent>
                     {(enabledNetworks.length > 0 ? enabledNetworks : networks).map(n => (
                       <SelectItem key={n.id} value={n.id}>
@@ -860,7 +992,7 @@ export default function AdminAirdrop() {
                       </SelectItem>
                     ))}
                     {networks.length === 0 && (
-                      <SelectItem value="bsc" disabled>Settings에서 네트워크를 추가하세요</SelectItem>
+                      <SelectItem value="_none" disabled>Settings에서 네트워크를 추가하세요</SelectItem>
                     )}
                   </SelectContent>
                 </Select>
