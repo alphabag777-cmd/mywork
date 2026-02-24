@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   BarChart3, Users, Wallet, LayoutDashboard, PlusSquare,
-  LogOut, MessageSquare, Layers, FileText, Network, Menu, X, Bell,
+  LogOut, MessageSquare, Layers, FileText, Network, Menu, X, Bell, Gift,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -10,13 +10,14 @@ import { useState, useEffect } from "react";
 import { subscribeAllTickets } from "@/lib/support";
 
 const navItems = [
-  { to: "/admin/dashboard",  label: "Dashboard",      icon: LayoutDashboard },
-  { to: "/admin/plans",      label: "Plans",           icon: PlusSquare },
-  { to: "/admin/content",    label: "Content",         icon: FileText },
-  { to: "/admin/users-org",  label: "Users & Org",     icon: Users },
-  { to: "/admin/assets",        label: "Assets",          icon: Layers },
-  { to: "/admin/support",       label: "Support Tickets", icon: MessageSquare, badge: true },
-  { to: "/admin/notifications", label: "Notifications",   icon: Bell },
+  { to: "/admin/dashboard",          label: "Dashboard",      icon: LayoutDashboard },
+  { to: "/admin/plans",              label: "Plans",           icon: PlusSquare },
+  { to: "/admin/content",            label: "Content",         icon: FileText },
+  { to: "/admin/users-org",          label: "Users & Org",     icon: Users },
+  { to: "/admin/assets",             label: "Assets",          icon: Layers },
+  { to: "/admin/support",            label: "Support Tickets", icon: MessageSquare, badge: true },
+  { to: "/admin/notifications",      label: "Notifications",   icon: Bell },
+  { to: "/admin/users-org?tab=airdrop", label: "Airdrop",      icon: Gift },
 ];
 
 function NavItems({ openTickets, onClick }: { openTickets: number; onClick?: () => void }) {

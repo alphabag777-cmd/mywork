@@ -6,15 +6,27 @@ import AdminOrganization from "./AdminOrganization";
 import AdminCompanyApplications from "./AdminCompanyApplications";
 import AdminNotify from "./AdminNotify";
 import AdminAirdrop from "./AdminAirdrop";
+import { useSearchParams, useNavigate } from "react-router-dom";
+
+const VALID_TABS = ["users", "referrals", "organization", "applications", "notify", "airdrop"];
 
 const AdminUsersOrg = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const tabParam = searchParams.get("tab");
+  const activeTab = VALID_TABS.includes(tabParam ?? "") ? tabParam! : "users";
+
+  const handleTabChange = (value: string) => {
+    navigate(`/admin/users-org?tab=${value}`, { replace: true });
+  };
+
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Users & Org</h1>
         <p className="text-sm text-muted-foreground">사용자, 레퍼럴, 조직도, 기업 신청을 관리합니다.</p>
       </div>
-      <Tabs defaultValue="users" className="w-full">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="mb-4 flex flex-wrap gap-1">
           <TabsTrigger value="users" className="flex items-center gap-1.5">
             <Users className="w-4 h-4" /> Users
@@ -59,4 +71,3 @@ const AdminUsersOrg = () => {
 };
 
 export default AdminUsersOrg;
-
