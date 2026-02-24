@@ -370,14 +370,29 @@ export interface AirdropNetwork {
   enabled: boolean;
 }
 
+export interface AirdropTokenSymbol {
+  symbol: string;   // e.g. "NUMI", "USDT"
+  name: string;     // e.g. "NUMI Token"
+  enabled: boolean;
+}
+
 export interface AirdropSettings {
   adminWalletAddress: string;   // 에어드랍 송금 지갑 주소
   adminWalletNote: string;      // 메모 (선택)
   networks: AirdropNetwork[];   // 지원 네트워크 목록
+  tokenSymbols: AirdropTokenSymbol[]; // 지원 토큰 심볼 목록
   updatedAt: number;
 }
 
 const SETTINGS_DOC = "airdrop_settings/config";
+
+const DEFAULT_TOKEN_SYMBOLS: AirdropTokenSymbol[] = [
+  { symbol: "NUMI",  name: "NUMI Token",   enabled: true  },
+  { symbol: "USDT",  name: "Tether USD",   enabled: true  },
+  { symbol: "BNB",   name: "BNB",          enabled: true  },
+  { symbol: "SBAG",  name: "SBAG Token",   enabled: true  },
+  { symbol: "BBAG",  name: "BBAG Token",   enabled: true  },
+];
 
 const DEFAULT_NETWORKS: AirdropNetwork[] = [
   { id: "bsc",   name: "BNB Smart Chain (BSC)", chainId: "56",         explorerUrl: "https://bscscan.com",    nativeCurrency: "BNB",  enabled: true  },
@@ -397,6 +412,7 @@ export async function getAirdropSettings(): Promise<AirdropSettings> {
       adminWalletAddress: d.adminWalletAddress ?? "",
       adminWalletNote:    d.adminWalletNote    ?? "",
       networks:           d.networks           ?? DEFAULT_NETWORKS,
+      tokenSymbols:       d.tokenSymbols       ?? DEFAULT_TOKEN_SYMBOLS,
       updatedAt:          tsToNum(d.updatedAt),
     };
   }
@@ -405,6 +421,7 @@ export async function getAirdropSettings(): Promise<AirdropSettings> {
     adminWalletAddress: "",
     adminWalletNote:    "",
     networks:           DEFAULT_NETWORKS,
+    tokenSymbols:       DEFAULT_TOKEN_SYMBOLS,
     updatedAt:          Date.now(),
   };
 }
