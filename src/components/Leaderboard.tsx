@@ -20,7 +20,26 @@ let _cache: {
   fetchedAt: number;
 } | null = null;
 
+/** 관리자(admin/sub-admin) 세션 여부 확인 */
+function isAdminSession(): boolean {
+  try {
+    return (
+      localStorage.getItem("alphabag_admin_authenticated") === "true" &&
+      !!localStorage.getItem("alphabag_admin_role")
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function Leaderboard() {
+  // 일반 사용자에게는 렌더링하지 않음 — admin/sub-admin만 표시
+  if (!isAdminSession()) return null;
+
+  return <LeaderboardContent />;
+}
+
+function LeaderboardContent() {
   const [topInvestors, setTopInvestors] = useState<LeaderboardEntry[]>([]);
   const [topReferrers, setTopReferrers] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
