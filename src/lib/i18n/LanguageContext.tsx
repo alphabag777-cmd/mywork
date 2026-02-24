@@ -14,15 +14,21 @@ const LANGUAGE_STORAGE_KEY = 'alphabag_language';
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>(() => {
     if (typeof window !== 'undefined') {
+      // 1순위: 사용자가 직접 저장한 언어 설정
       const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY) as Language;
       if (stored && (stored === 'en' || stored === 'zh' || stored === 'ko' || stored === 'ja')) {
         return stored;
       }
-      // Detect browser language
-      const browserLang = navigator.language.toLowerCase();
-      if (browserLang.startsWith('zh')) return 'zh';
-      if (browserLang.startsWith('ko')) return 'ko';
-      if (browserLang.startsWith('ja')) return 'ja';
+      // 2순위: 브라우저/OS 시스템 언어 (navigator.languages 배열 전체 순회)
+      const langs: readonly string[] =
+        navigator.languages?.length ? navigator.languages : [navigator.language];
+      for (const l of langs) {
+        const lc = l.toLowerCase();
+        if (lc.startsWith('ko')) return 'ko';
+        if (lc.startsWith('zh')) return 'zh';
+        if (lc.startsWith('ja')) return 'ja';
+        if (lc.startsWith('en')) return 'en';
+      }
     }
     return 'en';
   });

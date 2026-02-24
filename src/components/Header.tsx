@@ -166,9 +166,10 @@ const Header = () => {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
-      {/* 모바일 전용 상단 바 – 가격 ticker */}
-      <div className="flex md:hidden items-center justify-center px-3 py-1 bg-muted/60 border-b border-border/30">
+      {/* 모바일 전용 상단 바 – NUMI 시세 + 언어 선택 */}
+      <div className="flex md:hidden items-center justify-between px-3 py-1 bg-muted/60 border-b border-border/30">
         <TokenPriceWidget compact />
+        <MobileLangDropdown />
       </div>
 
       <div className="container mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-2">
@@ -299,9 +300,6 @@ const Header = () => {
               </>
             )}
           </Button>
-
-          {/* 언어 선택 드롭다운 버튼 (모바일 전용) */}
-          <MobileLangDropdown />
 
           {/* 햄버거 메뉴 */}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
