@@ -5,6 +5,7 @@ import * as z from "zod";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Loader2, Building2, Send } from "lucide-react";
+import Header from "@/components/Header";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -90,7 +91,10 @@ export default function CompanyRegistration() {
   }
 
   return (
-    <div className="container mx-auto py-10 px-4 max-w-3xl">
+    <div className="min-h-screen bg-background">
+      <Header />
+      <main className="pt-[88px] sm:pt-20">
+      <div className="container mx-auto py-10 px-4 max-w-3xl">
       <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
         <CardHeader>
           <div className="flex items-center gap-2 mb-2">
@@ -237,6 +241,8 @@ export default function CompanyRegistration() {
           </Form>
         </CardContent>
       </Card>
+      </div>
+      </main>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import Header from "@/components/Header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +53,8 @@ export default function Notices() {
 
   return (
     <div className="min-h-screen bg-background">
+      <Header />
+      <main className="pt-[88px] sm:pt-20">
       <div className="max-w-2xl mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
@@ -186,6 +189,7 @@ export default function Notices() {
           </div>
         )}
       </div>
+      </main>
     </div>
   );
 }
