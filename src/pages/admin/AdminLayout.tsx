@@ -17,7 +17,7 @@ const navItems = [
   { to: "/admin/assets",             label: "Assets",          icon: Layers },
   { to: "/admin/support",            label: "Support Tickets", icon: MessageSquare, badge: true },
   { to: "/admin/notifications",      label: "Notifications",   icon: Bell },
-  { to: "/admin/users-org?tab=airdrop", label: "Airdrop",      icon: Gift },
+  { to: "/admin/airdrop",               label: "Airdrop",      icon: Gift },
 ];
 
 function NavItems({ openTickets, onClick }: { openTickets: number; onClick?: () => void }) {

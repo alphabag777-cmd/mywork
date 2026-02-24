@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BarChart3, Users, Share2, Loader2, TrendingUp, DollarSign, Activity, PieChart, KeyRound, UserCog, Eye, EyeOff, ShieldCheck, RefreshCw, MessageSquare } from "lucide-react";
+import { BarChart3, Users, Share2, Loader2, TrendingUp, DollarSign, Activity, PieChart, KeyRound, UserCog, Eye, EyeOff, ShieldCheck, RefreshCw, MessageSquare, ExternalLink } from "lucide-react";
 import { useAdminAnalytics } from "@/hooks/useAdminAnalytics";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -17,6 +17,10 @@ import { changeAdminPassword, changeAdminUsername } from "@/lib/adminConfig";
 const CATEGORY_COLORS = ["#f59e0b", "#3b82f6", "#10b981", "#8b5cf6", "#ef4444"];
 
 type Period = "7d" | "14d" | "30d";
+
+/** 지갑 주소 축약: 0x1234...abcd */
+const formatAddress = (addr: string) =>
+  addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "-";
 
 export const AdminDashboard = () => {
   const { stats, dailyVolume, topPerformers, categoryBreakdown, loading, refresh, openTickets } = useAdminAnalytics();

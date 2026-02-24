@@ -52,6 +52,7 @@ const AdminUsersOrg       = lazy(() => import("./pages/admin/AdminUsersOrg"));
 const AdminAssets         = lazy(() => import("./pages/admin/AdminAssets"));
 const AdminSupport        = lazy(() => import("./pages/admin/AdminSupport"));
 const AdminNotifications  = lazy(() => import("./pages/admin/AdminNotifications"));
+const AdminAirdrop        = lazy(() => import("./pages/admin/AdminAirdrop"));
 
 // ── Loading fallback ──────────────────────────────────────────────────────────
 const PageLoader = () => (
@@ -101,6 +102,7 @@ const App = () => (
                         <Route path="assets"      element={<ErrorBoundary><AdminAssets /></ErrorBoundary>} />
                         <Route path="support"         element={<ErrorBoundary><AdminSupport /></ErrorBoundary>} />
                         <Route path="notifications"   element={<ErrorBoundary><AdminNotifications /></ErrorBoundary>} />
+                        <Route path="airdrop"          element={<ErrorBoundary><AdminAirdrop /></ErrorBoundary>} />
                         {/* 구 URL 하위호환 */}
                         <Route path="add-plans"           element={<AdminPlans />} />
                         <Route path="staking-plans"       element={<AdminPlans />} />

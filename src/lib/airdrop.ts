@@ -50,6 +50,7 @@ export interface AirdropCampaign {
   requiresReferral: boolean; // Only users who have a referrer can claim
   maxClaimCount: number | null; // null = unlimited
   claimMessage: string;      // Message shown after successful claim
+  networkId: string;         // e.g. "bsc", "eth", "tron"
 }
 
 export interface AirdropClaim {
@@ -100,6 +101,7 @@ function campaignFromDoc(data: any, id: string): AirdropCampaign {
     requiresReferral: data.requiresReferral  ?? false,
     maxClaimCount:    data.maxClaimCount      ?? null,
     claimMessage:     data.claimMessage       ?? "에어드랍이 성공적으로 지급되었습니다!",
+    networkId:        data.networkId          ?? "bsc",
   };
 }
 
@@ -356,7 +358,65 @@ export async function claimAirdrop(
   return { ok: false, message: "이 에어드랍은 선택된 사용자만 클레임할 수 있습니다." };
 }
 
-// ─── Admin Claim Stats ────────────────────────────────────────────────────────
+// ─── Airdrop Settings (Admin Wallet + Networks) ──────────────────────────────
+
+export interface AirdropNetwork {
+  id: string;          // e.g. "bsc", "eth", "tron"
+  name: string;        // e.g. "BNB Smart Chain (BSC)"
+  chainId?: string;    // e.g. "56"
+  rpcUrl?: string;
+  explorerUrl?: string;// e.g. "https://bscscan.com"
+  nativeCurrency: string; // e.g. "BNB"
+  enabled: boolean;
+}
+
+export interface AirdropSettings {
+  adminWalletAddress: string;   // 에어드랍 송금 지갑 주소
+  adminWalletNote: string;      // 메모 (선택)
+  networks: AirdropNetwork[];   // 지원 네트워크 목록
+  updatedAt: number;
+}
+
+const SETTINGS_DOC = "airdrop_settings/config";
+
+const DEFAULT_NETWORKS: AirdropNetwork[] = [
+  { id: "bsc",   name: "BNB Smart Chain (BSC)", chainId: "56",         explorerUrl: "https://bscscan.com",    nativeCurrency: "BNB",  enabled: true  },
+  { id: "eth",   name: "Ethereum (ERC-20)",      chainId: "1",          explorerUrl: "https://etherscan.io",   nativeCurrency: "ETH",  enabled: true  },
+  { id: "tron",  name: "Tron (TRC-20)",           chainId: "",           explorerUrl: "https://tronscan.org",   nativeCurrency: "TRX",  enabled: true  },
+  { id: "matic", name: "Polygon (MATIC)",          chainId: "137",        explorerUrl: "https://polygonscan.com",nativeCurrency: "MATIC",enabled: false },
+  { id: "sol",   name: "Solana (SOL)",             chainId: "",           explorerUrl: "https://solscan.io",     nativeCurrency: "SOL",  enabled: false },
+];
+
+/** Airdrop 설정 불러오기 */
+export async function getAirdropSettings(): Promise<AirdropSettings> {
+  const ref  = doc(db, SETTINGS_DOC);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    const d = snap.data();
+    return {
+      adminWalletAddress: d.adminWalletAddress ?? "",
+      adminWalletNote:    d.adminWalletNote    ?? "",
+      networks:           d.networks           ?? DEFAULT_NETWORKS,
+      updatedAt:          tsToNum(d.updatedAt),
+    };
+  }
+  // 최초 기본값
+  return {
+    adminWalletAddress: "",
+    adminWalletNote:    "",
+    networks:           DEFAULT_NETWORKS,
+    updatedAt:          Date.now(),
+  };
+}
+
+/** Airdrop 설정 저장 */
+export async function saveAirdropSettings(
+  settings: Omit<AirdropSettings, "updatedAt">
+): Promise<void> {
+  const ref = doc(db, SETTINGS_DOC);
+  await setDoc(ref, { ...settings, updatedAt: serverTimestamp() }, { merge: true });
+}
+
 
 /**
  * Get all claims for a campaign (admin)
