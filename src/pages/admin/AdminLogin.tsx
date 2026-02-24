@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Lock, ShieldCheck, Loader2, CheckCircle2 } from "lucide-react";
+import { Lock, ShieldCheck, Loader2, CheckCircle2, Shield } from "lucide-react";
 import { verifyAdminCredentials } from "@/lib/adminConfig";
+import { verifySubAdminCredentials, clearAdminSession } from "@/lib/adminAuth";
 
 export const AdminLogin = () => {
   const [username, setUsername] = useState("");
@@ -20,19 +21,44 @@ export const AdminLogin = () => {
     setError("");
     setLoading(true);
 
+    // 세션 초기화
+    clearAdminSession();
+
     try {
-      const ok = await verifyAdminCredentials(username, password);
-      if (ok) {
+      // 1) 마스터 어드민 확인
+      const isAdmin = await verifyAdminCredentials(username, password);
+      if (isAdmin) {
         setSuccess(true);
         localStorage.setItem("alphabag_admin_authenticated", "true");
-        // 짧은 딜레이 후 이동 (성공 피드백 표시)
+        localStorage.setItem("alphabag_admin_role", "admin");
         setTimeout(() => navigate("/admin/dashboard"), 400);
-      } else {
-        setError("아이디 또는 비밀번호가 올바르지 않습니다.");
-        setLoading(false);
+        return;
       }
+
+      // 2) 부운영자 확인
+      const subAdmin = await verifySubAdminCredentials(username, password);
+      if (subAdmin) {
+        setSuccess(true);
+        localStorage.setItem("alphabag_admin_authenticated", "true");
+        localStorage.setItem("alphabag_admin_role", "sub");
+        localStorage.setItem("alphabag_admin_subid", subAdmin.id);
+        localStorage.setItem(
+          "alphabag_admin_permissions",
+          JSON.stringify(subAdmin.permissions ?? [])
+        );
+        // 부운영자는 첫 번째 허용 메뉴로 이동
+        const perms = subAdmin.permissions ?? [];
+        const firstRoute = perms.length > 0
+          ? `/admin/${perms[0]}`
+          : "/admin/dashboard";
+        setTimeout(() => navigate(firstRoute), 400);
+        return;
+      }
+
+      setError("아이디 또는 비밀번호가 올바르지 않습니다.");
     } catch {
       setError("로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
       setLoading(false);
     }
   };
@@ -48,7 +74,9 @@ export const AdminLogin = () => {
             }
           </div>
           <CardTitle className="text-2xl font-display">Admin Panel</CardTitle>
-          <CardDescription>Sign in to manage AlphaBag admin area.</CardDescription>
+          <CardDescription>
+            Sign in to manage AlphaBag admin area.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -93,6 +121,12 @@ export const AdminLogin = () => {
               )}
             </Button>
           </form>
+          <div className="mt-4 pt-4 border-t border-border/40">
+            <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
+              <Shield className="w-3 h-3" />
+              관리자 및 부운영자 계정으로 로그인 가능합니다
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>

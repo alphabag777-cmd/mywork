@@ -22,7 +22,7 @@ import { RouteChangeGuard } from "@/components/RouteChangeGuard";
 // ── Always-eager (small, critical path) ─────────────────────────────────────
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import AdminRouteGuard from "./pages/admin/AdminRouteGuard";
+import AdminRouteGuard, { AdminPermissionGuard } from "./pages/admin/AdminRouteGuard";
 
 // ── Lazy-loaded pages (chunked by route) ─────────────────────────────────────
 const Investment          = lazy(() => import("./pages/Investment"));
@@ -53,6 +53,7 @@ const AdminAssets         = lazy(() => import("./pages/admin/AdminAssets"));
 const AdminSupport        = lazy(() => import("./pages/admin/AdminSupport"));
 const AdminNotifications  = lazy(() => import("./pages/admin/AdminNotifications"));
 const AdminAirdrop        = lazy(() => import("./pages/admin/AdminAirdrop"));
+const AdminSubAdmins      = lazy(() => import("./pages/admin/AdminSubAdmins"));
 
 // ── Loading fallback ──────────────────────────────────────────────────────────
 const PageLoader = () => (
@@ -95,14 +96,34 @@ const App = () => (
                     <Route path="/admin" element={<AdminLogin />} />
                     <Route element={<AdminRouteGuard />}>
                       <Route path="/admin" element={<AdminLayout />}>
-                        <Route path="dashboard"   element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
-                        <Route path="plans"       element={<ErrorBoundary><AdminPlans /></ErrorBoundary>} />
-                        <Route path="content"     element={<ErrorBoundary><AdminContent /></ErrorBoundary>} />
-                        <Route path="users-org"   element={<ErrorBoundary><AdminUsersOrg /></ErrorBoundary>} />
-                        <Route path="assets"      element={<ErrorBoundary><AdminAssets /></ErrorBoundary>} />
-                        <Route path="support"         element={<ErrorBoundary><AdminSupport /></ErrorBoundary>} />
-                        <Route path="notifications"   element={<ErrorBoundary><AdminNotifications /></ErrorBoundary>} />
-                        <Route path="airdrop"          element={<ErrorBoundary><AdminAirdrop /></ErrorBoundary>} />
+                        {/* 권한 기반 라우트 */}
+                        <Route element={<AdminPermissionGuard routeKey="dashboard" />}>
+                          <Route path="dashboard"   element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
+                        </Route>
+                        <Route element={<AdminPermissionGuard routeKey="plans" />}>
+                          <Route path="plans"       element={<ErrorBoundary><AdminPlans /></ErrorBoundary>} />
+                        </Route>
+                        <Route element={<AdminPermissionGuard routeKey="content" />}>
+                          <Route path="content"     element={<ErrorBoundary><AdminContent /></ErrorBoundary>} />
+                        </Route>
+                        <Route element={<AdminPermissionGuard routeKey="users-org" />}>
+                          <Route path="users-org"   element={<ErrorBoundary><AdminUsersOrg /></ErrorBoundary>} />
+                        </Route>
+                        <Route element={<AdminPermissionGuard routeKey="assets" />}>
+                          <Route path="assets"      element={<ErrorBoundary><AdminAssets /></ErrorBoundary>} />
+                        </Route>
+                        <Route element={<AdminPermissionGuard routeKey="support" />}>
+                          <Route path="support"         element={<ErrorBoundary><AdminSupport /></ErrorBoundary>} />
+                        </Route>
+                        <Route element={<AdminPermissionGuard routeKey="notifications" />}>
+                          <Route path="notifications"   element={<ErrorBoundary><AdminNotifications /></ErrorBoundary>} />
+                        </Route>
+                        <Route element={<AdminPermissionGuard routeKey="airdrop" />}>
+                          <Route path="airdrop"          element={<ErrorBoundary><AdminAirdrop /></ErrorBoundary>} />
+                        </Route>
+                        <Route element={<AdminPermissionGuard routeKey="sub-admins" />}>
+                          <Route path="sub-admins"       element={<ErrorBoundary><AdminSubAdmins /></ErrorBoundary>} />
+                        </Route>
                         {/* 구 URL 하위호환 */}
                         <Route path="add-plans"           element={<AdminPlans />} />
                         <Route path="staking-plans"       element={<AdminPlans />} />
