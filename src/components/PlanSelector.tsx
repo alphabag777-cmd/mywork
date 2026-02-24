@@ -118,7 +118,7 @@ export default function PlanSelector() {
   const hasPreviews = selectedPlansOrdered.length > 0;
 
   return (
-    <Card className="mb-8 border-primary/30" style={{ display: connected ? undefined : "none" }}>
+    <Card className="mb-8 border-primary/30 overflow-hidden" style={{ display: connected ? undefined : "none" }}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <PackageCheck className="w-5 h-5 text-primary" />
@@ -263,7 +263,7 @@ function PlanItem({ plan, selected, order, onToggle }: PlanItemProps) {
       onClick={() => onToggle(plan.id)}
       style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
       className={[
-        "flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-colors w-full",
+        "flex items-center gap-2 p-3 rounded-xl border-2 text-left transition-colors w-full overflow-hidden",
         selected
           ? "border-primary bg-primary/10"
           : "border-border hover:border-primary/50",
@@ -299,7 +299,7 @@ function PlanItem({ plan, selected, order, onToggle }: PlanItemProps) {
       </span>
 
       {/* 텍스트 */}
-      <span className="flex-1 min-w-0 pointer-events-none text-left">
+      <span className="flex-1 min-w-0 overflow-hidden pointer-events-none text-left">
         <span className="block text-sm font-semibold truncate">{plan.name}</span>
         <span className="block text-xs text-muted-foreground truncate">{plan.label}</span>
         {/* dailyProfit — 없으면 높이 0 span으로 공간 유지 */}
