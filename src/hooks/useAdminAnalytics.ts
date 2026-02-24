@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { getAllUsers, getUsersCount } from "@/lib/users";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { getAllUsers } from "@/lib/users";
 import { getAllUserInvestments } from "@/lib/userInvestments";
 import { subscribeAllTickets } from "@/lib/support";
 import { format, subDays, startOfDay, isSameDay } from "date-fns";
@@ -20,7 +20,7 @@ export interface CategoryBreakdown {
   value: number;
 }
 
-// ─── In-memory cache (10-minute TTL) ──────────────────────────────────────────
+// ─── Module-level cache (페이지 이동해도 유지, 10분 TTL) ─────────────────────
 interface CacheEntry {
   stats: ReturnType<typeof buildEmptyStats>;
   dailyVolume: DailyVolume[];
@@ -29,29 +29,33 @@ interface CacheEntry {
   fetchedAt: number;
 }
 
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10분
 let _cache: CacheEntry | null = null;
 
 function buildEmptyStats() {
   return {
-    totalSales: 0,
-    totalUsers: 0,
-    activeUsers: 0,
+    totalSales:    0,
+    totalUsers:    0,
+    activeUsers:   0,
     totalReferrals: 0,
-    openTickets: 0,
+    openTickets:   0,
   };
 }
 
 // ─── Hook ──────────────────────────────────────────────────────────────────────
 export const useAdminAnalytics = () => {
-  const [stats, setStats] = useState(buildEmptyStats());
-  const [dailyVolume, setDailyVolume] = useState<DailyVolume[]>([]);
-  const [topPerformers, setTopPerformers] = useState<Performer[]>([]);
-  const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryBreakdown[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [openTickets, setOpenTickets] = useState(0);
+  // 캐시가 있으면 초기 상태를 캐시로 설정 → 화면이 즉시 렌더됨
+  const hasFreshCache = _cache && Date.now() - _cache.fetchedAt < CACHE_TTL_MS;
 
-  // ── Real-time open ticket count via onSnapshot ─────────────────────────────
+  const [stats, setStats]                     = useState(hasFreshCache ? _cache!.stats : buildEmptyStats());
+  const [dailyVolume, setDailyVolume]         = useState<DailyVolume[]>(hasFreshCache ? _cache!.dailyVolume : []);
+  const [topPerformers, setTopPerformers]     = useState<Performer[]>(hasFreshCache ? _cache!.topPerformers : []);
+  const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryBreakdown[]>(hasFreshCache ? _cache!.categoryBreakdown : []);
+  // 캐시 있으면 loading=false → "Loading Analytics..." 스피너 안 보임
+  const [loading, setLoading]                 = useState(!hasFreshCache);
+  const [openTickets, setOpenTickets]         = useState(0);
+
+  // ── Real-time open ticket count (onSnapshot) ───────────────────────────────
   useEffect(() => {
     const unsub = subscribeAllTickets((tickets) => {
       setOpenTickets(tickets.filter(t => t.status === "open").length);
@@ -59,8 +63,9 @@ export const useAdminAnalytics = () => {
     return () => unsub();
   }, []);
 
-  // ── Fetch heavy analytics (cached) ───────────────────────────────────────
+  // ── Fetch heavy analytics (캐시 우선) ─────────────────────────────────────
   const fetchData = useCallback(async (force = false) => {
+    // 신선한 캐시가 있으면 즉시 반환
     if (!force && _cache && Date.now() - _cache.fetchedAt < CACHE_TTL_MS) {
       setStats(_cache.stats);
       setDailyVolume(_cache.dailyVolume);
@@ -72,34 +77,26 @@ export const useAdminAnalytics = () => {
 
     setLoading(true);
     try {
-      const [users, investments, totalUsers] = await Promise.all([
+      // getAllUsers 한 번으로 users + count 모두 해결 (중복 getDocs 제거)
+      const [users, investments] = await Promise.all([
         getAllUsers(),
         getAllUserInvestments(),
-        getUsersCount(),
       ]);
 
-      // ── 1. Basic stats ──────────────────────────────────────────────────
-      const totalSales = investments.reduce((sum, inv) => sum + (inv.amount || 0), 0);
-      const uniqueInvestors = new Set(investments.map((inv) => inv.userId.toLowerCase()));
-      const activeUsers = uniqueInvestors.size;
-      const totalReferrals = users.filter((u) => u.referrerWallet).length;
+      const totalUsers   = users.length;
 
-      const nextStats = {
-        totalSales,
-        totalUsers,
-        activeUsers,
-        totalReferrals,
-        openTickets: 0, // will be updated by real-time listener
-      };
+      // ── 1. Basic stats ──────────────────────────────────────────────────
+      const totalSales      = investments.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+      const uniqueInvestors = new Set(investments.map((inv) => inv.userId.toLowerCase()));
+      const activeUsers     = uniqueInvestors.size;
+      const totalReferrals  = users.filter((u) => u.referrerWallet).length;
+
+      const nextStats = { totalSales, totalUsers, activeUsers, totalReferrals, openTickets: 0 };
 
       // ── 2. Daily volume — last 30 days ──────────────────────────────────
       const last30Days = Array.from({ length: 30 }, (_, i) => {
         const date = subDays(new Date(), 29 - i);
-        return {
-          date: format(date, "MM/dd"),
-          timestamp: startOfDay(date).getTime(),
-          amount: 0,
-        };
+        return { date: format(date, "MM/dd"), timestamp: startOfDay(date).getTime(), amount: 0 };
       });
 
       investments.forEach((inv) => {
@@ -113,29 +110,23 @@ export const useAdminAnalytics = () => {
 
       // ── 3. Top performers ────────────────────────────────────────────────
       const userMap = new Map<string, Performer>();
-
       users.forEach((u) => {
         userMap.set(u.walletAddress.toLowerCase(), {
-          wallet: u.walletAddress,
-          totalInvestment: 0,
-          referralCount: 0,
+          wallet: u.walletAddress, totalInvestment: 0, referralCount: 0,
         });
       });
-
       investments.forEach((inv) => {
-        const performer = userMap.get(inv.userId.toLowerCase());
-        if (performer) performer.totalInvestment += inv.amount || 0;
+        const p = userMap.get(inv.userId.toLowerCase());
+        if (p) p.totalInvestment += inv.amount || 0;
       });
-
       users.forEach((u) => {
         if (u.referrerWallet) {
-          const referrer = userMap.get(u.referrerWallet.toLowerCase());
-          if (referrer) referrer.referralCount += 1;
+          const ref = userMap.get(u.referrerWallet.toLowerCase());
+          if (ref) ref.referralCount += 1;
         }
       });
-
       const nextTopPerformers = Array.from(userMap.values())
-        .filter((p) => p.totalInvestment > 0) // only investors
+        .filter((p) => p.totalInvestment > 0)
         .sort((a, b) => b.totalInvestment - a.totalInvestment)
         .slice(0, 5);
 
@@ -174,7 +165,6 @@ export const useAdminAnalytics = () => {
     fetchData();
   }, [fetchData]);
 
-  /** Force-refresh analytics (bypasses cache) */
   const refresh = useCallback(() => {
     _cache = null;
     fetchData(true);

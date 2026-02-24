@@ -16,13 +16,10 @@ export const ReferralTracker = () => {
 
   // First, check URL for referral parameter even before wallet connects
   useEffect(() => {
-    // Check for referral in URL and store it in localStorage
     const referralWallet = getReferralFromURL();
     if (referralWallet && !hasProcessedRef.current) {
-      // Store referral in localStorage immediately (even without wallet)
       const REFERRER_WALLET_KEY = "alphabag_referrer_wallet";
       const existingRef = localStorage.getItem(REFERRER_WALLET_KEY);
-      
       if (!existingRef) {
         localStorage.setItem(REFERRER_WALLET_KEY, referralWallet);
         console.log("✅ Referral stored from URL:", referralWallet);
@@ -33,35 +30,26 @@ export const ReferralTracker = () => {
 
   // When wallet connects, save to Firebase
   useEffect(() => {
-    if (!isConnected || !address) {
-      return;
-    }
+    if (!isConnected || !address) return;
 
     const saveReferralData = async () => {
       try {
-        // Get referral wallet from localStorage (stored from URL)
         const referralWallet = getReferrerWallet();
-        
+
         if (referralWallet && referralWallet.toLowerCase() !== address.toLowerCase()) {
-          console.log("💾 Saving referral to Firebase:", {
-            referrer: referralWallet,
-            referred: address,
-          });
-          
-          // Save user with referrer info
+          console.log("💾 Saving referral to Firebase:", { referrer: referralWallet, referred: address });
+
           await saveUser(address, {
             walletAddress: address,
             referrerWallet: referralWallet,
             isRegistered: true,
           });
-          
-          // Save referral relationship
+
           await saveReferral(referralWallet, address, "");
-          
           console.log("✅ Referral saved to Firebase successfully");
           toast.success("Referral link detected! You've been registered.");
         } else {
-          // User connected but no referral - just save user info
+          // 레퍼럴 없이 유저 저장 — 실패해도 사용자에게 알리지 않음
           await saveUser(address, {
             walletAddress: address,
             referrerWallet: referralWallet || null,
@@ -70,13 +58,14 @@ export const ReferralTracker = () => {
           console.log("✅ User saved to Firebase");
         }
       } catch (error) {
-        console.error("❌ Failed to save referral to Firebase:", error);
-        toast.error("Failed to save referral. Please try again.");
+        // 레퍼럴 저장 실패는 사용자 경험에 영향 없는 백그라운드 작업이므로
+        // 토스트 에러 대신 콘솔에만 기록
+        console.warn("⚠️ Failed to save user/referral to Firebase (non-critical):", error);
       }
     };
-    
+
     saveReferralData();
   }, [address, isConnected]);
 
-  return null; // This component doesn't render anything
+  return null;
 };
