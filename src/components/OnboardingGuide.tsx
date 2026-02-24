@@ -30,8 +30,8 @@ const STEPS: Step[] = [
   {
     icon: <Wallet className="w-10 h-10" />,
     title: "지갑 연결",
-    description: "MetaMask 또는 지원되는 지갑을 BSC(BNB Smart Chain) 네트워크로 연결하세요.",
-    tip: "BSC 네트워크가 없다면 화면 안내에 따라 자동 추가됩니다.",
+    description: "TokenPocket 또는 지원되는 지갑을 해당되는 네트워크로 연결하세요.",
+    tip: "네트워크가 없다면 화면 안내에 따라 자동 추가됩니다.",
     color: "text-yellow-500",
   },
   {
