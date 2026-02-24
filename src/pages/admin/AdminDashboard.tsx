@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BarChart3, Users, Share2, Loader2, TrendingUp, DollarSign, Activity, PieChart, KeyRound, UserCog, Eye, EyeOff, ShieldCheck, RefreshCw } from "lucide-react";
+import { BarChart3, Users, Share2, Loader2, TrendingUp, DollarSign, Activity, PieChart, KeyRound, UserCog, Eye, EyeOff, ShieldCheck, RefreshCw, MessageSquare } from "lucide-react";
 import { useAdminAnalytics } from "@/hooks/useAdminAnalytics";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -19,7 +19,7 @@ const CATEGORY_COLORS = ["#f59e0b", "#3b82f6", "#10b981", "#8b5cf6", "#ef4444"];
 type Period = "7d" | "14d" | "30d";
 
 export const AdminDashboard = () => {
-  const { stats, dailyVolume, topPerformers, categoryBreakdown, loading, refresh } = useAdminAnalytics();
+  const { stats, dailyVolume, topPerformers, categoryBreakdown, loading, refresh, openTickets } = useAdminAnalytics();
   const [period, setPeriod] = useState<Period>("30d");
 
   // 비밀번호 변경 상태
