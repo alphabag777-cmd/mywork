@@ -485,10 +485,10 @@ const ProfilePage = ({
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Header />
       <main className="pt-[88px] sm:pt-20 pb-12">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-3 sm:px-4 w-full max-w-full">
 
           {/* Profile Header */}
           <div className="mb-8 flex items-center justify-between">
@@ -996,10 +996,10 @@ const ProfilePage = ({
 const ProfileIntroPage = () => {
   const { t } = useLanguage();
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Header />
       <main className="pt-[88px] sm:pt-20 pb-12">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-3 sm:px-4 w-full max-w-full">
           <div className="max-w-2xl mx-auto mt-12 space-y-6">
             <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-background to-primary/10 overflow-hidden">
               <CardContent className="pt-8 pb-8 text-center relative">
