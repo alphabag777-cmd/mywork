@@ -32,6 +32,9 @@ import {
   Award,
 } from "lucide-react";
 import Header from "@/components/Header";
+import KycModal from "@/components/KycModal";
+import { getKyc } from "@/lib/kyc";
+import { useAuth } from "@/contexts/AuthContext";
 
 /* ── 숫자 카운트 애니메이션 훅 ───────────────────────────────────── */
 function useCountUp(target: number, duration = 1800, trigger = true) {
@@ -74,9 +77,12 @@ export default function Promo() {
   const { open } = useWeb3Modal();
   const { t } = useLanguage();
 
+  const { firebaseUser } = useAuth();
   const [plans, setPlans] = useState<InvestmentPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [statsVisible, setStatsVisible] = useState(false);
+  const [kycOpen, setKycOpen] = useState(false);
+  const [pendingPlanId, setPendingPlanId] = useState<string | null>(null);
   const statsRef = useRef<HTMLDivElement>(null);
 
   /* Firebase에서 BBAG 플랜 로드 */
@@ -109,6 +115,24 @@ export default function Promo() {
   const buildInvestLink = (planId: string) => {
     const base = `/promo/${planId}`;
     return address ? `${base}?ref=${address}` : base;
+  };
+
+  /* 세부정보 클릭 - KYC 확인 후 이동 */
+  const handleDetail = async (planId: string) => {
+    const userId = address || (firebaseUser ? `auth_${firebaseUser.uid}` : "");
+    if (!userId) {
+      // 비로그인 상태 → KYC 모달 (로그인 유도)
+      setPendingPlanId(planId);
+      setKycOpen(true);
+      return;
+    }
+    const kyc = await getKyc(userId);
+    if (kyc?.status === "approved") {
+      navigate(buildInvestLink(planId));
+    } else {
+      setPendingPlanId(planId);
+      setKycOpen(true);
+    }
   };
 
   /* 통계 데이터 */
@@ -276,7 +300,7 @@ export default function Promo() {
                   key={plan.id}
                   plan={plan}
                   rank={idx + 1}
-                  onDetail={() => navigate(buildInvestLink(plan.id))}
+                  onDetail={() => handleDetail(plan.id)}
                 />
               ))}
             </div>
@@ -374,6 +398,18 @@ export default function Promo() {
           </div>
         </div>
       </section>
+
+      {/* KYC 인증 모달 */}
+      <KycModal
+        open={kycOpen}
+        onOpenChange={setKycOpen}
+        onVerified={() => {
+          setKycOpen(false);
+          if (pendingPlanId) {
+            // KYC 제출 완료 - 심사 중이므로 안내만 (승인 후 이용 가능)
+          }
+        }}
+      />
     </div>
   );
 }
