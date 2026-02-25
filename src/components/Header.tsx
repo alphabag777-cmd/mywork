@@ -1,4 +1,4 @@
-import { Coins, Wallet, User, Users, Menu, ShoppingCart, Lock, MessageSquare, RefreshCw, Gift, Globe } from "lucide-react";
+import { Coins, Wallet, User, Users, Menu, ShoppingCart, Lock, MessageSquare, RefreshCw, Gift, Globe, LogIn, UserPlus, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAccount, useDisconnect, useConnect } from "wagmi";
 import { useWeb3Modal } from "@web3modal/wagmi/react";
@@ -27,6 +27,7 @@ import {
 import { useLanguage, type Language } from "@/lib/i18n/LanguageContext";
 import { EventBannerStrip } from "@/components/EventBannerStrip";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Sheet,
   SheetContent,
@@ -80,6 +81,9 @@ const Header = () => {
   const { getTotalItems } = useCart();
   const cartItemCount = getTotalItems();
   const isTP = isTokenPocketBrowser();
+
+  // Firebase Auth 상태
+  const { firebaseUser, logout } = useAuth();
 
   // Handle referral tracking when wallet connects
   useEffect(() => {
@@ -212,6 +216,57 @@ const Header = () => {
             <Gift className="w-4 h-4" />
             Airdrop
           </Button>
+
+          {/* 이메일/구글 로그인 버튼 (지갑 미연결 시) */}
+          {!isConnected && !firebaseUser && (
+            <>
+              <Button
+                variant="outline"
+                size="default"
+                className="gap-2"
+                onClick={() => navigate("/login")}
+              >
+                <LogIn className="w-4 h-4" />
+                로그인
+              </Button>
+              <Button
+                variant="outline"
+                size="default"
+                className="gap-2"
+                onClick={() => navigate("/signup")}
+              >
+                <UserPlus className="w-4 h-4" />
+                회원가입
+              </Button>
+            </>
+          )}
+
+          {/* 이메일/구글 로그인된 경우 사용자 이름 + 로그아웃 */}
+          {!isConnected && firebaseUser && (
+            <>
+              <Button
+                variant="outline"
+                size="default"
+                className="gap-2"
+                onClick={() => navigate("/profile")}
+              >
+                <User className="w-4 h-4" />
+                <span className="hidden lg:inline max-w-[100px] truncate">
+                  {firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "사용자"}
+                </span>
+              </Button>
+              <Button
+                variant="outline"
+                size="default"
+                className="gap-2"
+                onClick={async () => { await logout(); navigate("/"); }}
+              >
+                <LogOut className="w-4 h-4" />
+                로그아웃
+              </Button>
+            </>
+          )}
+
           <div className={`contents ${isConnected ? '' : 'hidden'}`} style={{ display: isConnected ? 'contents' : 'none' }}>
             <NotificationCenter />
             <Button 
@@ -360,6 +415,53 @@ const Header = () => {
                   <Gift className="w-4 h-4" />
                   Airdrop
                 </Button>
+
+                {/* 이메일/구글 로그인 버튼 (지갑 미연결 & 로그인 안 된 경우) */}
+                {!isConnected && !firebaseUser && (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start gap-2"
+                      onClick={() => { navigate("/login"); setMobileMenuOpen(false); }}
+                    >
+                      <LogIn className="w-4 h-4" />
+                      로그인
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start gap-2"
+                      onClick={() => { navigate("/signup"); setMobileMenuOpen(false); }}
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      회원가입
+                    </Button>
+                  </>
+                )}
+
+                {/* 이메일/구글 로그인된 경우 사용자 이름 + 로그아웃 */}
+                {!isConnected && firebaseUser && (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start gap-2"
+                      onClick={() => { navigate("/profile"); setMobileMenuOpen(false); }}
+                    >
+                      <User className="w-4 h-4" />
+                      <span className="truncate">
+                        {firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "사용자"}
+                      </span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start gap-2 text-red-500 border-red-200 hover:bg-red-50"
+                      onClick={async () => { await logout(); navigate("/"); setMobileMenuOpen(false); }}
+                    >
+                      <LogOut className="w-4 h-4" />
+                      로그아웃
+                    </Button>
+                  </>
+                )}
+
                 <Button 
                   variant="outline" 
                   className="w-full justify-start gap-2 relative" 

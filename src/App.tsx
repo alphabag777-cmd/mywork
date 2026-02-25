@@ -11,6 +11,7 @@ import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 import { TermsAgreement } from "@/components/TermsAgreement";
 import { UserNoticePopup } from "@/components/UserNoticePopup";
 import { CartProvider } from "@/contexts/CartContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Loader2 } from "lucide-react";
 import Footer from "@/components/Footer";
@@ -25,6 +26,9 @@ import NotFound from "./pages/NotFound";
 import AdminRouteGuard, { AdminPermissionGuard } from "./pages/admin/AdminRouteGuard";
 
 // ── Lazy-loaded pages (chunked by route) ─────────────────────────────────────
+const Login               = lazy(() => import("./pages/Login"));
+const SignUp              = lazy(() => import("./pages/SignUp"));
+const ResetPassword       = lazy(() => import("./pages/ResetPassword"));
 const Investment          = lazy(() => import("./pages/Investment"));
 const Staking             = lazy(() => import("./pages/Staking"));
 const Profile             = lazy(() => import("./pages/Profile"));
@@ -77,6 +81,7 @@ const App = () => (
   <ErrorBoundary>
     <BrowserRouter>
       <LanguageProvider>
+        <AuthProvider>
         <WalletProvider>
           <CartProvider>
             <QueryClientProvider client={queryClient}>
@@ -140,6 +145,11 @@ const App = () => (
                       </Route>
                     </Route>
 
+                    {/* Auth routes */}
+                    <Route path="/login"          element={<ErrorBoundary><Login /></ErrorBoundary>} />
+                    <Route path="/signup"         element={<ErrorBoundary><SignUp /></ErrorBoundary>} />
+                    <Route path="/reset-password" element={<ErrorBoundary><ResetPassword /></ErrorBoundary>} />
+
                     {/* Public routes — each wrapped in its own ErrorBoundary */}
                     <Route path="/"     element={<Index />} />
                     <Route path="/cart" element={<ErrorBoundary><Cart /></ErrorBoundary>} />
@@ -167,6 +177,7 @@ const App = () => (
             </QueryClientProvider>
           </CartProvider>
         </WalletProvider>
+        </AuthProvider>
       </LanguageProvider>
     </BrowserRouter>
   </ErrorBoundary>
