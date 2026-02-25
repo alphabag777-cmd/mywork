@@ -49,7 +49,6 @@ import { logActivity } from "@/lib/userActivityLog";
 const ReferralShare     = lazy(() => import("@/components/ReferralShare"));
 const PlanSelector      = lazy(() => import("@/components/PlanSelector"));
 const ReferralDashboard = lazy(() => import("@/components/ReferralDashboard"));
-const Leaderboard       = lazy(() => import("@/components/Leaderboard").then(m => ({ default: m.Leaderboard })));
 const OrgChart          = lazy(() => import("@/components/OrgChart").then(m => ({ default: m.OrgChart })));
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -684,12 +683,7 @@ const ProfilePage = ({
             </Card>
           )}
 
-          {/* ── Leaderboard ── */}
-          <div className="mb-8">
-            <LazySection fallbackHeight="h-32" name="Leaderboard">
-              <Leaderboard />
-            </LazySection>
-          </div>
+          {/* ── Leaderboard ── admin only, not shown on profile page */}
 
           {/* ── OrgChart (user view) ── */}
           <div className="mb-8">
@@ -1061,7 +1055,6 @@ const ProfileIntroPage = () => {
               {([
                 { Icon: BarChart3,   title: "Investment Dashboard", desc: "Track all your BBAG & SBAG investments, profits, and portfolio allocation in one place." },
                 { Icon: Network,     title: "Referral Network",     desc: "Share your unique referral link and earn rewards from your growing team." },
-                { Icon: TrendingUp,  title: "Leaderboard",          desc: "See how you rank among top investors and referrers in the community." },
                 { Icon: AlertCircle, title: "Account Settings",     desc: "Manage your profile, update your username, and secure your account." },
               ] as const).map(({ Icon, title, desc }) => (
                 <Card key={title} className="border-border/50 hover:border-primary/30 transition-colors">
