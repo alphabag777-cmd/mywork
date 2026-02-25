@@ -14,17 +14,16 @@ const metadata = {
   icons: [typeof window !== "undefined" ? `${window.location.origin}/logo.png` : "https://alphabag.net/logo.png"],
 };
 
-// BSC 공개 RPC 다중 fallback (thirdweb CORS 에러 우회)
-// wagmi v2의 fallback() 유틸리티로 순서대로 시도
+// BSC 공개 RPC 다중 fallback - 가장 빠른 노드 우선 배치
 const bscTransport = fallback([
-  http("https://bsc-dataseed1.binance.org", { batch: true }),
-  http("https://bsc-dataseed2.binance.org", { batch: true }),
-  http("https://bsc-dataseed3.binance.org", { batch: true }),
-  http("https://bsc-dataseed1.defibit.io",  { batch: true }),
-  http("https://bsc-dataseed2.defibit.io",  { batch: true }),
-  http("https://bsc-dataseed1.ninicoin.io", { batch: true }),
-  http("https://bsc.publicnode.com",         { batch: true }),
-], { rank: false });
+  http("https://bsc.publicnode.com",          { batch: true, timeout: 3000 }),
+  http("https://bsc-dataseed1.binance.org",   { batch: true, timeout: 3000 }),
+  http("https://bsc-dataseed2.binance.org",   { batch: true, timeout: 3000 }),
+  http("https://bsc-dataseed1.defibit.io",    { batch: true, timeout: 3000 }),
+  http("https://bsc-dataseed1.ninicoin.io",   { batch: true, timeout: 3000 }),
+  http("https://bsc-dataseed3.binance.org",   { batch: true, timeout: 3000 }),
+  http("https://bsc-dataseed2.defibit.io",    { batch: true, timeout: 3000 }),
+], { rank: true });
 
 // Create wagmiConfig
 export const config = createConfig({
@@ -48,4 +47,10 @@ createWeb3Modal({
   projectId,
   enableAnalytics: false,
   enableOnramp: false,
+  featuredWalletIds: [
+    "c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96", // MetaMask
+    "4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0", // Trust Wallet
+    "20459438007b75f4f4acb98bf29aa3b800550309646d375da5fd4aac6c2a2c66", // TokenPocket
+  ],
+  allWallets: "HIDE",
 });
