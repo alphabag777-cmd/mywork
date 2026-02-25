@@ -1,3 +1,4 @@
+# force-rebuild: 2026-02-25T21:10:00Z
 [build]
   command = "npm run build"
   publish = "dist"
