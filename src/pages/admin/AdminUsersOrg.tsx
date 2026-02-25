@@ -1,13 +1,14 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Share2, GitGraph, Building2, Bell } from "lucide-react";
+import { Users, Share2, GitGraph, Building2, Bell, ShieldCheck } from "lucide-react";
 import { AdminUsers } from "./AdminUsers";
 import { AdminReferred } from "./AdminReferred";
 import AdminOrganization from "./AdminOrganization";
 import AdminCompanyApplications from "./AdminCompanyApplications";
 import AdminNotify from "./AdminNotify";
+import { AdminKyc } from "./AdminKyc";
 import { useSearchParams, useNavigate } from "react-router-dom";
 
-const VALID_TABS = ["users", "referrals", "organization", "applications", "notify"];
+const VALID_TABS = ["users", "referrals", "organization", "applications", "notify", "kyc"];
 
 const AdminUsersOrg = () => {
   const [searchParams] = useSearchParams();
@@ -42,6 +43,9 @@ const AdminUsersOrg = () => {
           <TabsTrigger value="notify" className="flex items-center gap-1.5">
             <Bell className="w-4 h-4" /> Notify
           </TabsTrigger>
+          <TabsTrigger value="kyc" className="flex items-center gap-1.5">
+            <ShieldCheck className="w-4 h-4" /> KYC
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="users">
           <AdminUsers />
@@ -57,6 +61,9 @@ const AdminUsersOrg = () => {
         </TabsContent>
         <TabsContent value="notify">
           <AdminNotify />
+        </TabsContent>
+        <TabsContent value="kyc">
+          <AdminKyc />
         </TabsContent>
       </Tabs>
     </div>
