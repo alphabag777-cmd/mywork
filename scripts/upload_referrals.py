@@ -27,10 +27,10 @@ import sys
 # firebase-admin은 서비스 계정이 필요하지만, 여기서는
 # python-firebase REST API를 직접 사용합니다.
 
-import requests, json
+import requests, json, os
 
-PROJECT_ID = "numine-dev-e4ec1"
-API_KEY    = "AIzaSyBlh2qMg78wd-xCTX-31N7rrNHukbwkpAg"
+PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "numine-dev-e4ec1")
+API_KEY    = os.environ.get("FIREBASE_API_KEY", "")
 BASE_URL   = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents"
 
 def fs_write(collection: str, doc_id: str, fields: dict) -> dict:

@@ -8,10 +8,10 @@ users 컬렉션의 각 문서에 referrerWallet 필드를 업데이트합니다.
 이 동기화 없이는 모든 노드가 root가 됩니다.
 """
 
-import requests, json, time
+import requests, json, time, os
 
-PROJECT_ID = "numine-dev-e4ec1"
-API_KEY    = "AIzaSyBlh2qMg78wd-xCTX-31N7rrNHukbwkpAg"
+PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "numine-dev-e4ec1")
+API_KEY    = os.environ.get("FIREBASE_API_KEY", "")
 BASE_URL   = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents"
 
 def run_query(collection, field=None, value=None, page_size=1000, page_token=None):
