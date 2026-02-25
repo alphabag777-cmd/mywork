@@ -107,6 +107,10 @@ export const AdminUsers = () => {
   const [userNodeTotals, setUserNodeTotals]   = useState<{ [wallet: string]: { price: number; actual: number; count: number } }>({});
   const [userInvestTotals, setUserInvestTotals] = useState<{ [wallet: string]: number }>({});
   const [totalsLoaded, setTotalsLoaded] = useState(false);
+  // 전체 합계 (모든 유저 통합)
+  const [grandNodeTotal,   setGrandNodeTotal]   = useState(0);
+  const [grandInvestTotal, setGrandInvestTotal] = useState(0);
+  const [grandNodeCount,   setGrandNodeCount]   = useState(0);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -184,6 +188,13 @@ export const AdminUsers = () => {
         });
         setUserNodeTotals(nodeTotals);
         setUserInvestTotals(investTotals);
+        // ── 전체 합계 계산 ──────────────────────────────────────────
+        const gNode   = Object.values(nodeTotals).reduce((s, v) => s + v.actual, 0);
+        const gInvest = Object.values(investTotals).reduce((s, v) => s + v, 0);
+        const gCount  = Object.values(nodeTotals).reduce((s, v) => s + v.count, 0);
+        setGrandNodeTotal(gNode);
+        setGrandInvestTotal(gInvest);
+        setGrandNodeCount(gCount);
         setTotalsLoaded(true);
       } catch (err) {
         console.error("Error loading totals:", err);
@@ -654,6 +665,46 @@ export const AdminUsers = () => {
         </div>
       </CardHeader>
       <CardContent>
+        {/* ── 전체 투자금 합계 요약 ─────────────────────────────────── */}
+        <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 flex flex-col gap-1">
+            <p className="text-xs text-muted-foreground">총 Node투자 (실제)</p>
+            {totalsLoaded ? (
+              <p className="text-xl font-bold text-primary">
+                ${grandNodeTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                <span className="text-xs font-normal text-muted-foreground ml-2">USDT</span>
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground animate-pulse">Loading…</p>
+            )}
+            {totalsLoaded && (
+              <p className="text-xs text-muted-foreground">{grandNodeCount}개 노드</p>
+            )}
+          </div>
+          <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 px-4 py-3 flex flex-col gap-1">
+            <p className="text-xs text-muted-foreground">총 Investment합계</p>
+            {totalsLoaded ? (
+              <p className="text-xl font-bold text-blue-400">
+                ${grandInvestTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                <span className="text-xs font-normal text-muted-foreground ml-2">USDT</span>
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground animate-pulse">Loading…</p>
+            )}
+          </div>
+          <div className="rounded-xl border border-green-500/30 bg-green-500/5 px-4 py-3 flex flex-col gap-1">
+            <p className="text-xs text-muted-foreground">총 투자금 합계 (Node + Investment)</p>
+            {totalsLoaded ? (
+              <p className="text-xl font-bold text-green-400">
+                ${(grandNodeTotal + grandInvestTotal).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                <span className="text-xs font-normal text-muted-foreground ml-2">USDT</span>
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground animate-pulse">Loading…</p>
+            )}
+          </div>
+        </div>
+
         {/* Search Section */}
         <div className="mb-6 space-y-4 p-4 bg-background/50 rounded-lg border border-border/50">
           <div className="flex items-center gap-2 mb-4">
