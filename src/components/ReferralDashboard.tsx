@@ -18,7 +18,7 @@ import {
   Award,
   Star,
 } from "lucide-react";
-import { getUsersByReferrer } from "@/lib/users";
+import { getReferralsByReferrer } from "@/lib/referrals";
 import { getUserInvestments } from "@/lib/userInvestments";
 
 interface RewardTier {
@@ -50,8 +50,9 @@ function getCurrentTier(count: number): { tier: RewardTier | null; next: RewardT
 
 const ReferralDashboard = () => {
   const { address, isConnected } = useAccount();
-  const [referralCount, setReferralCount]     = useState(0);
-  const [totalInvested, setTotalInvested]     = useState(0);  // USDT sum of referred users
+  const [referralCount, setReferralCount]     = useState(0);   // 직접 추천인수
+  const [totalSubCount, setTotalSubCount]     = useState(0);   // 총 하위 추천인수
+  const [totalInvested, setTotalInvested]     = useState(0);   // USDT sum of referred users
   const [loading, setLoading]                 = useState(false);
   const [lastUpdated, setLastUpdated]         = useState<Date | null>(null);
 
@@ -59,12 +60,23 @@ const ReferralDashboard = () => {
     if (!address) return;
     setLoading(true);
     try {
-      const directUsers = await getUsersByReferrer(address.toLowerCase());
-      setReferralCount(directUsers.length);
+      // referrals 컬렉션 기반 조회 (Admin과 동일한 데이터 소스)
+      const directReferrals = await getReferralsByReferrer(address.toLowerCase()).catch(() => []);
+      const directWallets = directReferrals.map(
+        (r: { referredWallet: string }) => r.referredWallet.toLowerCase()
+      );
+      setReferralCount(directWallets.length);
 
-      // Sum investments of referred wallets
+      // 2단계 하위 추천인 수 집계
+      const subResults = await Promise.all(
+        directWallets.map(w => getReferralsByReferrer(w).catch(() => []))
+      );
+      const subTotal = subResults.reduce((sum, arr) => sum + arr.length, 0);
+      setTotalSubCount(directWallets.length + subTotal);
+
+      // Sum investments of directly referred wallets
       const invArrays = await Promise.all(
-        directUsers.map((u) => getUserInvestments(u.walletAddress).catch(() => []))
+        directWallets.map(w => getUserInvestments(w).catch(() => []))
       );
       const total = invArrays.flat().reduce((sum: number, inv: any) => sum + (Number(inv.amount) || 0), 0);
       setTotalInvested(total);
@@ -116,24 +128,37 @@ const ReferralDashboard = () => {
       </CardHeader>
 
       <CardContent className="space-y-5">
-        {/* KPI row */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* KPI row - 직접/하위 추천인수 + 투자액 */}
+        <div className="grid grid-cols-3 gap-3">
+          {/* 직접 추천인수 */}
           <div className="rounded-xl p-4 bg-primary/5 border border-primary/10">
-            <div className="flex items-center gap-2 mb-1">
-              <Users className="w-4 h-4 text-primary" />
-              <span className="text-xs text-muted-foreground">초대한 친구</span>
+            <div className="flex items-center gap-1 mb-1">
+              <Users className="w-3.5 h-3.5 text-primary" />
+              <span className="text-xs text-muted-foreground">직접 추천인수</span>
             </div>
-            <div className="text-3xl font-bold text-foreground">
+            <div className="text-2xl font-bold text-foreground">
               {loading ? "—" : referralCount}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">명</p>
           </div>
-          <div className="rounded-xl p-4 bg-green-500/5 border border-green-500/10">
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="w-4 h-4 text-green-500" />
-              <span className="text-xs text-muted-foreground">팀 총 투자액</span>
+          {/* 총 하위 추천인수 */}
+          <div className="rounded-xl p-4 bg-blue-500/5 border border-blue-500/10">
+            <div className="flex items-center gap-1 mb-1">
+              <Users className="w-3.5 h-3.5 text-blue-500" />
+              <span className="text-xs text-muted-foreground">총 하위 추천인</span>
             </div>
-            <div className="text-3xl font-bold text-foreground">
+            <div className="text-2xl font-bold text-foreground">
+              {loading ? "—" : totalSubCount}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">명 (전체)</p>
+          </div>
+          {/* 팀 총 투자액 */}
+          <div className="rounded-xl p-4 bg-green-500/5 border border-green-500/10">
+            <div className="flex items-center gap-1 mb-1">
+              <TrendingUp className="w-3.5 h-3.5 text-green-500" />
+              <span className="text-xs text-muted-foreground">팀 투자액</span>
+            </div>
+            <div className="text-xl font-bold text-foreground">
               {loading ? "—" : `$${totalInvested.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">USDT</p>
