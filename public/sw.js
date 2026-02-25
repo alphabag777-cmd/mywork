@@ -5,7 +5,7 @@
  * - Stale-while-revalidate for page navigations
  */
 
-const CACHE_NAME = "alphabag-v1";
+const CACHE_NAME = "alphabag-v3";
 
 // Assets to pre-cache on install
 const PRECACHE_URLS = [
@@ -55,7 +55,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static assets (JS/CSS/images) → stale-while-revalidate
+  // Static assets (JS/CSS/images) → network-first, fallback to cache
   if (
     url.pathname.startsWith("/assets/") ||
     url.pathname.endsWith(".png") ||
@@ -63,13 +63,12 @@ self.addEventListener("fetch", (event) => {
     url.pathname.endsWith(".ico")
   ) {
     event.respondWith(
-      caches.match(request).then((cached) => {
-        const network = fetch(request).then((res) => {
+      fetch(request)
+        .then((res) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, res.clone()));
           return res;
-        });
-        return cached || network;
-      })
+        })
+        .catch(() => caches.match(request))
     );
   }
 });
