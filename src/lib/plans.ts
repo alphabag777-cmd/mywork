@@ -321,46 +321,43 @@ function generatePlanReferralCode(planLabel: string): string {
  * Save a plan (create or update) to Firestore
  */
 export async function savePlan(
-  plan: Omit<InvestmentPlan, "id" | "createdAt" | "updatedAt"> & { id?: string }
+  plan: Omit<InvestmentPlan, "id" | "createdAt" | "updatedAt"> & { id?: string; createdAt?: number }
 ): Promise<InvestmentPlan> {
   try {
     const now = Date.now();
     const planId = plan.id || `plan_${now}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Get existing plan to preserve createdAt if updating
-    let existingPlan: InvestmentPlan | null = null;
-    if (plan.id) {
-      existingPlan = await getPlanById(plan.id);
-    }
-    
+    const isUpdate = !!plan.id;
+
     // Generate referral code only for new plans (not when updating)
-    let referralCode = plan.referralCode || existingPlan?.referralCode;
-    if (!referralCode && !plan.id) {
+    let referralCode = plan.referralCode;
+    if (!referralCode && !isUpdate) {
       // New plan - generate referral code
       referralCode = generatePlanReferralCode(plan.label);
     }
-    
+
+    // Use merge: true for updates so we don't accidentally overwrite unrelated fields
     const planData = toFirestore({
       ...plan,
       referralCode,
-      createdAt: existingPlan?.createdAt || now,
+      createdAt: plan.createdAt || now,
     });
     
     const planRef = doc(db, PLANS_COLLECTION, planId);
-    await setDoc(planRef, planData);
+    await setDoc(planRef, planData, { merge: isUpdate });
     
     // Also save to localStorage as backup
     savePlanToLocalStorage({
       ...plan,
       id: planId,
       referralCode,
+      createdAt: plan.createdAt || now,
     });
     
     return {
       ...plan,
       id: planId,
       referralCode,
-      createdAt: existingPlan?.createdAt || now,
+      createdAt: plan.createdAt || now,
       updatedAt: now,
     } as InvestmentPlan;
   } catch (error) {
@@ -465,7 +462,7 @@ function getPlansFromLocalStorage(): InvestmentPlan[] {
 }
 
 function savePlanToLocalStorage(
-  plan: Omit<InvestmentPlan, "id" | "createdAt" | "updatedAt"> & { id?: string }
+  plan: Omit<InvestmentPlan, "id" | "createdAt" | "updatedAt"> & { id?: string; createdAt?: number }
 ): InvestmentPlan {
   if (typeof window === "undefined") {
     throw new Error("Cannot save plan: window is undefined");
@@ -489,7 +486,7 @@ function savePlanToLocalStorage(
             status: plan.status || p.status || "Daily profit",
             sortOrder,
             updatedAt: now,
-            createdAt: p.createdAt,
+            createdAt: plan.createdAt || p.createdAt,
           }
         : p
     );
