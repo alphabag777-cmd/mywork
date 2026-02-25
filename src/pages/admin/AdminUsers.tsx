@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Users, Loader2, ChevronLeft, ChevronRight, Eye, Edit, Plus, Trash2, Save, X, Search, XCircle, Download } from "lucide-react";
 import { getUsersPaginated, getUsersCount, User, updateUserReferrer, searchUsers, getAllUsers } from "@/lib/users";
 import { getAllReferralCounts, getReferralsByReferrer, getReferralByReferred, Referral } from "@/lib/referrals";
-import { getUserNodePurchases, saveNodePurchase, deleteNodePurchase, updateNodePurchase, NodePurchase } from "@/lib/nodePurchases";
+import { getUserNodePurchases, saveNodePurchase, deleteNodePurchase, updateNodePurchase, NodePurchase, getAllNodePurchases } from "@/lib/nodePurchases";
 import { getUserInvestments, saveUserInvestment, updateUserInvestment, deleteUserInvestment, UserInvestment, getAllUserInvestments } from "@/lib/userInvestments";
 import { getAllNodes, NodeType } from "@/lib/nodes";
 import { getAllPlans, InvestmentPlan } from "@/lib/plans";
@@ -69,6 +69,25 @@ async function exportInvestmentsCSV() {
   downloadCSV(rows, `investments_${format(new Date(), "yyyyMMdd")}.csv`);
 }
 
+async function exportNodePurchasesCSV() {
+  const purchases = await getAllNodePurchases();
+  const rows = [
+    ["Wallet", "Node Name", "NodeId", "정가(USDT)", "실제투자금(USDT)", "Status", "Purchase Date", "Tx Hash", "Memo"],
+    ...purchases.map((p) => [
+      p.userId,
+      p.nodeName,
+      String(p.nodeId),
+      (p.nodePrice || 0).toFixed(2),
+      (p.actualAmount !== undefined ? p.actualAmount : p.nodePrice || 0).toFixed(2),
+      p.status,
+      format(new Date(p.purchaseDate), "yyyy-MM-dd HH:mm"),
+      p.transactionHash || "",
+      p.memo || "",
+    ]),
+  ];
+  downloadCSV(rows, `node_purchases_${format(new Date(), "yyyyMMdd")}.csv`);
+}
+
 const PAGE_SIZE = 20;
 
 interface UserDetailData {
@@ -84,6 +103,10 @@ export const AdminUsers = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [referralCounts, setReferralCounts] = useState<{ [key: string]: number }>({});
+  // 유저별 투자합계 (wallet.toLowerCase() -> 값)
+  const [userNodeTotals, setUserNodeTotals]   = useState<{ [wallet: string]: { price: number; actual: number; count: number } }>({});
+  const [userInvestTotals, setUserInvestTotals] = useState<{ [wallet: string]: number }>({});
+  const [totalsLoaded, setTotalsLoaded] = useState(false);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -134,6 +157,39 @@ export const AdminUsers = () => {
       }
     };
     loadReferralCounts();
+  }, []);
+
+  // 전체 Node/Investment 합계 한 번에 로드 (유저 목록 테이블용)
+  useEffect(() => {
+    const loadTotals = async () => {
+      try {
+        const [allNodes, allInvests] = await Promise.all([
+          getAllNodePurchases(),
+          getAllUserInvestments(),
+        ]);
+        // Node totals per user
+        const nodeTotals: { [w: string]: { price: number; actual: number; count: number } } = {};
+        allNodes.forEach((p) => {
+          const w = p.userId.toLowerCase();
+          if (!nodeTotals[w]) nodeTotals[w] = { price: 0, actual: 0, count: 0 };
+          nodeTotals[w].price  += p.nodePrice || 0;
+          nodeTotals[w].actual += p.actualAmount !== undefined ? p.actualAmount : (p.nodePrice || 0);
+          nodeTotals[w].count  += 1;
+        });
+        // Investment totals per user
+        const investTotals: { [w: string]: number } = {};
+        allInvests.forEach((inv) => {
+          const w = inv.userId.toLowerCase();
+          investTotals[w] = (investTotals[w] || 0) + (inv.amount || 0);
+        });
+        setUserNodeTotals(nodeTotals);
+        setUserInvestTotals(investTotals);
+        setTotalsLoaded(true);
+      } catch (err) {
+        console.error("Error loading totals:", err);
+      }
+    };
+    loadTotals();
   }, []);
 
   // Load nodes and plans
@@ -590,6 +646,10 @@ export const AdminUsers = () => {
               <Download className="w-3.5 h-3.5" />
               Investments CSV
             </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={exportNodePurchasesCSV}>
+              <Download className="w-3.5 h-3.5" />
+              Nodes CSV
+            </Button>
           </div>
         </div>
       </CardHeader>
@@ -692,6 +752,8 @@ export const AdminUsers = () => {
                   <TableHead>Referrer</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Referred</TableHead>
+                  <TableHead className="text-right">Node투자 (실제)</TableHead>
+                  <TableHead className="text-right">Investment합계</TableHead>
                   <TableHead>Joined</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -719,6 +781,25 @@ export const AdminUsers = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       {referralCounts[user.walletAddress.toLowerCase()] || 0}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs">
+                      {(() => {
+                        const t = userNodeTotals[user.walletAddress.toLowerCase()];
+                        if (!t || t.count === 0) return <span className="text-muted-foreground">-</span>;
+                        return (
+                          <span className="text-primary font-semibold">
+                            ${t.actual.toLocaleString(undefined,{maximumFractionDigits:0})}
+                            <span className="text-muted-foreground font-normal ml-1">({t.count})</span>
+                          </span>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs">
+                      {(() => {
+                        const amt = userInvestTotals[user.walletAddress.toLowerCase()] || 0;
+                        if (amt === 0) return <span className="text-muted-foreground">-</span>;
+                        return <span className="font-semibold">${amt.toLocaleString(undefined,{maximumFractionDigits:0})}</span>;
+                      })()}
                     </TableCell>
                     <TableCell>{formatDate(user.createdAt)}</TableCell>
                     <TableCell className="text-right">
@@ -829,9 +910,15 @@ export const AdminUsers = () => {
                         </p>
                       </div>
                       <div>
-                        <Label className="text-xs text-muted-foreground">Total Node Value</Label>
+                        <Label className="text-xs text-muted-foreground">Total Node Value (정가)</Label>
                         <p className="text-sm font-semibold">
                           ${calculateTotalNodeValue(userDetailData.nodePurchases).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Total Node Actual (실제투자금)</Label>
+                        <p className="text-sm font-semibold text-primary">
+                          ${userDetailData.nodePurchases.reduce((s, p) => s + (p.actualAmount !== undefined ? p.actualAmount : p.nodePrice || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                       </div>
                       <div>
@@ -861,10 +948,12 @@ export const AdminUsers = () => {
                         nodeId: 0,
                         nodeName: "",
                         nodePrice: 0,
+                        actualAmount: undefined,
                         nodeColor: "gold",
                         transactionHash: "",
                         purchaseDate: Date.now(),
                         status: "completed",
+                        memo: "",
                         createdAt: Date.now(),
                         updatedAt: Date.now(),
                       });
@@ -1009,7 +1098,7 @@ export const AdminUsers = () => {
                           </p>
                         </div>
                         <div>
-                          <Label>Price (USDT)</Label>
+                          <Label>Node Price (USDT) — 정가</Label>
                           <Input
                             type="number"
                             value={editingNodePurchase?.nodePrice || ""}
@@ -1021,7 +1110,27 @@ export const AdminUsers = () => {
                                 });
                               }
                             }}
+                            placeholder="0"
                           />
+                          <p className="text-xs text-muted-foreground mt-1">노드 등록 정가 (관리용)</p>
+                        </div>
+                        <div>
+                          <Label>Actual Investment (USDT) — 실제투자금</Label>
+                          <Input
+                            type="number"
+                            value={editingNodePurchase?.actualAmount ?? ""}
+                            onChange={(e) => {
+                              if (editingNodePurchase) {
+                                const val = e.target.value;
+                                setEditingNodePurchase({
+                                  ...editingNodePurchase,
+                                  actualAmount: val === "" ? undefined : parseFloat(val) || 0,
+                                });
+                              }
+                            }}
+                            placeholder="실제 송금액 (USDT)"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">실제 송금한 USDT 금액 (비워두면 정가와 동일하게 합산됨)</p>
                         </div>
                         <div>
                           <Label>Transaction Hash</Label>
@@ -1060,6 +1169,21 @@ export const AdminUsers = () => {
                             </SelectContent>
                           </Select>
                         </div>
+                        <div className="col-span-2">
+                          <Label>Memo (메모)</Label>
+                          <Input
+                            value={editingNodePurchase?.memo || ""}
+                            onChange={(e) => {
+                              if (editingNodePurchase) {
+                                setEditingNodePurchase({
+                                  ...editingNodePurchase,
+                                  memo: e.target.value,
+                                });
+                              }
+                            }}
+                            placeholder="관리자 메모 (선택사항)"
+                          />
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         <Button
@@ -1088,13 +1212,36 @@ export const AdminUsers = () => {
                     <p className="text-sm text-muted-foreground text-center py-4">No node purchases found</p>
                   ) : (
                     <Table>
+                      {/* 노드 투자 총합 요약 */}
+                      {userDetailData.nodePurchases.length > 0 && (
+                        <div className="flex flex-wrap gap-4 p-3 rounded-lg bg-muted/40 border border-border/50 mb-3 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">노드 정가 합계: </span>
+                            <span className="font-bold text-foreground">
+                              ${userDetailData.nodePurchases.reduce((s, p) => s + (p.nodePrice || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">실제 투자 합계: </span>
+                            <span className="font-bold text-primary">
+                              ${userDetailData.nodePurchases.reduce((s, p) => s + (p.actualAmount !== undefined ? p.actualAmount : p.nodePrice || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">노드 수: </span>
+                            <span className="font-bold text-foreground">{userDetailData.nodePurchases.length}개</span>
+                          </div>
+                        </div>
+                      )}
                       <TableHeader>
                         <TableRow>
                           <TableHead>Node Type</TableHead>
-                          <TableHead>Price</TableHead>
+                          <TableHead>정가 (USDT)</TableHead>
+                          <TableHead>실제투자금 (USDT)</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Purchase Date</TableHead>
                           <TableHead>Transaction Hash</TableHead>
+                          <TableHead>Memo</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1102,7 +1249,13 @@ export const AdminUsers = () => {
                         {userDetailData.nodePurchases.map((purchase) => (
                           <TableRow key={purchase.id}>
                             <TableCell>{purchase.nodeName}</TableCell>
-                            <TableCell>${purchase.nodePrice.toLocaleString()}</TableCell>
+                            <TableCell className="font-mono">${purchase.nodePrice.toLocaleString()}</TableCell>
+                            <TableCell className="font-mono font-semibold text-primary">
+                              ${(purchase.actualAmount !== undefined ? purchase.actualAmount : purchase.nodePrice).toLocaleString()}
+                              {purchase.actualAmount !== undefined && purchase.actualAmount !== purchase.nodePrice && (
+                                <span className="ml-1 text-[10px] text-muted-foreground">(actual)</span>
+                              )}
+                            </TableCell>
                             <TableCell>
                               <span className={`px-2 py-1 rounded text-xs ${
                                 purchase.status === "completed" ? "bg-green-500/20 text-green-400" :
@@ -1115,6 +1268,9 @@ export const AdminUsers = () => {
                             <TableCell>{formatDate(purchase.purchaseDate)}</TableCell>
                             <TableCell className="font-mono text-xs">
                               {purchase.transactionHash ? formatAddress(purchase.transactionHash, 8) : "-"}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">
+                              {purchase.memo || "-"}
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">

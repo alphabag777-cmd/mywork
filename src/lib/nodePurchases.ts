@@ -23,11 +23,13 @@ export interface NodePurchase {
   userId: string; // Wallet address
   nodeId: number; // NodeId enum value
   nodeName: string;
-  nodePrice: number;
+  nodePrice: number;       // 노드 정가 (Node listed price)
+  actualAmount?: number;   // 실제 투자금액 (Actual invested USDT amount)
   nodeColor: string;
   transactionHash: string;
   purchaseDate: number;
   status: "completed" | "pending" | "failed";
+  memo?: string;           // 관리자 메모
   createdAt: number;
   updatedAt: number;
 }
@@ -57,10 +59,12 @@ function fromFirestore(docData: any, id: string): NodePurchase {
     nodeId: docData.nodeId || 0,
     nodeName: docData.nodeName || "",
     nodePrice: docData.nodePrice || 0,
+    actualAmount: docData.actualAmount !== undefined ? docData.actualAmount : undefined,
     nodeColor: docData.nodeColor || "gold",
     transactionHash: docData.transactionHash || "",
     purchaseDate: timestampToNumber(docData.purchaseDate),
     status: docData.status || "completed",
+    memo: docData.memo || "",
     createdAt: timestampToNumber(docData.createdAt),
     updatedAt: timestampToNumber(docData.updatedAt),
   };
@@ -71,7 +75,7 @@ function fromFirestore(docData: any, id: string): NodePurchase {
  */
 function toFirestore(purchase: Partial<NodePurchase>): any {
   const now = Timestamp.now();
-  return {
+  const data: any = {
     userId: purchase.userId || "",
     nodeId: purchase.nodeId || 0,
     nodeName: purchase.nodeName || "",
@@ -80,9 +84,15 @@ function toFirestore(purchase: Partial<NodePurchase>): any {
     transactionHash: purchase.transactionHash || "",
     purchaseDate: purchase.purchaseDate ? Timestamp.fromMillis(purchase.purchaseDate) : now,
     status: purchase.status || "completed",
+    memo: purchase.memo || "",
     createdAt: purchase.createdAt ? Timestamp.fromMillis(purchase.createdAt) : now,
     updatedAt: now,
   };
+  // actualAmount: undefined이면 필드 제외, 0 포함 숫자면 저장
+  if (purchase.actualAmount !== undefined) {
+    data.actualAmount = purchase.actualAmount;
+  }
+  return data;
 }
 
 /**
