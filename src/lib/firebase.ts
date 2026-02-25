@@ -6,6 +6,7 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getFirestore, Firestore, doc, getDoc } from "firebase/firestore";
 import { getStorage, FirebaseStorage } from "firebase/storage";
+import { getAuth, Auth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY            || "",
@@ -30,6 +31,9 @@ export const db: Firestore = getFirestore(app);
 
 // Initialize Firebase Storage
 export const storage: FirebaseStorage = getStorage(app);
+
+// Initialize Firebase Auth
+export const auth: Auth = getAuth(app);
 
 /**
  * Firestore 연결 warm-up
