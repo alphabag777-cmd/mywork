@@ -126,6 +126,7 @@ export default function SignUp() {
                   value={displayName}
                   onChange={e => setDisplayName(e.target.value)}
                   className="h-11 bg-muted/30 border-border/60"
+                  autoComplete="name"
                   required
                 />
               </div>
@@ -140,6 +141,7 @@ export default function SignUp() {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   className="h-11 bg-muted/30 border-border/60"
+                  autoComplete="email"
                   required
                 />
               </div>
@@ -155,6 +157,7 @@ export default function SignUp() {
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     className="h-11 bg-muted/30 border-border/60 pr-10"
+                    autoComplete="new-password"
                     required
                   />
                   <button type="button" onClick={() => setShowPw(!showPw)}
@@ -177,6 +180,7 @@ export default function SignUp() {
                     className={`h-11 bg-muted/30 border-border/60 pr-10 ${
                       passwordConfirm && password !== passwordConfirm ? "border-red-500" : ""
                     }`}
+                    autoComplete="new-password"
                     required
                   />
                   <button type="button" onClick={() => setShowPwConfirm(!showPwConfirm)}
