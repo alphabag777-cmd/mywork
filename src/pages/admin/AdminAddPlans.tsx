@@ -775,6 +775,8 @@ export const AdminAddPlans = () => {
     }
     const planData = {
       id: editingPlan?.id,
+      sortOrder: editingPlan?.sortOrder,
+      createdAt: editingPlan?.createdAt,
       name: formData.name, label: formData.label, dailyProfit: formData.dailyProfit,
       status: formData.status, focus: formData.focus, logo: formData.logo,
       dappUrl: formData.dappUrl, description: formData.description,
@@ -824,8 +826,8 @@ export const AdminAddPlans = () => {
     try {
       await savePlan(planData);
       toast.success(editingPlan ? "Plan updated!" : "Plan created!");
-      await loadPlans();
       handleCloseDialog();
+      await loadPlans();
     } catch (err) {
       toast.error("Failed to save plan");
       console.error(err);
