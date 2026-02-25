@@ -35,7 +35,8 @@ import {
 import { generateReferralLink, getReferrerWallet, getOrCreateReferralCode } from "@/lib/referral";
 import { getUserInvestments } from "@/lib/userInvestments";
 import { getActiveUserStakes } from "@/lib/userStakes";
-import { getUsersByReferrer } from "@/lib/users";
+import { getUserByWallet } from "@/lib/users";
+import { getReferralsByReferrer } from "@/lib/referrals";
 import { getReferralActivitiesByReferrer, ReferralActivity } from "@/lib/referralActivities";
 import { updateNodeReferralCode } from "@/lib/userReferralCodes";
 import { useProfileData } from "@/hooks/useProfileData";
@@ -292,11 +293,12 @@ const ProfilePage = ({
     setIsLoadingTeam(true);
     try {
       const norm = address.toLowerCase();
-      // 자신의 투자 + 직접 추천인 목록 + 추천 활동 동시 조회
-      const [myInvestments, directUsers, activities] = await Promise.all([
+
+      // referrals 컬렉션 기준으로 추천인 목록 조회 (Admin과 동일한 소스)
+      const [myInvestments, referralDocs, activities] = await Promise.all([
         getUserInvestments(norm).catch(() => [] as any[]),
-        getUsersByReferrer(norm),
-        getReferralActivitiesByReferrer(norm),
+        getReferralsByReferrer(norm).catch(() => [] as any[]),
+        getReferralActivitiesByReferrer(norm).catch(() => [] as any[]),
       ]);
 
       // 내 개인 성과 (Personal Performance)
@@ -304,14 +306,24 @@ const ProfilePage = ({
         (s: number, inv: { amount?: number }) => s + (inv.amount || 0), 0
       );
 
-      const users = directUsers.map(u => ({ wallet: u.walletAddress, joinedAt: u.createdAt }));
+      // referredWallet 목록 추출
+      const referredWallets: string[] = referralDocs.map(
+        (r: { referredWallet: string }) => r.referredWallet.toLowerCase()
+      );
+
+      // 각 추천인의 User 정보 및 투자 데이터 병렬 조회
+      const [userResults, invResults] = await Promise.all([
+        Promise.all(referredWallets.map(w => getUserByWallet(w).catch(() => null))),
+        Promise.all(referredWallets.map(w => getUserInvestments(w).catch(() => [] as any[]))),
+      ]);
+
+      const users = referredWallets.map((wallet, idx) => ({
+        wallet,
+        joinedAt: userResults[idx]?.createdAt ?? 0,
+      }));
+
       setReferredUsers(users);
       setReferralActivities(activities);
-
-      // 각 직접 추천인의 투자 데이터 조회
-      const invResults = await Promise.all(
-        users.map(u => getUserInvestments(u.wallet).catch(() => [] as any[]))
-      );
 
       let totalTeamPerf = myPersonalPerf; // 내 투자 포함
       const built: DirectReferral[] = users.map((user, idx) => {
