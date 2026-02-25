@@ -35,12 +35,13 @@
     <div id="root" translate="no"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
+      // 기존 Service Worker 완전 제거 (캐시 문제 해결)
       if ("serviceWorker" in navigator) {
-        window.addEventListener("load", function () {
-          navigator.serviceWorker
-            .register("/sw.js")
-            .then(function (reg) { console.log("[SW] Registered:", reg.scope); })
-            .catch(function (err) { console.warn("[SW] Registration failed:", err); });
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (var reg of registrations) { reg.unregister(); }
+        });
+        caches.keys().then(function(keys) {
+          keys.forEach(function(key) { caches.delete(key); });
         });
       }
     </script>
