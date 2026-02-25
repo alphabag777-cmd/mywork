@@ -293,27 +293,53 @@ const ProfilePage = ({
     setIsLoadingTeam(true);
     try {
       const norm = address.toLowerCase();
-      const [directUsers, activities] = await Promise.all([
+      // 자신의 투자 + 직접 추천인 목록 + 추천 활동 동시 조회
+      const [myInvestments, directUsers, activities] = await Promise.all([
+        getUserInvestments(norm).catch(() => [] as any[]),
         getUsersByReferrer(norm),
         getReferralActivitiesByReferrer(norm),
       ]);
+
+      // 내 개인 성과 (Personal Performance)
+      const myPersonalPerf = myInvestments.reduce(
+        (s: number, inv: { amount?: number }) => s + (inv.amount || 0), 0
+      );
+
       const users = directUsers.map(u => ({ wallet: u.walletAddress, joinedAt: u.createdAt }));
       setReferredUsers(users);
       setReferralActivities(activities);
-      const invResults = await Promise.all(users.map(u => getUserInvestments(u.wallet).catch(() => [])));
-      let totalPerf = 0;
+
+      // 각 직접 추천인의 투자 데이터 조회
+      const invResults = await Promise.all(
+        users.map(u => getUserInvestments(u.wallet).catch(() => [] as any[]))
+      );
+
+      let totalTeamPerf = myPersonalPerf; // 내 투자 포함
       const built: DirectReferral[] = users.map((user, idx) => {
-        const perf = invResults[idx].reduce((s: number, inv: { amount?: number }) => s + (inv.amount || 0), 0);
-        totalPerf += perf;
+        const perf = invResults[idx].reduce(
+          (s: number, inv: { amount?: number }) => s + (inv.amount || 0), 0
+        );
+        totalTeamPerf += perf;
         return {
-          address: user.wallet, level: "Direct",
+          address: user.wallet,
+          level: "Direct",
           directPush: { current: 0, required: 1 },
-          personalPerformance: perf, communityPerformance: 0,
-          thirtySky: 0, totalTeamPerformance: perf, totalTeamMembers: 1,
+          personalPerformance: perf,
+          communityPerformance: 0,
+          thirtySky: 0,
+          totalTeamPerformance: perf,
+          totalTeamMembers: 1,
         };
       });
+
       setDirectReferrals(built);
-      setTeamPerformance(p => ({ ...p, teamNode: users.length, totalTeamMembers: users.length, totalTeamPerformance: totalPerf }));
+      setTeamPerformance(p => ({
+        ...p,
+        teamNode: users.length,
+        totalTeamMembers: users.length,
+        personalPerformance: myPersonalPerf,
+        totalTeamPerformance: totalTeamPerf,
+      }));
     } catch (e) {
       console.error("loadTeamData error:", e);
     } finally {
