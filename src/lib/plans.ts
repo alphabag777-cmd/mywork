@@ -7,6 +7,7 @@ import {
   collection,
   doc,
   getDocs,
+  getDocsFromServer,
   getDoc,
   setDoc,
   deleteDoc,
@@ -239,8 +240,8 @@ function toFirestore(plan: Partial<InvestmentPlan>): any {
 export async function getAllPlans(): Promise<InvestmentPlan[]> {
   try {
     const plansRef = collection(db, PLANS_COLLECTION);
-    // Fetch all plans and sort in memory (avoids needing Firestore index)
-    const querySnapshot = await getDocs(plansRef);
+    // 캐시 무시하고 서버에서 직접 최신 데이터 가져오기
+    const querySnapshot = await getDocsFromServer(plansRef);
     
     const plans: InvestmentPlan[] = [];
     querySnapshot.forEach((doc) => {
