@@ -242,17 +242,19 @@ export async function getAllPlans(): Promise<InvestmentPlan[]> {
     const plansRef = collection(db, PLANS_COLLECTION);
     // 캐시 무시하고 서버에서 직접 최신 데이터 가져오기
     const querySnapshot = await getDocsFromServer(plansRef);
-    
+
     const plans: InvestmentPlan[] = [];
     querySnapshot.forEach((doc) => {
       try {
-        plans.push(fromFirestore(doc.data(), doc.id));
+        const p = fromFirestore(doc.data(), doc.id);
+        console.log("[getAllPlans] plan:", p.id, "dailyProfit:", p.dailyProfit);
+        plans.push(p);
       } catch (docError) {
         console.error(`Error parsing plan ${doc.id}:`, docError);
       }
     });
-    
-    console.log(`Loaded ${plans.length} plans from Firestore`);
+
+    console.log(`[getAllPlans] Loaded ${plans.length} plans from Firestore`);
     
     // Sort by sortOrder, then by createdAt if sortOrder is the same
     // Plans without sortOrder get 999999 (appear last)
@@ -329,31 +331,34 @@ export async function savePlan(
     const planId = plan.id || `plan_${now}_${Math.random().toString(36).substr(2, 9)}`;
     const isUpdate = !!plan.id;
 
+    console.log("[savePlan] START - id:", planId, "isUpdate:", isUpdate, "dailyProfit:", plan.dailyProfit);
+
     // Generate referral code only for new plans (not when updating)
     let referralCode = plan.referralCode;
     if (!referralCode && !isUpdate) {
-      // New plan - generate referral code
       referralCode = generatePlanReferralCode(plan.label);
     }
 
-    // Use merge: true for updates so we don't accidentally overwrite unrelated fields
     const planData = toFirestore({
       ...plan,
       referralCode,
       createdAt: plan.createdAt || now,
     });
-    
+
+    console.log("[savePlan] Saving to Firestore - dailyProfit in planData:", planData.dailyProfit);
+
     const planRef = doc(db, PLANS_COLLECTION, planId);
     await setDoc(planRef, planData, { merge: isUpdate });
-    
-    // Also save to localStorage as backup
+
+    console.log("[savePlan] SUCCESS - saved to Firestore");
+
     savePlanToLocalStorage({
       ...plan,
       id: planId,
       referralCode,
       createdAt: plan.createdAt || now,
     });
-    
+
     return {
       ...plan,
       id: planId,
@@ -362,8 +367,7 @@ export async function savePlan(
       updatedAt: now,
     } as InvestmentPlan;
   } catch (error) {
-    console.error("Error saving plan to Firestore:", error);
-    // Fallback to localStorage
+    console.error("[savePlan] ERROR saving to Firestore:", error);
     return savePlanToLocalStorage(plan);
   }
 }
