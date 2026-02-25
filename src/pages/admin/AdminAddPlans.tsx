@@ -787,10 +787,10 @@ export const AdminAddPlans = () => {
       materials,
       pdfFiles,
       langContent: {
-        en: Object.keys(langContent.en).length ? langContent.en : undefined,
-        zh: Object.keys(langContent.zh).length ? langContent.zh : undefined,
-        ko: Object.keys(langContent.ko).length ? langContent.ko : undefined,
-        ja: Object.keys(langContent.ja).length ? langContent.ja : undefined,
+        en: Object.keys(langContent.en).length ? langContent.en : null,
+        zh: Object.keys(langContent.zh).length ? langContent.zh : null,
+        ko: Object.keys(langContent.ko).length ? langContent.ko : null,
+        ja: Object.keys(langContent.ja).length ? langContent.ja : null,
       },
       recommendedAmount: formData.recommendedAmount,
       // 세부 정보

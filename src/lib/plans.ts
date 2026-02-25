@@ -198,7 +198,7 @@ function toFirestore(plan: Partial<InvestmentPlan>): any {
     referralCode: plan.referralCode || "",
     detailImages: plan.detailImages || [],
     highlights: plan.highlights || [],
-    riskLevel: plan.riskLevel || undefined,
+    riskLevel: plan.riskLevel || null,
     network: plan.network || "",
     tokenSymbol: plan.tokenSymbol || "",
     lockupPeriod: plan.lockupPeriod || "",
