@@ -217,20 +217,7 @@ const Header = () => {
             Airdrop
           </Button>
 
-          {/* 이메일/구글 로그인 버튼 (지갑 미연결 시) */}
-          {!isConnected && !firebaseUser && (
-            <>
-              <Button
-                variant="outline"
-                size="default"
-                className="gap-2"
-                onClick={() => navigate("/login")}
-              >
-                <LogIn className="w-4 h-4" />
-                로그인
-              </Button>
-            </>
-          )}
+
 
           {/* 이메일/구글 로그인된 경우 사용자 이름 + 로그아웃 */}
           {!isConnected && firebaseUser && (
@@ -407,19 +394,7 @@ const Header = () => {
                   Airdrop
                 </Button>
 
-                {/* 이메일/구글 로그인 버튼 (지갑 미연결 & 로그인 안 된 경우) */}
-                {!isConnected && !firebaseUser && (
-                  <>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start gap-2"
-                      onClick={() => { navigate("/login"); setMobileMenuOpen(false); }}
-                    >
-                      <LogIn className="w-4 h-4" />
-                      로그인
-                    </Button>
-                  </>
-                )}
+
 
                 {/* 이메일/구글 로그인된 경우 사용자 이름 + 로그아웃 */}
                 {!isConnected && firebaseUser && (
