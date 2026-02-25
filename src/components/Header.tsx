@@ -229,15 +229,6 @@ const Header = () => {
                 <LogIn className="w-4 h-4" />
                 로그인
               </Button>
-              <Button
-                variant="outline"
-                size="default"
-                className="gap-2"
-                onClick={() => navigate("/signup")}
-              >
-                <UserPlus className="w-4 h-4" />
-                회원가입
-              </Button>
             </>
           )}
 
@@ -426,14 +417,6 @@ const Header = () => {
                     >
                       <LogIn className="w-4 h-4" />
                       로그인
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start gap-2"
-                      onClick={() => { navigate("/signup"); setMobileMenuOpen(false); }}
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      회원가입
                     </Button>
                   </>
                 )}
