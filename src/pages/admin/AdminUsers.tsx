@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Users, Loader2, ChevronLeft, ChevronRight, Eye, Edit, Plus, Trash2, Save, X, Search, XCircle, Download } from "lucide-react";
-import { getUsersPaginated, getUsersCount, User, updateUserReferrer, searchUsers, getAllUsers } from "@/lib/users";
+import { getUsersPaginated, getUsersCount, User, updateUserReferrer, searchUsers, getAllUsers, deleteUser, getUsersWithInvalidReferrer } from "@/lib/users";
 import { getAllReferralCounts, getReferralsByReferrer, getReferralByReferred, Referral } from "@/lib/referrals";
 import { getUserNodePurchases, saveNodePurchase, deleteNodePurchase, updateNodePurchase, NodePurchase, getAllNodePurchases } from "@/lib/nodePurchases";
 import { getUserInvestments, saveUserInvestment, updateUserInvestment, deleteUserInvestment, UserInvestment, getAllUserInvestments } from "@/lib/userInvestments";
@@ -149,6 +149,12 @@ export const AdminUsers = () => {
   const [confirmingSBAG, setConfirmingSBAG] = useState(false);
   const [purchasedNUMI, setPurchasedNUMI] = useState<string>("");
   const [purchasePriceUSDT, setPurchasePriceUSDT] = useState<string>("");
+
+  // 잘못된 추천코드 유저 관리 state
+  const [invalidReferrerUsers, setInvalidReferrerUsers]     = useState<User[]>([]);
+  const [loadingInvalidUsers, setLoadingInvalidUsers]       = useState(false);
+  const [deletingWallets, setDeletingWallets]               = useState<Set<string>>(new Set());
+  const [showInvalidSection, setShowInvalidSection]         = useState(false);
 
   // Load referral counts once on mount
   useEffect(() => {
@@ -550,6 +556,39 @@ export const AdminUsers = () => {
     }
   };
 
+  // ── 잘못된 추천코드 유저 관리 ────────────────────────────────────────────
+  const handleLoadInvalidUsers = async () => {
+    setLoadingInvalidUsers(true);
+    try {
+      const invalid = await getUsersWithInvalidReferrer();
+      setInvalidReferrerUsers(invalid);
+      setShowInvalidSection(true);
+      if (invalid.length === 0) toast.success("잘못된 추천코드 유저 없음 ✅");
+    } catch (e) {
+      toast.error("조회 실패");
+    } finally {
+      setLoadingInvalidUsers(false);
+    }
+  };
+
+  const handleDeleteInvalidUser = async (wallet: string) => {
+    if (!confirm(`정말 삭제하시겠습니까?\n\n지갑: ${wallet}\n\n⚠️ users 컬렉션에서만 삭제됩니다.\n투자/노드 데이터는 남아있습니다.`)) return;
+    setDeletingWallets(prev => new Set(prev).add(wallet));
+    try {
+      const ok = await deleteUser(wallet);
+      if (ok) {
+        setInvalidReferrerUsers(prev => prev.filter(u => u.walletAddress !== wallet));
+        toast.success(`삭제 완료: ${wallet.slice(0, 10)}...`);
+      } else {
+        toast.error("삭제 실패");
+      }
+    } catch (e) {
+      toast.error("삭제 오류");
+    } finally {
+      setDeletingWallets(prev => { const s = new Set(prev); s.delete(wallet); return s; });
+    }
+  };
+
   const handleConfirmSBAGPurchase = async () => {
     if (!editingSBAGPosition) return;
     
@@ -700,6 +739,87 @@ export const AdminUsers = () => {
               <p className="text-sm text-muted-foreground animate-pulse">Loading…</p>
             )}
           </div>
+        </div>
+
+        {/* ── 잘못된 추천코드 유저 관리 섹션 ── */}
+        <div className="mb-6 p-4 bg-background/50 rounded-lg border border-orange-500/30">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-sm font-semibold text-orange-400 flex items-center gap-2">
+                <XCircle className="w-4 h-4" />
+                잘못된 추천코드로 가입한 유저 관리
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                존재하지 않는 추천인(코드/지갑)으로 등록된 유저를 조회·삭제합니다.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLoadInvalidUsers}
+              disabled={loadingInvalidUsers}
+              className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10 shrink-0"
+            >
+              {loadingInvalidUsers
+                ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />조회 중...</>
+                : <><Search className="w-3 h-3 mr-1" />조회</>}
+            </Button>
+          </div>
+
+          {showInvalidSection && (
+            invalidReferrerUsers.length === 0 ? (
+              <p className="text-xs text-green-500 text-center py-4">✅ 잘못된 추천코드 유저 없음</p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-orange-400 font-semibold">
+                  총 {invalidReferrerUsers.length}명 발견
+                  <span className="ml-2 text-muted-foreground font-normal">
+                    (투자/노드 데이터가 있는 유저는 삭제 전 반드시 확인하세요)
+                  </span>
+                </p>
+                <div className="overflow-x-auto rounded-md border border-border/40">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>지갑 주소</TableHead>
+                        <TableHead>추천코드</TableHead>
+                        <TableHead>추천지갑</TableHead>
+                        <TableHead>가입일</TableHead>
+                        <TableHead className="text-right">삭제</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {invalidReferrerUsers.map(u => (
+                        <TableRow key={u.walletAddress} className="text-xs">
+                          <TableCell className="font-mono">{formatAddress(u.walletAddress)}</TableCell>
+                          <TableCell className="font-mono text-orange-400">{u.referrerCode || "-"}</TableCell>
+                          <TableCell className="font-mono text-orange-400">
+                            {u.referrerWallet ? formatAddress(u.referrerWallet) : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {u.createdAt ? new Date(u.createdAt).toLocaleDateString("ko-KR") : "-"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => handleDeleteInvalidUser(u.walletAddress)}
+                              disabled={deletingWallets.has(u.walletAddress)}
+                            >
+                              {deletingWallets.has(u.walletAddress)
+                                ? <Loader2 className="w-3 h-3 animate-spin" />
+                                : <Trash2 className="w-3 h-3" />}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )
+          )}
         </div>
 
         {/* Search Section */}
