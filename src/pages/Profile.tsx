@@ -20,6 +20,7 @@ import {
   Wallet, User, TrendingUp, Share2, Network, BarChart3,
   DollarSign, PieChart, AlertCircle, ArrowLeft, RefreshCw,
   Copy, Check, ExternalLink, Users, Edit2, Save, X, Award,
+  ChevronDown, Star,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
