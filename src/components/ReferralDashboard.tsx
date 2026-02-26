@@ -1,6 +1,7 @@
 /**
- * ReferralDashboard – 추천 보상 현황판
- * 초대 인원, 투자 금액, 단계별 보상 진행률을 실시간 표시
+ * ReferralDashboard – 추천 등급 현황판
+ * 현재 등급, 다음 등급 진행률, 등급 혜택 로드맵 표시
+ * (직접 추천인수·팀 투자액은 하단 Team Performance 카드에서 별도 표시)
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -10,8 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
-  Users,
-  TrendingUp,
   Gift,
   RefreshCw,
   ChevronRight,
@@ -19,7 +18,6 @@ import {
   Star,
 } from "lucide-react";
 import { getReferralsByReferrer } from "@/lib/referrals";
-import { getUserInvestments } from "@/lib/userInvestments";
 
 interface RewardTier {
   label: string;
@@ -29,12 +27,14 @@ interface RewardTier {
   bgColor: string;
 }
 
+const COMING_SOON = "향후 보상정책 제공 예정";
+
 const REWARD_TIERS: RewardTier[] = [
-  { label: "브론즈", requiredReferrals: 1,  bonus: "첫 추천 보너스",    color: "text-orange-700",  bgColor: "bg-orange-100 dark:bg-orange-900/20" },
-  { label: "실버",   requiredReferrals: 3,  bonus: "+0.5% 수수료 보상", color: "text-slate-500",   bgColor: "bg-slate-100 dark:bg-slate-800/30" },
-  { label: "골드",   requiredReferrals: 5,  bonus: "+1% 수수료 보상",   color: "text-yellow-600",  bgColor: "bg-yellow-100 dark:bg-yellow-900/20" },
-  { label: "플래티넘",requiredReferrals: 10, bonus: "VIP 전담 지원",    color: "text-blue-600",    bgColor: "bg-blue-100 dark:bg-blue-900/20" },
-  { label: "다이아몬드",requiredReferrals: 20, bonus: "+2% 수수료 보상 + 특별 NFT 배지", color: "text-purple-600", bgColor: "bg-purple-100 dark:bg-purple-900/20" },
+  { label: "브론즈",    requiredReferrals: 1,  bonus: COMING_SOON, color: "text-orange-700", bgColor: "bg-orange-100 dark:bg-orange-900/20" },
+  { label: "실버",      requiredReferrals: 3,  bonus: COMING_SOON, color: "text-slate-500",  bgColor: "bg-slate-100 dark:bg-slate-800/30" },
+  { label: "골드",      requiredReferrals: 5,  bonus: COMING_SOON, color: "text-yellow-600", bgColor: "bg-yellow-100 dark:bg-yellow-900/20" },
+  { label: "플래티넘",  requiredReferrals: 10, bonus: COMING_SOON, color: "text-blue-600",   bgColor: "bg-blue-100 dark:bg-blue-900/20" },
+  { label: "다이아몬드",requiredReferrals: 20, bonus: COMING_SOON, color: "text-purple-600", bgColor: "bg-purple-100 dark:bg-purple-900/20" },
 ];
 
 function getCurrentTier(count: number): { tier: RewardTier | null; next: RewardTier | null; progress: number } {
@@ -50,36 +50,16 @@ function getCurrentTier(count: number): { tier: RewardTier | null; next: RewardT
 
 const ReferralDashboard = () => {
   const { address, isConnected } = useAccount();
-  const [referralCount, setReferralCount]     = useState(0);   // 직접 추천인수
-  const [totalSubCount, setTotalSubCount]     = useState(0);   // 총 하위 추천인수
-  const [totalInvested, setTotalInvested]     = useState(0);   // USDT sum of referred users
-  const [loading, setLoading]                 = useState(false);
-  const [lastUpdated, setLastUpdated]         = useState<Date | null>(null);
+  const [referralCount, setReferralCount] = useState(0);
+  const [loading, setLoading]             = useState(false);
+  const [lastUpdated, setLastUpdated]     = useState<Date | null>(null);
 
   const load = useCallback(async () => {
     if (!address) return;
     setLoading(true);
     try {
-      // referrals 컬렉션 기반 조회 (Admin과 동일한 데이터 소스)
       const directReferrals = await getReferralsByReferrer(address.toLowerCase()).catch(() => []);
-      const directWallets = directReferrals.map(
-        (r: { referredWallet: string }) => r.referredWallet.toLowerCase()
-      );
-      setReferralCount(directWallets.length);
-
-      // 2단계 하위 추천인 수 집계
-      const subResults = await Promise.all(
-        directWallets.map(w => getReferralsByReferrer(w).catch(() => []))
-      );
-      const subTotal = subResults.reduce((sum, arr) => sum + arr.length, 0);
-      setTotalSubCount(directWallets.length + subTotal);
-
-      // Sum investments of directly referred wallets
-      const invArrays = await Promise.all(
-        directWallets.map(w => getUserInvestments(w).catch(() => []))
-      );
-      const total = invArrays.flat().reduce((sum: number, inv: any) => sum + (Number(inv.amount) || 0), 0);
-      setTotalInvested(total);
+      setReferralCount(directReferrals.length);
       setLastUpdated(new Date());
     } catch (e) {
       console.error("ReferralDashboard load error:", e);
@@ -104,10 +84,10 @@ const ReferralDashboard = () => {
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
               <Gift className="w-4 h-4 text-primary" />
-              추천 보상 현황판
+              내 추천 등급
             </CardTitle>
             <CardDescription className="text-xs">
-              친구를 초대할수록 더 높은 등급과 보상을 받습니다
+              친구를 초대할수록 더 높은 등급을 달성합니다
               {lastUpdated && (
                 <span className="ml-2 text-muted-foreground/60">
                   {lastUpdated.toLocaleTimeString()} 기준
@@ -128,55 +108,16 @@ const ReferralDashboard = () => {
       </CardHeader>
 
       <CardContent className="space-y-5">
-        {/* KPI row - 직접/하위 추천인수 + 투자액 */}
-        <div className="grid grid-cols-3 gap-3">
-          {/* 직접 추천인수 */}
-          <div className="rounded-xl p-4 bg-primary/5 border border-primary/10">
-            <div className="flex items-center gap-1 mb-1">
-              <Users className="w-3.5 h-3.5 text-primary" />
-              <span className="text-xs text-muted-foreground">직접 추천인수</span>
-            </div>
-            <div className="text-2xl font-bold text-foreground">
-              {loading ? "—" : referralCount}
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">명</p>
-          </div>
-          {/* 총 하위 추천인수 */}
-          <div className="rounded-xl p-4 bg-blue-500/5 border border-blue-500/10">
-            <div className="flex items-center gap-1 mb-1">
-              <Users className="w-3.5 h-3.5 text-blue-500" />
-              <span className="text-xs text-muted-foreground">총 하위 추천인</span>
-            </div>
-            <div className="text-2xl font-bold text-foreground">
-              {loading ? "—" : totalSubCount}
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">명 (전체)</p>
-          </div>
-          {/* 팀 총 투자액 */}
-          <div className="rounded-xl p-4 bg-green-500/5 border border-green-500/10">
-            <div className="flex items-center gap-1 mb-1">
-              <TrendingUp className="w-3.5 h-3.5 text-green-500" />
-              <span className="text-xs text-muted-foreground">팀 투자액</span>
-            </div>
-            <div className="text-xl font-bold text-foreground">
-              {loading ? "—" : `$${totalInvested.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">USDT</p>
-          </div>
-        </div>
-
-        {/* Current tier badge */}
+        {/* ── 현재 등급 배지 ── */}
         <div className="flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-muted/30">
           <Award className={`w-8 h-8 shrink-0 ${tier?.color ?? "text-muted-foreground"}`} />
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-sm">
                 {tier ? `${tier.label} 등급` : "등급 없음"}
               </span>
               {tier && (
-                <Badge
-                  className={`text-xs px-2 py-0 ${tier.bgColor} ${tier.color} border-0`}
-                >
+                <Badge className={`text-xs px-2 py-0 ${tier.bgColor} ${tier.color} border-0`}>
                   {tier.bonus}
                 </Badge>
               )}
@@ -191,7 +132,7 @@ const ReferralDashboard = () => {
           </div>
         </div>
 
-        {/* Progress to next tier */}
+        {/* ── 다음 등급 진행률 ── */}
         {next && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
@@ -199,22 +140,22 @@ const ReferralDashboard = () => {
                 {tier?.label ?? "시작"} → {next.label}
               </span>
               <span className="font-mono text-foreground">
-                {referralCount} / {next.requiredReferrals}
+                {loading ? "—" : referralCount} / {next.requiredReferrals}
               </span>
             </div>
-            <Progress value={progress} className="h-2" />
+            <Progress value={loading ? 0 : progress} className="h-2" />
           </div>
         )}
 
-        {/* Tier ladder */}
+        {/* ── 등급 혜택 로드맵 ── */}
         <div>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
             등급 혜택 로드맵
           </p>
           <div className="space-y-2">
             {REWARD_TIERS.map((t, i) => {
-              const achieved = referralCount >= t.requiredReferrals;
-              const isCurrent = tier?.label === t.label;
+              const achieved   = referralCount >= t.requiredReferrals;
+              const isCurrent  = tier?.label === t.label;
               return (
                 <div
                   key={i}
@@ -240,12 +181,12 @@ const ReferralDashboard = () => {
                         {t.requiredReferrals}명 이상
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">{t.bonus}</p>
+                    <p className="text-xs text-muted-foreground/70 italic">{t.bonus}</p>
                   </div>
                   {isCurrent && (
                     <Badge variant="outline" className="text-[10px] px-1.5 shrink-0">현재</Badge>
                   )}
-                  {!achieved && (
+                  {!achieved && !isCurrent && (
                     <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
                   )}
                 </div>
