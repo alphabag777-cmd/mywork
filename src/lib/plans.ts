@@ -75,7 +75,10 @@ export interface InvestmentPlan {
   currentParticipants?: string;                   // 현재 참여자 수
   noticeText?: string;                            // 주의사항 / 공지 (빨간 경고 박스로 표시)
   category?: PlanCategory;                         // 플랜 카테고리: ABAG, BBAG, CBAG, SELF_COLLECTION
-  pdfFiles?: Array<{ title: string; url: string }>; // PDF 첨부 파일 목록
+  pdfFiles?: Array<{ title: string; url: string }>; // PDF 첨부 파일 목록 (공통, 최대 5개)
+  // ── 링크 모음 ──
+  externalLinks?: Array<{ title: string; url: string }>; // 외부 URL 링크 (최대 5개)
+  blogLinks?: Array<{ title: string; url: string }>;     // 블로그/SNS/미디어 링크 (최대 5개)
   // ── 다국어 콘텐츠 (언어별 설명/자료) ──
   langContent?: {
     en?: LangContent;
@@ -87,14 +90,16 @@ export interface InvestmentPlan {
   updatedAt: number;
 }
 
-/** 언어별 콘텐츠 (설명, 이미지, PDF, YouTube) */
+/** 언어별 콘텐츠 (설명, 이미지, PDF, YouTube, 링크) */
 export interface LangContent {
-  description?: string;       // 해당 언어 설명
-  detailDescription?: string; // 해당 언어 상세 설명
-  materials?: Array<{ title: string; url: string }>; // 해당 언어 참고 자료
-  pdfFiles?: Array<{ title: string; url: string }>;  // 해당 언어 PDF
-  detailImages?: Array<{ url: string; caption: string }>; // 해당 언어 이미지
+  description?: string;       // 해당 언어 설명 (HTML 지원)
+  detailDescription?: string; // 해당 언어 상세 설명 (HTML 지원)
+  materials?: Array<{ title: string; url: string }>; // 해당 언어 참고 URL (최대 5개)
+  pdfFiles?: Array<{ title: string; url: string }>;  // 해당 언어 첨부파일 (최대 5개)
+  attachments?: Array<{ title: string; url: string; fileType?: string }>; // 해당 언어 첨부파일 (PDF/DOC/XLS/ZIP 등, 최대 5개)
+  detailImages?: Array<{ url: string; caption: string }>; // 해당 언어 이미지 (최대 20개)
   youtubeUrls?: Array<{ url: string; title: string }>; // 해당 언어 YouTube
+  blogLinks?: Array<{ title: string; url: string }>; // 해당 언어 블로그/SNS 링크 (최대 5개)
 }
 
 const PLANS_COLLECTION = "investment_plans";
@@ -166,6 +171,8 @@ function fromFirestore(docData: any, id: string): InvestmentPlan {
     noticeText: docData.noticeText || "",
     category: docData.category || undefined, // undefined = legacy plan (ABAG/BBAG/CBAG mixed)
     pdfFiles: docData.pdfFiles || [],
+    externalLinks: docData.externalLinks || [],
+    blogLinks: docData.blogLinks || [],
     sortOrder: docData.sortOrder !== undefined ? docData.sortOrder : 999999, // Default to high number if not set
     langContent: docData.langContent || undefined,
     createdAt: timestampToNumber(docData.createdAt),

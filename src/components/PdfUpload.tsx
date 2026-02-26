@@ -140,7 +140,9 @@ export function PdfUpload({ files, onChange, folder = "plans/pdf", maxSizeMB = M
         <div className="space-y-2">
           {files.map((file, idx) => (
             <div key={idx} className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/40 border border-border/60">
-              <FileText className="w-4 h-4 text-red-500 flex-shrink-0" />
+              <span className="text-base flex-shrink-0">
+                {getFileIcon(file.title || file.url || "")}
+              </span>
               <Input
                 value={file.title}
                 onChange={(e) => handleTitleChange(idx, e.target.value)}
@@ -183,7 +185,7 @@ export function PdfUpload({ files, onChange, folder = "plans/pdf", maxSizeMB = M
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,application/pdf"
+        accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           className="hidden"
           onChange={handleFileSelect}
         />
@@ -192,7 +194,7 @@ export function PdfUpload({ files, onChange, folder = "plans/pdf", maxSizeMB = M
           variant="outline"
           className="w-full h-10 gap-2 border-dashed"
           onClick={() => inputRef.current?.click()}
-          disabled={uploading}
+          disabled={uploading || files.length >= maxFiles}
         >
           {uploading ? (
             <>
@@ -202,7 +204,7 @@ export function PdfUpload({ files, onChange, folder = "plans/pdf", maxSizeMB = M
           ) : (
             <>
               <Upload className="w-4 h-4" />
-              PDF 파일 업로드
+              파일 업로드 ({files.length}/{maxFiles})
             </>
           )}
         </Button>
@@ -215,7 +217,7 @@ export function PdfUpload({ files, onChange, folder = "plans/pdf", maxSizeMB = M
           </div>
         )}
         <p className="text-xs text-muted-foreground mt-1 text-center">
-          PDF 전용 · 최대 {maxSizeMB}MB · 여러 파일 순차 업로드 가능
+          PDF/DOC/XLS/ZIP · 최대 {maxSizeMB}MB · ({files.length}/{maxFiles}개)
         </p>
       </div>
     </div>

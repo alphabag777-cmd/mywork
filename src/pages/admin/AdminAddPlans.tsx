@@ -290,7 +290,9 @@ function DetailImageEditor({
         <p className="text-xs text-muted-foreground">
           💡 이미지 카드에 마우스를 올리면 ▲▼ 순서 변경, 삭제 버튼이 나타납니다.
         </p>
-        <span className="text-xs text-muted-foreground">{images.length}장 / 최대 8장 권장</span>
+        <span className={`text-xs ${images.length >= 20 ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>
+          {images.length}장 / 최대 20장
+        </span>
       </div>
     </div>
   );
@@ -628,6 +630,11 @@ export const AdminAddPlans = () => {
   const [materials, setMaterials] = useState<MaterialRow[]>([]);
   const [pdfFiles, setPdfFiles] = useState<Array<{ title: string; url: string }>>([]);
   const [youtubeItems, setYoutubeItems] = useState<YoutubeItem[]>([]);
+  const [externalLinks, setExternalLinks] = useState<Array<{ title: string; url: string }>>([]);
+  const [blogLinks, setBlogLinks] = useState<BlogLinkRow[]>([]);
+  // HTML 편집 미리보기 모드
+  const [descHtmlMode, setDescHtmlMode] = useState(false);
+  const [detailDescHtmlMode, setDetailDescHtmlMode] = useState(false);
 
   useEffect(() => { loadPlans(); }, []);
 
@@ -669,6 +676,10 @@ export const AdminAddPlans = () => {
     setMaterials([]);
     setPdfFiles([]);
     setYoutubeItems([]);
+    setExternalLinks([]);
+    setBlogLinks([]);
+    setDescHtmlMode(false);
+    setDetailDescHtmlMode(false);
     setEditingPlan(null);
     setActiveTab("basic");
     setShowPreview(false);
@@ -725,6 +736,8 @@ export const AdminAddPlans = () => {
       setDetailImages(normalizeImages(plan.detailImages as any[] || []));
       setMaterials(plan.materials || []);
       setPdfFiles(plan.pdfFiles || []);
+      setExternalLinks(plan.externalLinks || []);
+      setBlogLinks((plan.blogLinks || []) as BlogLinkRow[]);
       // youtubeUrls 배열 우선, 없으면 기존 단일 youtubeUrl → 배열로 변환
       const existingUrls = plan.youtubeUrls && plan.youtubeUrls.length > 0
         ? plan.youtubeUrls
@@ -738,6 +751,8 @@ export const AdminAddPlans = () => {
         ko: plan.langContent?.ko || {},
         ja: plan.langContent?.ja || {},
       });
+      setDescHtmlMode(false);
+      setDetailDescHtmlMode(false);
     } else {
       resetForm();
     }
@@ -786,6 +801,8 @@ export const AdminAddPlans = () => {
       telegram: formData.telegram, twitter: formData.twitter,
       materials,
       pdfFiles,
+      externalLinks,
+      blogLinks,
       langContent: {
         en: Object.keys(langContent.en).length ? langContent.en : null,
         zh: Object.keys(langContent.zh).length ? langContent.zh : null,
@@ -1173,8 +1190,26 @@ export const AdminAddPlans = () => {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="description">간략 설명 * <span className="text-xs text-muted-foreground">(카드에 표시됨)</span></Label>
-                        <Textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="카드에 표시될 짧은 설명" rows={3} required />
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="description">간략 설명 * <span className="text-xs text-muted-foreground">(카드에 표시됨, HTML 사용 가능)</span></Label>
+                          <button
+                            type="button"
+                            onClick={() => setDescHtmlMode(!descHtmlMode)}
+                            className={`flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors ${descHtmlMode ? "bg-primary/10 border-primary text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
+                          >
+                            <Code2 className="w-3 h-3" />
+                            {descHtmlMode ? "미리보기 OFF" : "HTML 미리보기"}
+                          </button>
+                        </div>
+                        {descHtmlMode ? (
+                          <div
+                            className="min-h-[80px] p-3 rounded-md border border-border bg-muted/20 text-sm prose prose-sm dark:prose-invert max-w-none"
+                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(formData.description) }}
+                          />
+                        ) : (
+                          <Textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder={"카드에 표시될 짧은 설명\n\nHTML 태그 사용 가능: <b>굵게</b>, <br>, <ul><li>항목</li></ul> 등"} rows={4} required />
+                        )}
+                        <p className="text-[11px] text-muted-foreground">💡 HTML 태그를 사용할 수 있습니다. 예: &lt;b&gt;굵게&lt;/b&gt;, &lt;br&gt;, &lt;ul&gt;&lt;li&gt;항목&lt;/li&gt;&lt;/ul&gt;</p>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="quickActionsDescription">Quick Actions 설명</Label>
@@ -1266,46 +1301,67 @@ export const AdminAddPlans = () => {
                       {/* ── 섹션 C: 상세 설명 ── */}
                       <div className="rounded-xl border border-border/60 bg-muted/10 overflow-hidden">
                         <div className="px-4 pt-4 pb-2">
-                          <h4 className="text-sm font-semibold flex items-center gap-2">
-                            <Info className="w-4 h-4 text-primary" /> 상세 설명
-                            <span className="text-xs font-normal text-muted-foreground">(세부 정보 팝업 하단에 표시)</span>
-                          </h4>
-                        </div>
-                        {/* 서식 툴바 */}
-                        <div className="px-4">
-                          <RichTextToolbar
-                            onInsert={(text) => {
-                              const textarea = document.getElementById("detailDescription") as HTMLTextAreaElement;
-                              if (textarea) {
-                                const start = textarea.selectionStart;
-                                const end = textarea.selectionEnd;
-                                const newVal = formData.detailDescription.substring(0, start) + text + formData.detailDescription.substring(end);
-                                setFormData({ ...formData, detailDescription: newVal });
-                                // 커서 위치 조정
-                                setTimeout(() => {
-                                  textarea.focus();
-                                  textarea.setSelectionRange(start + text.length, start + text.length);
-                                }, 0);
-                              } else {
-                                setFormData({ ...formData, detailDescription: formData.detailDescription + text });
-                              }
-                            }}
-                          />
-                        </div>
-                        <div className="px-4 pb-4">
-                          <Textarea
-                            id="detailDescription"
-                            value={formData.detailDescription}
-                            onChange={(e) => setFormData({ ...formData, detailDescription: e.target.value })}
-                            placeholder={"위 버튼으로 이모지/서식을 삽입하거나 직접 입력하세요.\n\n예시:\n📌 투자 방식: BBAG 40% + SBAG 40% + CBAG 20%\n📌 수익 지급: 매일 자동 지급\n📌 원금 회수: 30일 후 가능"}
-                            rows={8}
-                            className="font-mono text-sm rounded-t-none border-t-0"
-                          />
-                          <div className="flex items-center justify-between mt-1">
-                            <p className="text-[11px] text-muted-foreground">줄바꿈과 이모지가 그대로 반영됩니다.</p>
-                            <span className="text-[11px] text-muted-foreground">{formData.detailDescription.length}자</span>
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold flex items-center gap-2">
+                              <Info className="w-4 h-4 text-primary" /> 상세 설명
+                              <span className="text-xs font-normal text-muted-foreground">(HTML 사용 가능)</span>
+                            </h4>
+                            <button
+                              type="button"
+                              onClick={() => setDetailDescHtmlMode(!detailDescHtmlMode)}
+                              className={`flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors ${detailDescHtmlMode ? "bg-primary/10 border-primary text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
+                            >
+                              <Code2 className="w-3 h-3" />
+                              {detailDescHtmlMode ? "편집 모드" : "HTML 미리보기"}
+                            </button>
                           </div>
                         </div>
+                        {detailDescHtmlMode ? (
+                          <div className="px-4 pb-4">
+                            <div
+                              className="min-h-[200px] p-4 rounded-md border border-border bg-background text-sm prose prose-sm dark:prose-invert max-w-none"
+                              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(formData.detailDescription) }}
+                            />
+                            <p className="text-[11px] text-muted-foreground mt-1">HTML 렌더링 미리보기 — 편집하려면 위 버튼을 클릭하세요.</p>
+                          </div>
+                        ) : (
+                          <>
+                            {/* 서식 툴바 */}
+                            <div className="px-4">
+                              <RichTextToolbar
+                                onInsert={(text) => {
+                                  const textarea = document.getElementById("detailDescription") as HTMLTextAreaElement;
+                                  if (textarea) {
+                                    const start = textarea.selectionStart;
+                                    const end = textarea.selectionEnd;
+                                    const newVal = formData.detailDescription.substring(0, start) + text + formData.detailDescription.substring(end);
+                                    setFormData({ ...formData, detailDescription: newVal });
+                                    setTimeout(() => {
+                                      textarea.focus();
+                                      textarea.setSelectionRange(start + text.length, start + text.length);
+                                    }, 0);
+                                  } else {
+                                    setFormData({ ...formData, detailDescription: formData.detailDescription + text });
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div className="px-4 pb-4">
+                              <Textarea
+                                id="detailDescription"
+                                value={formData.detailDescription}
+                                onChange={(e) => setFormData({ ...formData, detailDescription: e.target.value })}
+                                placeholder={"위 버튼으로 이모지/서식을 삽입하거나 직접 입력하세요.\n\n예시:\n📌 투자 방식: BBAG 40% + SBAG 40% + CBAG 20%\n📌 수익 지급: 매일 자동 지급\n📌 원금 회수: 30일 후 가능\n\n또는 HTML 사용:\n<b>굵은 텍스트</b>\n<ul><li>항목 1</li><li>항목 2</li></ul>"}
+                                rows={10}
+                                className="font-mono text-sm rounded-t-none border-t-0"
+                              />
+                              <div className="flex items-center justify-between mt-1">
+                                <p className="text-[11px] text-muted-foreground">💡 일반 텍스트와 HTML 태그 모두 사용 가능합니다. 미리보기 버튼으로 확인하세요.</p>
+                                <span className="text-[11px] text-muted-foreground">{formData.detailDescription.length}자</span>
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       {/* ── 섹션 D: 주의사항 / 공지 ── */}
@@ -1396,7 +1452,28 @@ export const AdminAddPlans = () => {
                           onChange={setPdfFiles}
                           folder="alphabag/plans/pdf"
                           maxSizeMB={30}
+                          maxFiles={5}
                         />
+                      </div>
+
+                      {/* 외부 URL 링크 (최대 5개) */}
+                      <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
+                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                          <ExternalLink className="w-4 h-4 text-blue-500" /> 외부 URL 링크
+                          <span className="text-xs font-normal text-muted-foreground">웹사이트, DApp, 공식 링크 등 (최대 5개)</span>
+                          {externalLinks.length > 0 && <span className="text-xs text-green-500">✓ {externalLinks.length}개</span>}
+                        </h4>
+                        <MaterialEditor materials={externalLinks} onChange={setExternalLinks} maxItems={5} />
+                      </div>
+
+                      {/* 블로그/SNS 링크 (최대 5개) */}
+                      <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
+                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                          <BookOpen className="w-4 h-4 text-purple-500" /> 블로그 / SNS / 미디어 링크
+                          <span className="text-xs font-normal text-muted-foreground">블로그, Medium, GitHub 등 (최대 5개)</span>
+                          {blogLinks.length > 0 && <span className="text-xs text-green-500">✓ {blogLinks.length}개</span>}
+                        </h4>
+                        <BlogLinkEditor links={blogLinks} onChange={setBlogLinks} maxItems={5} />
                       </div>
                     </TabsContent>
 
@@ -1442,28 +1519,48 @@ export const AdminAddPlans = () => {
                           setLangContent({ ...langContent, [lang]: { ...lc, ...patch } });
                         return (
                           <div key={lang} className="space-y-5">
-                            {/* 간략 설명 */}
+                            {/* 간략 설명 - HTML 지원 */}
                             <div className="space-y-2">
-                              <Label className="text-sm font-semibold">📝 {langLabels[lang]} 간략 설명</Label>
+                              <div className="flex items-center justify-between">
+                                <Label className="text-sm font-semibold">📝 {langLabels[lang]} 간략 설명 <span className="font-normal text-xs text-muted-foreground">(HTML 지원)</span></Label>
+                              </div>
                               <Textarea
                                 value={lc.description || ""}
                                 onChange={(e) => update({ description: e.target.value })}
-                                placeholder={`${langLabels[lang]}로 간략 설명 입력 (카드에 표시됨)`}
-                                rows={3}
-                                className="text-sm"
+                                placeholder={`${langLabels[lang]}로 간략 설명 입력 (카드에 표시됨)\nHTML 태그 사용 가능: <b>굵게</b>, <br>, <ul><li>항목</li></ul>`}
+                                rows={4}
+                                className="text-sm font-mono"
                               />
+                              {lc.description && (
+                                <div className="p-3 rounded border border-dashed border-border bg-muted/10">
+                                  <p className="text-[10px] text-muted-foreground mb-1">🔍 렌더링 미리보기</p>
+                                  <div
+                                    className="text-sm prose prose-sm dark:prose-invert max-w-none"
+                                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(lc.description) }}
+                                  />
+                                </div>
+                              )}
                             </div>
 
-                            {/* 상세 설명 */}
+                            {/* 상세 설명 - HTML 지원 */}
                             <div className="space-y-2">
-                              <Label className="text-sm font-semibold">📄 {langLabels[lang]} 상세 설명</Label>
+                              <Label className="text-sm font-semibold">📄 {langLabels[lang]} 상세 설명 <span className="font-normal text-xs text-muted-foreground">(HTML 지원)</span></Label>
                               <Textarea
                                 value={lc.detailDescription || ""}
                                 onChange={(e) => update({ detailDescription: e.target.value })}
-                                placeholder={`${langLabels[lang]}로 상세 설명 입력 (세부 정보 팝업에 표시됨)`}
-                                rows={6}
+                                placeholder={`${langLabels[lang]}로 상세 설명 입력 (세부 정보 팝업에 표시됨)\nHTML 태그 사용 가능: <b>굵게</b>, <br>, <ul><li>항목</li></ul>`}
+                                rows={8}
                                 className="text-sm font-mono"
                               />
+                              {lc.detailDescription && (
+                                <div className="p-3 rounded border border-dashed border-border bg-muted/10">
+                                  <p className="text-[10px] text-muted-foreground mb-1">🔍 렌더링 미리보기</p>
+                                  <div
+                                    className="text-sm prose prose-sm dark:prose-invert max-w-none"
+                                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(lc.detailDescription) }}
+                                  />
+                                </div>
+                              )}
                             </div>
 
                             {/* 참고 자료 */}
@@ -1475,20 +1572,36 @@ export const AdminAddPlans = () => {
                               <MaterialEditor
                                 materials={lc.materials || []}
                                 onChange={(m) => update({ materials: m })}
+                                maxItems={5}
                               />
                             </div>
 
-                            {/* PDF 첨부 */}
+                            {/* 첨부파일 (PDF/DOC/XLS/ZIP 등, 최대 5개) */}
                             <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
                               <Label className="text-sm font-semibold">
                                 <FileText className="w-4 h-4 inline mr-1 text-red-500" />
-                                {langLabels[lang]} {t.admin.pdfFiles}
+                                {langLabels[lang]} 첨부파일 (최대 5개)
+                                <span className="text-xs font-normal text-muted-foreground ml-1">PDF/DOC/XLS/ZIP 등</span>
                               </Label>
                               <PdfUpload
                                 files={lc.pdfFiles || []}
                                 onChange={(files) => update({ pdfFiles: files })}
                                 folder={`alphabag/plans/pdf/${lang}`}
                                 maxSizeMB={30}
+                                maxFiles={5}
+                              />
+                            </div>
+
+                            {/* 블로그/SNS 링크 */}
+                            <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
+                              <Label className="text-sm font-semibold">
+                                <BookOpen className="w-4 h-4 inline mr-1 text-purple-500" />
+                                {langLabels[lang]} 블로그/SNS 링크
+                              </Label>
+                              <BlogLinkEditor
+                                links={(lc.blogLinks || []) as BlogLinkRow[]}
+                                onChange={(l) => update({ blogLinks: l })}
+                                maxItems={5}
                               />
                             </div>
 

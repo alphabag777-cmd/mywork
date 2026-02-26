@@ -1,13 +1,14 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ExternalLink, ChevronLeft, ChevronRight, X, AlertTriangle, Globe, Coins, Lock, DollarSign, Clock, RefreshCw, Percent, FileText, ShieldCheck, Users, BarChart3, Eye, Download } from "lucide-react";
+import { ExternalLink, ChevronLeft, ChevronRight, X, AlertTriangle, Globe, Coins, Lock, DollarSign, Clock, RefreshCw, Percent, FileText, ShieldCheck, Users, BarChart3, Eye, Download, BookOpen } from "lucide-react";
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useAccount } from "wagmi";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { wasReferred } from "@/lib/referral";
 import { translateContent } from "@/lib/translator";
+import DOMPurify from "dompurify";
 
 interface LangContent {
   description?: string;
@@ -16,6 +17,7 @@ interface LangContent {
   pdfFiles?: Array<{ title: string; url: string }>;
   detailImages?: Array<{ url: string; caption: string }>;
   youtubeUrls?: Array<{ url: string; title: string }>;
+  blogLinks?: Array<{ title: string; url: string; type?: string }>;
 }
 
 interface ProjectDetailsProps {
@@ -58,6 +60,8 @@ interface ProjectDetailsProps {
     currentParticipants?: string;
     noticeText?: string;
     pdfFiles?: Array<{ title: string; url: string }>;
+    externalLinks?: Array<{ title: string; url: string }>;
+    blogLinks?: Array<{ title: string; url: string; type?: string }>;
     // 언어별 콘텐츠
     langContent?: {
       en?: LangContent;
@@ -588,13 +592,20 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
                 </div>
               )}
 
-              {/* 상세 설명 */}
+              {/* 상세 설명 - HTML 렌더링 지원 */}
               {txDetailDescription && (
                 <div className="p-4 rounded-xl bg-muted/30 border border-border/60">
                   <h4 className="text-sm font-semibold mb-2">📋 {t.projectDetails.detailInfo ?? "상세 정보"}</h4>
-                  <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
-                    {txDetailDescription}
-                  </p>
+                  {txDetailDescription.includes("<") && txDetailDescription.includes(">") ? (
+                    <div
+                      className="text-sm text-muted-foreground leading-relaxed prose prose-sm dark:prose-invert max-w-none"
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(txDetailDescription) }}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
+                      {txDetailDescription}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -693,6 +704,65 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
                   </div>
                 </div>
               )}
+
+              {/* 외부 URL 링크 (externalLinks) */}
+              {(project.externalLinks && project.externalLinks.length > 0) && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
+                    <ExternalLink className="w-4 h-4 text-blue-500" /> 관련 링크
+                  </h4>
+                  <div className="flex flex-col gap-1.5">
+                    {project.externalLinks.map((link, i) => (
+                      <a
+                        key={i}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm text-primary hover:underline truncate"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 flex-shrink-0 text-blue-500" />
+                        {link.title || link.url}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 블로그/SNS 링크 (blogLinks) - 언어별 우선 */}
+              {(() => {
+                const activeBlogLinks = (lc?.blogLinks && lc.blogLinks.length > 0)
+                  ? lc.blogLinks
+                  : (project.blogLinks ?? []);
+                if (activeBlogLinks.length === 0) return null;
+                const typeEmoji = (type?: string) => {
+                  const map: Record<string, string> = {
+                    blog: "📝", medium: "📖", github: "🐙", linkedin: "💼",
+                    facebook: "📘", instagram: "📸", discord: "💬", reddit: "🔴", news: "📰", other: "🔗",
+                  };
+                  return map[type || "other"] || "🔗";
+                };
+                return (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
+                      <BookOpen className="w-4 h-4 text-purple-500" /> 블로그 / 미디어
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {activeBlogLinks.map((link, i) => (
+                        <a
+                          key={i}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border/60 hover:bg-muted/60 transition-colors"
+                        >
+                          <span>{typeEmoji((link as any).type)}</span>
+                          {link.title || link.url}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* SNS 링크 */}
               {(project.telegram || project.telegramUrl || project.twitter || project.twitterUrl) && (
