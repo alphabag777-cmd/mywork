@@ -9,6 +9,8 @@ import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { wasReferred } from "@/lib/referral";
 import { translateContent } from "@/lib/translator";
 import DOMPurify from "dompurify";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface LangContent {
   description?: string;
@@ -592,19 +594,23 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
                 </div>
               )}
 
-              {/* 상세 설명 - HTML 렌더링 지원 */}
+              {/* 상세 설명 - 마크다운 + HTML 렌더링 지원 */}
               {txDetailDescription && (
                 <div className="p-4 rounded-xl bg-muted/30 border border-border/60">
                   <h4 className="text-sm font-semibold mb-2">📋 {t.projectDetails.detailInfo ?? "상세 정보"}</h4>
-                  {txDetailDescription.includes("<") && txDetailDescription.includes(">") ? (
+                  {txDetailDescription.trim().startsWith("<") ? (
+                    /* HTML 콘텐츠 */
                     <div
                       className="text-sm text-muted-foreground leading-relaxed prose prose-sm dark:prose-invert max-w-none"
                       dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(txDetailDescription) }}
                     />
                   ) : (
-                    <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
-                      {txDetailDescription}
-                    </p>
+                    /* 마크다운 or 일반 텍스트 */
+                    <div className="text-sm text-muted-foreground leading-relaxed prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {txDetailDescription}
+                      </ReactMarkdown>
+                    </div>
                   )}
                 </div>
               )}
