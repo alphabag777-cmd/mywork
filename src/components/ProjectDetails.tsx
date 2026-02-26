@@ -408,6 +408,7 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto p-4 sm:p-6">
+          <DialogTitle className="sr-only">{project.name} - Project Details</DialogTitle>
 
           {/* ── 주의사항 배너 (최상단) ── */}
           {txNoticeText && (

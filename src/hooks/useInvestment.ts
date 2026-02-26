@@ -133,16 +133,7 @@ export function useInvestSplit() {
     pB: number,
     pC: number
   ) => {
-    console.log("investSplit function called with:", {
-      amount: amount.toString(),
-      walletA,
-      walletB,
-      walletC,
-      pA,
-      pB,
-      pC,
-    });
-    
+
     if (!isAddress(walletA) || !isAddress(walletB) || !isAddress(walletC)) {
       console.error("Invalid wallet addresses:", { walletA, walletB, walletC });
       throw new Error("Invalid wallet address");
@@ -153,16 +144,6 @@ export function useInvestSplit() {
     const pBBP = BigInt(Math.floor(pB * 10));
     const pCBP = BigInt(Math.floor(pC * 10));
     
-    console.log("investSplit - calling writeContract with:", {
-      address: NEW_INVESTMENT_CONTRACT_ADDRESS,
-      amount: amount.toString(),
-      walletA,
-      walletB,
-      walletC,
-      pABP: pABP.toString(),
-      pBBP: pBBP.toString(),
-      pCBP: pCBP.toString(),
-    });
     
     writeContract({
       address: NEW_INVESTMENT_CONTRACT_ADDRESS,

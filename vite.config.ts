@@ -22,6 +22,8 @@ export default defineConfig({
       transformMixedEsModules: true,
     },
     chunkSizeWarningLimit: 3000,
+    // 프로덕션 빌드에서 console.log/debugger 자동 제거
+    minify: "esbuild",
     // md-editor(1.7MB)는 admin 페이지에서만 필요하므로 초기 preload 제외
     modulePreload: {
       resolveDependencies(_filename, deps) {
@@ -63,6 +65,10 @@ export default defineConfig({
         },
       },
     },
+  },
+  esbuild: {
+    // 프로덕션 빌드에서만 console 및 debugger 제거
+    drop: process.env.NODE_ENV === 'production' ? ["console", "debugger"] : [],
   },
   optimizeDeps: {
     include: ["@web3modal/wagmi"],

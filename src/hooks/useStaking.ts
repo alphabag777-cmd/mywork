@@ -238,7 +238,6 @@ export function useUserStakes() {
     setIsLoading(true);
     try {
       const userStakes = await getUserStakes(address);
-      console.log("Loaded stakes from Firestore:", userStakes.length);
       setStakes(userStakes);
     } catch (error) {
       console.error("Error loading user stakes:", error);
@@ -262,14 +261,12 @@ export function useUserStakes() {
         customEvent.detail?.wallet &&
         customEvent.detail.wallet.toLowerCase() === address.toLowerCase()
       ) {
-        console.log("Stake created event received for this wallet, reloading stakes...");
         setTimeout(loadStakes, 1500);
       }
     };
 
     // refreshStakes: 일반 새로고침 이벤트
     const handleRefreshStakes = () => {
-      console.log("Refresh stakes event received, reloading...");
       setTimeout(loadStakes, 1000);
     };
 
@@ -284,7 +281,6 @@ export function useUserStakes() {
   }, [address, loadStakes]);
 
   const refreshStakes = useCallback(() => {
-    console.log("Manual refresh triggered");
     loadStakes();
   }, [loadStakes]);
 

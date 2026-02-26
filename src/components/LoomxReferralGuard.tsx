@@ -99,8 +99,6 @@ export const LoomxReferralGuard = () => {
       try {
         setIsChecking(true);
         const walletIsNew = await isNewWallet(address);
-        console.log("[LoomxReferralGuard] walletIsNew:", walletIsNew, address);
-
         if (walletIsNew || !isLoomxReferralRegistered()) {
           setShowDialog(true);
           localStorage.setItem(`${LOOMX_GUARD_SHOWN_KEY}_${norm}`, "true");
@@ -301,8 +299,7 @@ export const LoomxReferralGuard = () => {
     }
   };
 
-  // ── 렌더링 ───────────────────────────────────────────────────────────────
-  console.log("[LoomxReferralGuard] Render check - isChecking:", isChecking, "showDialog:", showDialog);
+
 
   if (isChecking || !showDialog) return null;
 

@@ -113,9 +113,7 @@ const Header = () => {
             }
           }
           
-          console.log("Wallet connected:", address);
-          console.log("User referral code:", userReferralCode);
-          console.log("Was referred:", isReferred);
+
         } catch (error) {
           console.error("Error saving user data:", error);
         }

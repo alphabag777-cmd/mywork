@@ -254,14 +254,13 @@ export async function getAllPlans(): Promise<InvestmentPlan[]> {
     querySnapshot.forEach((doc) => {
       try {
         const p = fromFirestore(doc.data(), doc.id);
-        console.log("[getAllPlans] plan:", p.id, "dailyProfit:", p.dailyProfit);
         plans.push(p);
       } catch (docError) {
         console.error(`Error parsing plan ${doc.id}:`, docError);
       }
     });
 
-    console.log(`[getAllPlans] Loaded ${plans.length} plans from Firestore`);
+
     
     // Sort by sortOrder, then by createdAt if sortOrder is the same
     // Plans without sortOrder get 999999 (appear last)
@@ -276,10 +275,10 @@ export async function getAllPlans(): Promise<InvestmentPlan[]> {
     return sorted;
   } catch (error) {
     console.error("Error getting plans from Firestore:", error);
-    console.log("Falling back to localStorage...");
+
     // Fallback to localStorage if Firestore fails
     const localPlans = getPlansFromLocalStorage();
-    console.log(`Loaded ${localPlans.length} plans from localStorage`);
+
     // Sort local plans the same way
     return localPlans.sort((a, b) => {
       const aOrder = a.sortOrder !== undefined ? a.sortOrder : 999999;
@@ -338,7 +337,7 @@ export async function savePlan(
     const planId = plan.id || `plan_${now}_${Math.random().toString(36).substr(2, 9)}`;
     const isUpdate = !!plan.id;
 
-    console.log("[savePlan] START - id:", planId, "isUpdate:", isUpdate, "dailyProfit:", plan.dailyProfit);
+
 
     // Generate referral code only for new plans (not when updating)
     let referralCode = plan.referralCode;
@@ -352,12 +351,12 @@ export async function savePlan(
       createdAt: plan.createdAt || now,
     });
 
-    console.log("[savePlan] Saving to Firestore - dailyProfit in planData:", planData.dailyProfit);
+
 
     const planRef = doc(db, PLANS_COLLECTION, planId);
     await setDoc(planRef, planData, { merge: isUpdate });
 
-    console.log("[savePlan] SUCCESS - saved to Firestore");
+
 
     savePlanToLocalStorage({
       ...plan,

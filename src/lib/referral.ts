@@ -91,16 +91,13 @@ export function getReferralFromURL(): string | null {
 
   const params = new URLSearchParams(window.location.search);
   const referral = params.get("referral");
-  console.log("Checking URL for referral parameter:", referral);
-  
+
   // Validate it's a valid wallet address
   if (referral && referral.startsWith("0x") && referral.length === 42) {
     const normalized = referral.toLowerCase();
-    console.log("Valid referral wallet found:", normalized);
     return normalized;
   }
   
-  console.log("No valid referral found in URL");
   return null;
 }
 

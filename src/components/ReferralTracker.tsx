@@ -22,7 +22,6 @@ export const ReferralTracker = () => {
       const existingRef = localStorage.getItem(REFERRER_WALLET_KEY);
       if (!existingRef) {
         localStorage.setItem(REFERRER_WALLET_KEY, referralWallet);
-        console.log("✅ Referral stored from URL:", referralWallet);
         hasProcessedRef.current = true;
       }
     }
@@ -37,8 +36,6 @@ export const ReferralTracker = () => {
         const referralWallet = getReferrerWallet();
 
         if (referralWallet && referralWallet.toLowerCase() !== address.toLowerCase()) {
-          console.log("💾 Saving referral to Firebase:", { referrer: referralWallet, referred: address });
-
           await saveUser(address, {
             walletAddress: address,
             referrerWallet: referralWallet,
@@ -46,7 +43,6 @@ export const ReferralTracker = () => {
           });
 
           await saveReferral(referralWallet, address, "");
-          console.log("✅ Referral saved to Firebase successfully");
           toast.success("Referral link detected! You've been registered.");
         } else {
           // 레퍼럴 없이 유저 저장 — 실패해도 사용자에게 알리지 않음
@@ -55,7 +51,6 @@ export const ReferralTracker = () => {
             referrerWallet: referralWallet || null,
             isRegistered: true,
           });
-          console.log("✅ User saved to Firebase");
         }
       } catch (error) {
         // 레퍼럴 저장 실패는 사용자 경험에 영향 없는 백그라운드 작업이므로
