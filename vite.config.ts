@@ -24,20 +24,16 @@ export default defineConfig({
     chunkSizeWarningLimit: 3000,
     rollupOptions: {
       maxParallelFileOps: 2,
+      treeshake: {
+        // ox/porto 패키지의 /*#__PURE__*/ 위치 오류로 인한 Rollup 파싱 실패 방지
+        annotations: false,
+      },
       onwarn(warning, warn) {
-        // walletconnect 관련 미해석 import 경고를 오류 대신 경고로 처리
-        if (
-          warning.code === 'UNRESOLVED_IMPORT' &&
-          warning.message?.includes('@walletconnect')
-        ) {
-          return;
-        }
-        // isTypeTwoEnvelope export 오류도 무시
-        if (
-          warning.message?.includes('isTypeTwoEnvelope')
-        ) {
-          return;
-        }
+        // walletconnect 관련 경고/오류 무시
+        if (warning.message?.includes('@walletconnect')) return;
+        if (warning.message?.includes('isTypeTwoEnvelope')) return;
+        if (warning.message?.includes('getBundleId')) return;
+        if (warning.code === 'UNRESOLVED_IMPORT') return;
         warn(warning);
       },
       output: {

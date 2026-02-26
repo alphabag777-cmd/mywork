@@ -9,7 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "postinstall": "node -e \"const fs=require('fs'),path=require('path');const dirs=['node_modules/@wagmi/connectors/node_modules/@walletconnect'];dirs.forEach(d=>{if(fs.existsSync(d)){fs.rmSync(d,{recursive:true,force:true});console.log('Removed:',d);}});\""
+    "postinstall": "node -e \"const fs=require('fs');const dirs=['node_modules/@wagmi/connectors/node_modules/@walletconnect','node_modules/@walletconnect/ethereum-provider/node_modules/@walletconnect/core','node_modules/@walletconnect/ethereum-provider/node_modules/@walletconnect/utils'];dirs.forEach(d=>{if(fs.existsSync(d)){fs.rmSync(d,{recursive:true,force:true});console.log('Removed nested:',d);}});\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
