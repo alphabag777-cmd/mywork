@@ -1208,7 +1208,7 @@ export const AdminAddPlans = () => {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="dappUrl">DApp URL *</Label>
-                          <Input id="dappUrl" value={formData.dappUrl} onChange={(e) => setFormData({ ...formData, dappUrl: e.target.value })} placeholder="https://..." required />
+                          <Input id="dappUrl" value={formData.dappUrl} onChange={(e) => setFormData({ ...formData, dappUrl: e.target.value })} onBlur={(e) => { const v = e.target.value.trim(); if (v && !/^https?:\/\//i.test(v)) setFormData(f => ({ ...f, dappUrl: "https://" + v })); }} placeholder="https://..." required />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="recommendedAmount">권장 금액 (USDT)</Label>

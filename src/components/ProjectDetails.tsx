@@ -679,7 +679,13 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
                   <Button
                     variant="gold"
                     className="w-full gap-2"
-                    onClick={() => project.dappUrl && window.open(project.dappUrl, "_blank", "noopener,noreferrer")}
+                    onClick={() => {
+                      if (!project.dappUrl) return;
+                      const url = /^https?:\/\//i.test(project.dappUrl)
+                        ? project.dappUrl
+                        : "https://" + project.dappUrl;
+                      window.open(url, "_blank", "noopener,noreferrer");
+                    }}
                   >
                     <ExternalLink className="w-4 h-4" />
                     {t.staking.goToWebsite}
@@ -721,7 +727,7 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
                     {project.externalLinks.map((link, i) => (
                       <a
                         key={i}
-                        href={link.url}
+                        href={/^https?:\/\//i.test(link.url) ? link.url : "https://" + link.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 text-sm text-primary hover:underline truncate"
