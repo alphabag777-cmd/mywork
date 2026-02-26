@@ -344,6 +344,27 @@ export async function searchUsers(
 }
 
 /**
+ * Get user by referral code (6-digit code)
+ * Used to validate invite codes on onboarding
+ */
+export async function getUserByReferralCode(referralCode: string): Promise<User | null> {
+  try {
+    const usersRef = collection(db, USERS_COLLECTION);
+    const q = query(
+      usersRef,
+      where("referralCode", "==", referralCode.trim())
+    );
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) return null;
+    const d = querySnapshot.docs[0];
+    return fromFirestore(d.data(), d.id);
+  } catch (error) {
+    console.error("Error getting user by referral code:", error);
+    return null;
+  }
+}
+
+/**
  * Get users by referrer
  */
 export async function getUsersByReferrer(referrerWallet: string): Promise<User[]> {
