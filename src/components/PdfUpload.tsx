@@ -6,7 +6,7 @@
  * - 최대 10MB
  */
 import { useRef, useState } from "react";
-import { FileText, Upload, X, Loader2, Eye, Download } from "lucide-react";
+import { Upload, X, Loader2, Eye, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -23,11 +23,25 @@ interface Props {
   onChange: (files: PdfFile[]) => void;
   folder?: string;
   maxSizeMB?: number;
+  maxFiles?: number;
 }
 
 const MAX_SIZE_MB = 30;
+const DEFAULT_MAX_FILES = 5;
 
-export function PdfUpload({ files, onChange, folder = "plans/pdf", maxSizeMB = MAX_SIZE_MB }: Props) {
+/** 파일 확장자별 이모지 아이콘 반환 */
+function getFileIcon(nameOrUrl: string): string {
+  const lower = nameOrUrl.toLowerCase();
+  if (lower.includes(".pdf"))  return "📄";
+  if (lower.includes(".doc"))  return "📝";
+  if (lower.includes(".xls") || lower.includes(".xlsx")) return "📊";
+  if (lower.includes(".zip") || lower.includes(".rar"))  return "🗜️";
+  if (lower.includes(".txt"))  return "📃";
+  if (lower.includes(".ppt"))  return "📊";
+  return "📎";
+}
+
+export function PdfUpload({ files, onChange, folder = "plans/pdf", maxSizeMB = MAX_SIZE_MB, maxFiles = DEFAULT_MAX_FILES }: Props) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
