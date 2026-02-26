@@ -7,6 +7,7 @@ import {
   collection,
   doc,
   getDocs,
+  getDocsFromServer,
   getDoc,
   setDoc,
   deleteDoc,
@@ -17,6 +18,9 @@ import {
 import { db } from "./firebase";
 
 export type PlanStatus = "Display Node" | "ICO" | "Daily profit" | "Trading";
+
+/** 플랜 카테고리 (투자 상품 분류) */
+export type PlanCategory = "ABAG" | "BBAG" | "CBAG" | "SELF_COLLECTION";
 
 export interface InvestmentPlan {
   id: string;
@@ -30,7 +34,8 @@ export interface InvestmentPlan {
   description: string;
   tags: string[];
   quickActionsDescription: string;
-  youtubeUrl: string;
+  youtubeUrl: string;        // 기존 단일 URL (하위 호환)
+  youtubeUrls?: Array<{ url: string; title: string }>; // 다중 YouTube URL
   telegram: string;
   twitter: string;
   materials: Array<{ title: string; url: string }>;
@@ -51,8 +56,50 @@ export interface InvestmentPlan {
   wallet3?: string; // Third wallet address
   wallet3Percentage?: number; // Percentage for third wallet (0-100)
   useUserAddress3?: boolean; // If true, use user's wallet address instead of wallet3
+  // ── Detail Info (세부정보 탭) ──
+  detailImages?: Array<{ url: string; caption?: string }> | string[]; // 상세 이미지 (캡션 포함)
+  highlights?: Array<{ icon: string; title: string; value: string }>; // 핵심 지표 카드
+  riskLevel?: "Low" | "Medium" | "High";          // 리스크 레벨
+  network?: string;                               // 블록체인 네트워크 (e.g. BSC, ETH)
+  tokenSymbol?: string;                           // 토큰 심볼 (e.g. BBAG)
+  lockupPeriod?: string;                          // 락업 기간 (e.g. "30일")
+  minInvestment?: string;                         // 최소 투자금 (e.g. "100 USDT")
+  detailDescription?: string;                     // 세부 설명 (마크다운 지원)
+  // ── 추가 세부 정보 ──
+  investmentPeriod?: string;                      // 투자 기간 (e.g. "90일", "무기한")
+  profitCycle?: string;                           // 수익 지급 주기 (e.g. "매일", "매주")
+  feeInfo?: string;                               // 수수료 정보 (e.g. "출금 수수료 2%")
+  contractAddress?: string;                       // 스마트 컨트랙트 주소
+  auditInfo?: string;                             // 감사 정보 (e.g. "CertiK 감사 완료")
+  totalCapacity?: string;                         // 총 모집 한도 (e.g. "10,000 USDT")
+  currentParticipants?: string;                   // 현재 참여자 수
+  noticeText?: string;                            // 주의사항 / 공지 (빨간 경고 박스로 표시)
+  category?: PlanCategory;                         // 플랜 카테고리: ABAG, BBAG, CBAG, SELF_COLLECTION
+  pdfFiles?: Array<{ title: string; url: string }>; // PDF 첨부 파일 목록 (공통, 최대 5개)
+  // ── 링크 모음 ──
+  externalLinks?: Array<{ title: string; url: string }>; // 외부 URL 링크 (최대 5개)
+  blogLinks?: Array<{ title: string; url: string }>;     // 블로그/SNS/미디어 링크 (최대 5개)
+  // ── 다국어 콘텐츠 (언어별 설명/자료) ──
+  langContent?: {
+    en?: LangContent;
+    zh?: LangContent;
+    ko?: LangContent;
+    ja?: LangContent;
+  };
   createdAt: number;
   updatedAt: number;
+}
+
+/** 언어별 콘텐츠 (설명, 이미지, PDF, YouTube, 링크) */
+export interface LangContent {
+  description?: string;       // 해당 언어 설명 (HTML 지원)
+  detailDescription?: string; // 해당 언어 상세 설명 (HTML 지원)
+  materials?: Array<{ title: string; url: string }>; // 해당 언어 참고 URL (최대 5개)
+  pdfFiles?: Array<{ title: string; url: string }>;  // 해당 언어 첨부파일 (최대 5개)
+  attachments?: Array<{ title: string; url: string; fileType?: string }>; // 해당 언어 첨부파일 (PDF/DOC/XLS/ZIP 등, 최대 5개)
+  detailImages?: Array<{ url: string; caption: string }>; // 해당 언어 이미지 (최대 20개)
+  youtubeUrls?: Array<{ url: string; title: string }>; // 해당 언어 YouTube
+  blogLinks?: Array<{ title: string; url: string }>; // 해당 언어 블로그/SNS 링크 (최대 5개)
 }
 
 const PLANS_COLLECTION = "investment_plans";
@@ -100,12 +147,34 @@ function fromFirestore(docData: any, id: string): InvestmentPlan {
     tags: docData.tags || [],
     quickActionsDescription: docData.quickActionsDescription || "",
     youtubeUrl: docData.youtubeUrl || "",
+    youtubeUrls: docData.youtubeUrls || [],
     telegram: docData.telegram || "",
     twitter: docData.twitter || "",
     materials: docData.materials || [],
     recommendedAmount: docData.recommendedAmount || "1000",
     referralCode: docData.referralCode || "",
+    detailImages: docData.detailImages || [],
+    highlights: docData.highlights || [],
+    riskLevel: docData.riskLevel || undefined,
+    network: docData.network || "",
+    tokenSymbol: docData.tokenSymbol || "",
+    lockupPeriod: docData.lockupPeriod || "",
+    minInvestment: docData.minInvestment || "",
+    detailDescription: docData.detailDescription || "",
+    investmentPeriod: docData.investmentPeriod || "",
+    profitCycle: docData.profitCycle || "",
+    feeInfo: docData.feeInfo || "",
+    contractAddress: docData.contractAddress || "",
+    auditInfo: docData.auditInfo || "",
+    totalCapacity: docData.totalCapacity || "",
+    currentParticipants: docData.currentParticipants || "",
+    noticeText: docData.noticeText || "",
+    category: docData.category || undefined, // undefined = legacy plan (ABAG/BBAG/CBAG mixed)
+    pdfFiles: docData.pdfFiles || [],
+    externalLinks: docData.externalLinks || [],
+    blogLinks: docData.blogLinks || [],
     sortOrder: docData.sortOrder !== undefined ? docData.sortOrder : 999999, // Default to high number if not set
+    langContent: docData.langContent || undefined,
     createdAt: timestampToNumber(docData.createdAt),
     updatedAt: timestampToNumber(docData.updatedAt),
   };
@@ -128,11 +197,31 @@ function toFirestore(plan: Partial<InvestmentPlan>): any {
     tags: plan.tags || [],
     quickActionsDescription: plan.quickActionsDescription || "",
     youtubeUrl: plan.youtubeUrl || "",
+    youtubeUrls: plan.youtubeUrls || [],
     telegram: plan.telegram || "",
     twitter: plan.twitter || "",
     materials: plan.materials || [],
     recommendedAmount: plan.recommendedAmount || "1000",
     referralCode: plan.referralCode || "",
+    detailImages: plan.detailImages || [],
+    highlights: plan.highlights || [],
+    riskLevel: plan.riskLevel || null,
+    network: plan.network || "",
+    tokenSymbol: plan.tokenSymbol || "",
+    lockupPeriod: plan.lockupPeriod || "",
+    minInvestment: plan.minInvestment || "",
+    detailDescription: plan.detailDescription || "",
+    investmentPeriod: plan.investmentPeriod || "",
+    profitCycle: plan.profitCycle || "",
+    feeInfo: plan.feeInfo || "",
+    contractAddress: plan.contractAddress || "",
+    auditInfo: plan.auditInfo || "",
+    totalCapacity: plan.totalCapacity || "",
+    currentParticipants: plan.currentParticipants || "",
+    noticeText: plan.noticeText || "",
+    category: plan.category || null, // null = legacy plan
+    pdfFiles: plan.pdfFiles || [],
+    langContent: plan.langContent || null,
     sortOrder: plan.sortOrder !== undefined ? plan.sortOrder : 999999,
     wallet1: plan.wallet1 || "",
     wallet1Percentage: plan.wallet1Percentage !== undefined ? plan.wallet1Percentage : 0,
@@ -158,19 +247,21 @@ function toFirestore(plan: Partial<InvestmentPlan>): any {
 export async function getAllPlans(): Promise<InvestmentPlan[]> {
   try {
     const plansRef = collection(db, PLANS_COLLECTION);
-    // Fetch all plans and sort in memory (avoids needing Firestore index)
-    const querySnapshot = await getDocs(plansRef);
-    
+    // 캐시 무시하고 서버에서 직접 최신 데이터 가져오기
+    const querySnapshot = await getDocsFromServer(plansRef);
+
     const plans: InvestmentPlan[] = [];
     querySnapshot.forEach((doc) => {
       try {
-        plans.push(fromFirestore(doc.data(), doc.id));
+        const p = fromFirestore(doc.data(), doc.id);
+        console.log("[getAllPlans] plan:", p.id, "dailyProfit:", p.dailyProfit);
+        plans.push(p);
       } catch (docError) {
         console.error(`Error parsing plan ${doc.id}:`, docError);
       }
     });
-    
-    console.log(`Loaded ${plans.length} plans from Firestore`);
+
+    console.log(`[getAllPlans] Loaded ${plans.length} plans from Firestore`);
     
     // Sort by sortOrder, then by createdAt if sortOrder is the same
     // Plans without sortOrder get 999999 (appear last)
@@ -240,51 +331,50 @@ function generatePlanReferralCode(planLabel: string): string {
  * Save a plan (create or update) to Firestore
  */
 export async function savePlan(
-  plan: Omit<InvestmentPlan, "id" | "createdAt" | "updatedAt"> & { id?: string }
+  plan: Omit<InvestmentPlan, "id" | "createdAt" | "updatedAt"> & { id?: string; createdAt?: number }
 ): Promise<InvestmentPlan> {
   try {
     const now = Date.now();
     const planId = plan.id || `plan_${now}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Get existing plan to preserve createdAt if updating
-    let existingPlan: InvestmentPlan | null = null;
-    if (plan.id) {
-      existingPlan = await getPlanById(plan.id);
-    }
-    
+    const isUpdate = !!plan.id;
+
+    console.log("[savePlan] START - id:", planId, "isUpdate:", isUpdate, "dailyProfit:", plan.dailyProfit);
+
     // Generate referral code only for new plans (not when updating)
-    let referralCode = plan.referralCode || existingPlan?.referralCode;
-    if (!referralCode && !plan.id) {
-      // New plan - generate referral code
+    let referralCode = plan.referralCode;
+    if (!referralCode && !isUpdate) {
       referralCode = generatePlanReferralCode(plan.label);
     }
-    
+
     const planData = toFirestore({
       ...plan,
       referralCode,
-      createdAt: existingPlan?.createdAt || now,
+      createdAt: plan.createdAt || now,
     });
-    
+
+    console.log("[savePlan] Saving to Firestore - dailyProfit in planData:", planData.dailyProfit);
+
     const planRef = doc(db, PLANS_COLLECTION, planId);
-    await setDoc(planRef, planData);
-    
-    // Also save to localStorage as backup
+    await setDoc(planRef, planData, { merge: isUpdate });
+
+    console.log("[savePlan] SUCCESS - saved to Firestore");
+
     savePlanToLocalStorage({
       ...plan,
       id: planId,
       referralCode,
+      createdAt: plan.createdAt || now,
     });
-    
+
     return {
       ...plan,
       id: planId,
       referralCode,
-      createdAt: existingPlan?.createdAt || now,
+      createdAt: plan.createdAt || now,
       updatedAt: now,
     } as InvestmentPlan;
   } catch (error) {
-    console.error("Error saving plan to Firestore:", error);
-    // Fallback to localStorage
+    console.error("[savePlan] ERROR saving to Firestore:", error);
     return savePlanToLocalStorage(plan);
   }
 }
@@ -384,7 +474,7 @@ function getPlansFromLocalStorage(): InvestmentPlan[] {
 }
 
 function savePlanToLocalStorage(
-  plan: Omit<InvestmentPlan, "id" | "createdAt" | "updatedAt"> & { id?: string }
+  plan: Omit<InvestmentPlan, "id" | "createdAt" | "updatedAt"> & { id?: string; createdAt?: number }
 ): InvestmentPlan {
   if (typeof window === "undefined") {
     throw new Error("Cannot save plan: window is undefined");
@@ -408,7 +498,7 @@ function savePlanToLocalStorage(
             status: plan.status || p.status || "Daily profit",
             sortOrder,
             updatedAt: now,
-            createdAt: p.createdAt,
+            createdAt: plan.createdAt || p.createdAt,
           }
         : p
     );
