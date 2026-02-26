@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect, Suspense, lazy } from "react";
-const MDEditor = lazy(() => import("@uiw/react-md-editor"));
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,7 +13,6 @@ import {
   Eye, EyeOff, ArrowUp, ArrowDown, FileText, Bell, Youtube, Globe,
   Code2, BookOpen, ExternalLink,
 } from "lucide-react";
-import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { InvestmentPlan, LangContent, PlanStatus, PlanCategory, getAllPlans, savePlan, deletePlan, updatePlanOrder } from "@/lib/plans";
 import { ImageUpload } from "@/components/ImageUpload";
@@ -26,6 +24,9 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+
+// ── 모든 import가 끝난 후 lazy 선언 (Rollup 모듈 평가 순서 보장) ──────────────
+const MDEditor = lazy(() => import("@uiw/react-md-editor"));
 
 /* ─────────────────────────────────────────────── */
 /*  Highlight 행 편집 컴포넌트                      */
@@ -447,6 +448,43 @@ function MaterialEditor({
       <Button type="button" variant="outline" size="sm" onClick={add} className="gap-1 w-full">
         <Plus className="w-3.5 h-3.5" /> 링크 추가
       </Button>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────── */
+/*  Blog / SNS 링크 편집 컴포넌트                   */
+/* ─────────────────────────────────────────────── */
+interface BlogLinkRow { title: string; url: string }
+function BlogLinkEditor({
+  links, onChange, maxItems = 5,
+}: { links: BlogLinkRow[]; onChange: (l: BlogLinkRow[]) => void; maxItems?: number }) {
+  const add = () => {
+    if (links.length >= maxItems) return;
+    onChange([...links, { title: "", url: "" }]);
+  };
+  const remove = (i: number) => onChange(links.filter((_, idx) => idx !== i));
+  const update = (i: number, field: keyof BlogLinkRow, val: string) => {
+    const next = [...links];
+    next[i] = { ...next[i], [field]: val };
+    onChange(next);
+  };
+  return (
+    <div className="space-y-2">
+      {links.map((l, i) => (
+        <div key={i} className="flex gap-2 items-center">
+          <Input placeholder="제목 (예: 공식 블로그)" value={l.title} onChange={(e) => update(i, "title", e.target.value)} className="flex-1" />
+          <Input placeholder="URL (https://...)" value={l.url} onChange={(e) => update(i, "url", e.target.value)} className="flex-[2]" />
+          <Button variant="ghost" size="icon" onClick={() => remove(i)} className="text-destructive hover:text-destructive flex-shrink-0">
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      ))}
+      {links.length < maxItems && (
+        <Button type="button" variant="outline" size="sm" onClick={add} className="gap-1 w-full">
+          <Plus className="w-3.5 h-3.5" /> 블로그/SNS 링크 추가 ({links.length}/{maxItems})
+        </Button>
+      )}
     </div>
   );
 }
