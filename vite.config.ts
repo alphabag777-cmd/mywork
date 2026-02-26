@@ -25,10 +25,16 @@ export default defineConfig({
     rollupOptions: {
       maxParallelFileOps: 2,
       onwarn(warning, warn) {
-        // @walletconnect/ethereum-provider 미해석 경고를 오류 대신 경고로 처리
+        // walletconnect 관련 미해석 import 경고를 오류 대신 경고로 처리
         if (
           warning.code === 'UNRESOLVED_IMPORT' &&
-          warning.message?.includes('@walletconnect/ethereum-provider')
+          warning.message?.includes('@walletconnect')
+        ) {
+          return;
+        }
+        // isTypeTwoEnvelope export 오류도 무시
+        if (
+          warning.message?.includes('isTypeTwoEnvelope')
         ) {
           return;
         }

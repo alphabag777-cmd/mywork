@@ -8,7 +8,8 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postinstall": "node -e \"const fs=require('fs'),path=require('path');const dirs=['node_modules/@wagmi/connectors/node_modules/@walletconnect'];dirs.forEach(d=>{if(fs.existsSync(d)){fs.rmSync(d,{recursive:true,force:true});console.log('Removed:',d);}});\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
