@@ -21,24 +21,17 @@ export default defineConfig({
     commonjsOptions: {
       transformMixedEsModules: true,
     },
-    chunkSizeWarningLimit: 600,
-    // lazy chunk들을 초기 HTML modulepreload에서 제외
-    // (md-editor 1.7MB 등이 페이지 첫 로드 시 다운로드되는 것 방지)
+    chunkSizeWarningLimit: 2500,
+    // md-editor(1.7MB)가 초기 HTML modulepreload에 들어가지 않도록 제외
     modulePreload: {
-      resolveDependencies(filename, deps) {
-        // md-editor, firebase, viem chunk는 preload 목록에서 제외
-        return deps.filter(dep =>
-          !dep.includes("md-editor") &&
-          !dep.includes("firebase") &&
-          !dep.includes("viem")
-        );
+      resolveDependencies(_filename, deps) {
+        return deps.filter(dep => !dep.includes("md-editor"));
       },
     },
     rollupOptions: {
       maxParallelFileOps: 2,
-      // walletconnect / web3modal 내부 unresolved import 경고를 무시
-      // (wagmi@3.x에서 @walletconnect/ethereum-provider가 선택적 의존성)
       onwarn(warning, defaultHandler) {
+        // wagmi@3.x에서 @walletconnect/ethereum-provider가 선택적 의존성
         if (
           warning.code === "UNRESOLVED_IMPORT" &&
           (warning.message?.includes("@walletconnect") ||
@@ -46,18 +39,16 @@ export default defineConfig({
            warning.message?.includes("isTypeTwoEnvelope") ||
            warning.message?.includes("getBundleId"))
         ) {
-          return; // 무시
+          return;
         }
         defaultHandler(warning);
       },
       output: {
-        // lazy chunk들이 초기 HTML에 modulepreload로 추가되지 않도록 설정
-        // (md-editor 1.7MB 등이 초기 로드에 포함되는 것을 방지)
-        experimentalMinChunkSize: 10_000,
         manualChunks(id) {
-          // 1. Firebase — 반드시 독립 청크
-          //    Firestore 내부 `const ze` (FirestoreError 코드)가
-          //    다른 청크와 함께 번들링되면 circular dep → TDZ 오류 발생
+          // ── Firebase: 반드시 독립 청크 ────────────────────────────────────────
+          // Firestore 내부 `const ze`(FirestoreError 코드)가 wagmi/viem 등과
+          // 같은 청크에 묶이면 Rollup 초기화 순서 오류(TDZ) 발생.
+          // firebase만 분리하면 ze는 이 청크 안에서만 존재 → 문제 없음.
           if (
             id.includes("node_modules/firebase") ||
             id.includes("node_modules/@firebase")
@@ -65,8 +56,9 @@ export default defineConfig({
             return "firebase";
           }
 
-          // 2. MDEditor & CodeMirror — admin에서만 사용하는 무거운 에디터
-          //    lazy import이므로 독립 청크로 분리해도 circular dep 위험 없음
+          // ── MDEditor: admin 전용 무거운 에디터 ────────────────────────────────
+          // @uiw/react-md-editor + codemirror = ~1.7MB
+          // lazy(() => import(...))로만 사용되므로 독립 청크 분리 안전.
           if (
             id.includes("node_modules/@uiw") ||
             id.includes("node_modules/codemirror") ||
@@ -75,7 +67,7 @@ export default defineConfig({
             return "md-editor";
           }
 
-          // 3. React 코어 — 가장 변경이 적어 장기 캐싱에 유리
+          // ── React 코어: 변경 빈도가 낮아 장기 캐싱에 유리 ───────────────────
           if (
             id.includes("node_modules/react/") ||
             id.includes("node_modules/react-dom/") ||
@@ -85,10 +77,10 @@ export default defineConfig({
             return "react-vendor";
           }
 
-          // 4. viem — web3 유틸 (wagmi의 peer dep, 독립적으로 분리 가능)
-          if (id.includes("node_modules/viem")) {
-            return "viem";
-          }
+          // ── wagmi / viem / walletconnect / web3modal ──────────────────────────
+          // 이 패키지들은 서로 circular dependency가 있어 하나의 청크로
+          // 강제 묶으면 TDZ 발생. Rollup 자동 분리에 맡긴다.
+          // (manualChunks에서 지정하지 않으면 Rollup이 안전하게 분산 처리)
         },
       },
     },
