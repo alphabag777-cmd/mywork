@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import MDEditor from "@uiw/react-md-editor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1298,70 +1299,32 @@ export const AdminAddPlans = () => {
                         </div>
                       </div>
 
-                      {/* ── 섹션 C: 상세 설명 ── */}
-                      <div className="rounded-xl border border-border/60 bg-muted/10 overflow-hidden">
-                        <div className="px-4 pt-4 pb-2">
-                          <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-semibold flex items-center gap-2">
-                              <Info className="w-4 h-4 text-primary" /> 상세 설명
-                              <span className="text-xs font-normal text-muted-foreground">(HTML 사용 가능)</span>
-                            </h4>
-                            <button
-                              type="button"
-                              onClick={() => setDetailDescHtmlMode(!detailDescHtmlMode)}
-                              className={`flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors ${detailDescHtmlMode ? "bg-primary/10 border-primary text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
-                            >
-                              <Code2 className="w-3 h-3" />
-                              {detailDescHtmlMode ? "편집 모드" : "HTML 미리보기"}
-                            </button>
-                          </div>
+                      {/* ── 섹션 C: 상세 설명 (리치 에디터) ── */}
+                      <div className="rounded-xl border border-border/60 bg-muted/10 overflow-hidden" data-color-mode="dark">
+                        <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+                          <h4 className="text-sm font-semibold flex items-center gap-2">
+                            <Info className="w-4 h-4 text-primary" /> 상세 설명
+                            <span className="text-xs font-normal text-muted-foreground">마크다운 · HTML · 이모지 모두 사용 가능</span>
+                          </h4>
+                          <span className="text-[11px] text-muted-foreground">{(formData.detailDescription || "").length}자</span>
                         </div>
-                        {detailDescHtmlMode ? (
-                          <div className="px-4 pb-4">
-                            <div
-                              className="min-h-[200px] p-4 rounded-md border border-border bg-background text-sm prose prose-sm dark:prose-invert max-w-none"
-                              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(formData.detailDescription) }}
-                            />
-                            <p className="text-[11px] text-muted-foreground mt-1">HTML 렌더링 미리보기 — 편집하려면 위 버튼을 클릭하세요.</p>
-                          </div>
-                        ) : (
-                          <>
-                            {/* 서식 툴바 */}
-                            <div className="px-4">
-                              <RichTextToolbar
-                                onInsert={(text) => {
-                                  const textarea = document.getElementById("detailDescription") as HTMLTextAreaElement;
-                                  if (textarea) {
-                                    const start = textarea.selectionStart;
-                                    const end = textarea.selectionEnd;
-                                    const newVal = formData.detailDescription.substring(0, start) + text + formData.detailDescription.substring(end);
-                                    setFormData({ ...formData, detailDescription: newVal });
-                                    setTimeout(() => {
-                                      textarea.focus();
-                                      textarea.setSelectionRange(start + text.length, start + text.length);
-                                    }, 0);
-                                  } else {
-                                    setFormData({ ...formData, detailDescription: formData.detailDescription + text });
-                                  }
-                                }}
-                              />
-                            </div>
-                            <div className="px-4 pb-4">
-                              <Textarea
-                                id="detailDescription"
-                                value={formData.detailDescription}
-                                onChange={(e) => setFormData({ ...formData, detailDescription: e.target.value })}
-                                placeholder={"위 버튼으로 이모지/서식을 삽입하거나 직접 입력하세요.\n\n예시:\n📌 투자 방식: BBAG 40% + SBAG 40% + CBAG 20%\n📌 수익 지급: 매일 자동 지급\n📌 원금 회수: 30일 후 가능\n\n또는 HTML 사용:\n<b>굵은 텍스트</b>\n<ul><li>항목 1</li><li>항목 2</li></ul>"}
-                                rows={10}
-                                className="font-mono text-sm rounded-t-none border-t-0"
-                              />
-                              <div className="flex items-center justify-between mt-1">
-                                <p className="text-[11px] text-muted-foreground">💡 일반 텍스트와 HTML 태그 모두 사용 가능합니다. 미리보기 버튼으로 확인하세요.</p>
-                                <span className="text-[11px] text-muted-foreground">{formData.detailDescription.length}자</span>
-                              </div>
-                            </div>
-                          </>
-                        )}
+                        <div className="px-4 pb-4">
+                          <MDEditor
+                            value={formData.detailDescription}
+                            onChange={(val) => setFormData({ ...formData, detailDescription: val || "" })}
+                            height={400}
+                            preview="live"
+                            hideToolbar={false}
+                            visibleDragbar={false}
+                            textareaProps={{
+                              placeholder: "여기에 상세 설명을 입력하세요.\n\n✅ 마크다운 사용 예시:\n**굵게** _기울기_ ~~취소선~~\n# 제목1  ## 제목2\n- 목록1\n- 목록2\n\n[링크 텍스트](https://example.com)\n\n✅ HTML도 가능:\n<b>굵게</b> <br> <ul><li>항목</li></ul>\n\n✅ 이모지:\n📌 투자 방식  📅 기간  💰 수익  🔒 락업",
+                            }}
+                            style={{ borderRadius: "0.5rem" }}
+                          />
+                          <p className="text-[11px] text-muted-foreground mt-2">
+                            💡 왼쪽 = 편집, 오른쪽 = 실시간 미리보기 · <strong>B</strong> <em>I</em> H ─ 링크 이미지 코드 표 등 툴바 사용 가능
+                          </p>
+                        </div>
                       </div>
 
                       {/* ── 섹션 D: 주의사항 / 공지 ── */}
@@ -1542,25 +1505,24 @@ export const AdminAddPlans = () => {
                               )}
                             </div>
 
-                            {/* 상세 설명 - HTML 지원 */}
-                            <div className="space-y-2">
-                              <Label className="text-sm font-semibold">📄 {langLabels[lang]} 상세 설명 <span className="font-normal text-xs text-muted-foreground">(HTML 지원)</span></Label>
-                              <Textarea
+                            {/* 상세 설명 - MDEditor (마크다운+HTML+이모지) */}
+                            <div className="space-y-2" data-color-mode="dark">
+                              <Label className="text-sm font-semibold">
+                                📄 {langLabels[lang]} 상세 설명
+                                <span className="font-normal text-xs text-muted-foreground ml-1">(마크다운·HTML·이모지 지원)</span>
+                              </Label>
+                              <MDEditor
                                 value={lc.detailDescription || ""}
-                                onChange={(e) => update({ detailDescription: e.target.value })}
-                                placeholder={`${langLabels[lang]}로 상세 설명 입력 (세부 정보 팝업에 표시됨)\nHTML 태그 사용 가능: <b>굵게</b>, <br>, <ul><li>항목</li></ul>`}
-                                rows={8}
-                                className="text-sm font-mono"
+                                onChange={(val) => update({ detailDescription: val || "" })}
+                                height={320}
+                                preview="live"
+                                hideToolbar={false}
+                                visibleDragbar={false}
+                                textareaProps={{
+                                  placeholder: `${langLabels[lang]}로 상세 설명 입력\n**굵게** _기울기_ # 제목 - 목록\nHTML도 가능: <b>굵게</b> <br>`,
+                                }}
+                                style={{ borderRadius: "0.5rem" }}
                               />
-                              {lc.detailDescription && (
-                                <div className="p-3 rounded border border-dashed border-border bg-muted/10">
-                                  <p className="text-[10px] text-muted-foreground mb-1">🔍 렌더링 미리보기</p>
-                                  <div
-                                    className="text-sm prose prose-sm dark:prose-invert max-w-none"
-                                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(lc.detailDescription) }}
-                                  />
-                                </div>
-                              )}
                             </div>
 
                             {/* 참고 자료 */}
