@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Users, Loader2, ChevronLeft, ChevronRight, Eye, Edit, Plus, Trash2, Save, X, Search, XCircle, Download } from "lucide-react";
-import { getUsersPaginated, getUsersCount, User, updateUserReferrer, searchUsers, getAllUsers } from "@/lib/users";
+import { getUsersPaginated, getUsersCount, User, updateUserReferrer, searchUsers, getAllUsers, deleteUser, getUsersWithInvalidReferrer } from "@/lib/users";
 import { getAllReferralCounts, getReferralsByReferrer, getReferralByReferred, Referral } from "@/lib/referrals";
 import { getUserNodePurchases, saveNodePurchase, deleteNodePurchase, updateNodePurchase, NodePurchase, getAllNodePurchases } from "@/lib/nodePurchases";
 import { getUserInvestments, saveUserInvestment, updateUserInvestment, deleteUserInvestment, UserInvestment, getAllUserInvestments } from "@/lib/userInvestments";
@@ -150,6 +150,12 @@ export const AdminUsers = () => {
   const [purchasedNUMI, setPurchasedNUMI] = useState<string>("");
   const [purchasePriceUSDT, setPurchasePriceUSDT] = useState<string>("");
 
+  // 잘못된 추천코드 유저 관리 state
+  const [invalidReferrerUsers, setInvalidReferrerUsers]     = useState<User[]>([]);
+  const [loadingInvalidUsers, setLoadingInvalidUsers]       = useState(false);
+  const [deletingWallets, setDeletingWallets]               = useState<Set<string>>(new Set());
+  const [showInvalidSection, setShowInvalidSection]         = useState(false);
+
   // Load referral counts once on mount
   useEffect(() => {
     const loadReferralCounts = async () => {
@@ -167,13 +173,13 @@ export const AdminUsers = () => {
   useEffect(() => {
     const loadTotals = async () => {
       try {
-        const [allNodes, allInvests] = await Promise.all([
+        const [allNodePurchases, allInvests] = await Promise.all([
           getAllNodePurchases(),
           getAllUserInvestments(),
         ]);
         // Node totals per user
         const nodeTotals: { [w: string]: { price: number; actual: number; count: number } } = {};
-        allNodes.forEach((p) => {
+        allNodePurchases.forEach((p) => {
           const w = p.userId.toLowerCase();
           if (!nodeTotals[w]) nodeTotals[w] = { price: 0, actual: 0, count: 0 };
           nodeTotals[w].price  += p.nodePrice || 0;
@@ -330,16 +336,14 @@ export const AdminUsers = () => {
   };
 
   const handleSearch = async () => {
-    // Reset pagination when searching — MUST reset before setting activeSearchParams
-    // so that the loadUsers useCallback picks up fresh state
+    // Reset pagination when searching
+    setCurrentPage(0);
+    setPageHistory([]);
     const searchParams = {
       walletAddress: searchWalletAddress.trim() || undefined,
       referralCode: searchReferralCode.trim() || undefined,
       referrer: searchReferrer.trim() || undefined,
     };
-    setCurrentPage(0);
-    setPageHistory([]);
-    setLastDoc(null);
     setActiveSearchParams(searchParams);
     
     // Load users with search
@@ -382,7 +386,6 @@ export const AdminUsers = () => {
     setActiveSearchParams(null);
     setCurrentPage(0);
     setPageHistory([]);
-    setLastDoc(null);
     
     // Load users without search
     setLoading(true);
@@ -553,6 +556,39 @@ export const AdminUsers = () => {
     }
   };
 
+  // ── 잘못된 추천코드 유저 관리 ────────────────────────────────────────────
+  const handleLoadInvalidUsers = async () => {
+    setLoadingInvalidUsers(true);
+    try {
+      const invalid = await getUsersWithInvalidReferrer();
+      setInvalidReferrerUsers(invalid);
+      setShowInvalidSection(true);
+      if (invalid.length === 0) toast.success("잘못된 추천코드 유저 없음 ✅");
+    } catch (e) {
+      toast.error("조회 실패");
+    } finally {
+      setLoadingInvalidUsers(false);
+    }
+  };
+
+  const handleDeleteInvalidUser = async (wallet: string) => {
+    if (!confirm(`정말 삭제하시겠습니까?\n\n지갑: ${wallet}\n\n⚠️ users 컬렉션에서만 삭제됩니다.\n투자/노드 데이터는 남아있습니다.`)) return;
+    setDeletingWallets(prev => new Set(prev).add(wallet));
+    try {
+      const ok = await deleteUser(wallet);
+      if (ok) {
+        setInvalidReferrerUsers(prev => prev.filter(u => u.walletAddress !== wallet));
+        toast.success(`삭제 완료: ${wallet.slice(0, 10)}...`);
+      } else {
+        toast.error("삭제 실패");
+      }
+    } catch (e) {
+      toast.error("삭제 오류");
+    } finally {
+      setDeletingWallets(prev => { const s = new Set(prev); s.delete(wallet); return s; });
+    }
+  };
+
   const handleConfirmSBAGPurchase = async () => {
     if (!editingSBAGPosition) return;
     
@@ -665,10 +701,10 @@ export const AdminUsers = () => {
         </div>
       </CardHeader>
       <CardContent>
-        {/* ── 전체 투자금 합계 요약 ─────────────────────────────────── */}
+        {/* ── 전체 투자금 합계 요약 ──────────────────────────────────── */}
         <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 flex flex-col gap-1">
-            <p className="text-xs text-muted-foreground">총 Node투자 (실제)</p>
+            <p className="text-xs text-muted-foreground">수 Node투자 (실제)</p>
             {totalsLoaded ? (
               <p className="text-xl font-bold text-primary">
                 ${grandNodeTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -682,7 +718,7 @@ export const AdminUsers = () => {
             )}
           </div>
           <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 px-4 py-3 flex flex-col gap-1">
-            <p className="text-xs text-muted-foreground">총 Investment합계</p>
+            <p className="text-xs text-muted-foreground">수 Investment합계</p>
             {totalsLoaded ? (
               <p className="text-xl font-bold text-blue-400">
                 ${grandInvestTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -693,7 +729,7 @@ export const AdminUsers = () => {
             )}
           </div>
           <div className="rounded-xl border border-green-500/30 bg-green-500/5 px-4 py-3 flex flex-col gap-1">
-            <p className="text-xs text-muted-foreground">총 투자금 합계 (Node + Investment)</p>
+            <p className="text-xs text-muted-foreground">수 투자금 합계 (Node + Investment)</p>
             {totalsLoaded ? (
               <p className="text-xl font-bold text-green-400">
                 ${(grandNodeTotal + grandInvestTotal).toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -703,6 +739,87 @@ export const AdminUsers = () => {
               <p className="text-sm text-muted-foreground animate-pulse">Loading…</p>
             )}
           </div>
+        </div>
+
+        {/* ── 잘못된 추천코드 유저 관리 섹션 ── */}
+        <div className="mb-6 p-4 bg-background/50 rounded-lg border border-orange-500/30">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-sm font-semibold text-orange-400 flex items-center gap-2">
+                <XCircle className="w-4 h-4" />
+                잘못된 추천코드로 가입한 유저 관리
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                존재하지 않는 추천인(코드/지갑)으로 등록된 유저를 조회·삭제합니다.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLoadInvalidUsers}
+              disabled={loadingInvalidUsers}
+              className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10 shrink-0"
+            >
+              {loadingInvalidUsers
+                ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />조회 중...</>
+                : <><Search className="w-3 h-3 mr-1" />조회</>}
+            </Button>
+          </div>
+
+          {showInvalidSection && (
+            invalidReferrerUsers.length === 0 ? (
+              <p className="text-xs text-green-500 text-center py-4">✅ 잘못된 추천코드 유저 없음</p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-orange-400 font-semibold">
+                  총 {invalidReferrerUsers.length}명 발견
+                  <span className="ml-2 text-muted-foreground font-normal">
+                    (투자/노드 데이터가 있는 유저는 삭제 전 반드시 확인하세요)
+                  </span>
+                </p>
+                <div className="overflow-x-auto rounded-md border border-border/40">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>지갑 주소</TableHead>
+                        <TableHead>추천코드</TableHead>
+                        <TableHead>추천지갑</TableHead>
+                        <TableHead>가입일</TableHead>
+                        <TableHead className="text-right">삭제</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {invalidReferrerUsers.map(u => (
+                        <TableRow key={u.walletAddress} className="text-xs">
+                          <TableCell className="font-mono">{formatAddress(u.walletAddress)}</TableCell>
+                          <TableCell className="font-mono text-orange-400">{u.referrerCode || "-"}</TableCell>
+                          <TableCell className="font-mono text-orange-400">
+                            {u.referrerWallet ? formatAddress(u.referrerWallet) : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {u.createdAt ? new Date(u.createdAt).toLocaleDateString("ko-KR") : "-"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => handleDeleteInvalidUser(u.walletAddress)}
+                              disabled={deletingWallets.has(u.walletAddress)}
+                            >
+                              {deletingWallets.has(u.walletAddress)
+                                ? <Loader2 className="w-3 h-3 animate-spin" />
+                                : <Trash2 className="w-3 h-3" />}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )
+          )}
         </div>
 
         {/* Search Section */}
@@ -839,7 +956,7 @@ export const AdminUsers = () => {
                         if (!t || t.count === 0) return <span className="text-muted-foreground">-</span>;
                         return (
                           <span className="text-primary font-semibold">
-                            ${t.actual.toLocaleString(undefined,{maximumFractionDigits:0})}
+                            ${t.actual.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                             <span className="text-muted-foreground font-normal ml-1">({t.count})</span>
                           </span>
                         );
@@ -849,7 +966,7 @@ export const AdminUsers = () => {
                       {(() => {
                         const amt = userInvestTotals[user.walletAddress.toLowerCase()] || 0;
                         if (amt === 0) return <span className="text-muted-foreground">-</span>;
-                        return <span className="font-semibold">${amt.toLocaleString(undefined,{maximumFractionDigits:0})}</span>;
+                        return <span className="font-semibold">${amt.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>;
                       })()}
                     </TableCell>
                     <TableCell>{formatDate(user.createdAt)}</TableCell>
@@ -961,15 +1078,9 @@ export const AdminUsers = () => {
                         </p>
                       </div>
                       <div>
-                        <Label className="text-xs text-muted-foreground">Total Node Value (정가)</Label>
+                        <Label className="text-xs text-muted-foreground">Total Node Value</Label>
                         <p className="text-sm font-semibold">
                           ${calculateTotalNodeValue(userDetailData.nodePurchases).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Total Node Actual (실제투자금)</Label>
-                        <p className="text-sm font-semibold text-primary">
-                          ${userDetailData.nodePurchases.reduce((s, p) => s + (p.actualAmount !== undefined ? p.actualAmount : p.nodePrice || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                       </div>
                       <div>
@@ -999,12 +1110,10 @@ export const AdminUsers = () => {
                         nodeId: 0,
                         nodeName: "",
                         nodePrice: 0,
-                        actualAmount: undefined,
                         nodeColor: "gold",
                         transactionHash: "",
                         purchaseDate: Date.now(),
                         status: "completed",
-                        memo: "",
                         createdAt: Date.now(),
                         updatedAt: Date.now(),
                       });
@@ -1149,7 +1258,7 @@ export const AdminUsers = () => {
                           </p>
                         </div>
                         <div>
-                          <Label>Node Price (USDT) — 정가</Label>
+                          <Label>Price (USDT)</Label>
                           <Input
                             type="number"
                             value={editingNodePurchase?.nodePrice || ""}
@@ -1161,27 +1270,7 @@ export const AdminUsers = () => {
                                 });
                               }
                             }}
-                            placeholder="0"
                           />
-                          <p className="text-xs text-muted-foreground mt-1">노드 등록 정가 (관리용)</p>
-                        </div>
-                        <div>
-                          <Label>Actual Investment (USDT) — 실제투자금</Label>
-                          <Input
-                            type="number"
-                            value={editingNodePurchase?.actualAmount ?? ""}
-                            onChange={(e) => {
-                              if (editingNodePurchase) {
-                                const val = e.target.value;
-                                setEditingNodePurchase({
-                                  ...editingNodePurchase,
-                                  actualAmount: val === "" ? undefined : parseFloat(val) || 0,
-                                });
-                              }
-                            }}
-                            placeholder="실제 송금액 (USDT)"
-                          />
-                          <p className="text-xs text-muted-foreground mt-1">실제 송금한 USDT 금액 (비워두면 정가와 동일하게 합산됨)</p>
                         </div>
                         <div>
                           <Label>Transaction Hash</Label>
@@ -1220,21 +1309,6 @@ export const AdminUsers = () => {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="col-span-2">
-                          <Label>Memo (메모)</Label>
-                          <Input
-                            value={editingNodePurchase?.memo || ""}
-                            onChange={(e) => {
-                              if (editingNodePurchase) {
-                                setEditingNodePurchase({
-                                  ...editingNodePurchase,
-                                  memo: e.target.value,
-                                });
-                              }
-                            }}
-                            placeholder="관리자 메모 (선택사항)"
-                          />
-                        </div>
                       </div>
                       <div className="flex gap-2">
                         <Button
@@ -1263,36 +1337,13 @@ export const AdminUsers = () => {
                     <p className="text-sm text-muted-foreground text-center py-4">No node purchases found</p>
                   ) : (
                     <Table>
-                      {/* 노드 투자 총합 요약 */}
-                      {userDetailData.nodePurchases.length > 0 && (
-                        <div className="flex flex-wrap gap-4 p-3 rounded-lg bg-muted/40 border border-border/50 mb-3 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">노드 정가 합계: </span>
-                            <span className="font-bold text-foreground">
-                              ${userDetailData.nodePurchases.reduce((s, p) => s + (p.nodePrice || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">실제 투자 합계: </span>
-                            <span className="font-bold text-primary">
-                              ${userDetailData.nodePurchases.reduce((s, p) => s + (p.actualAmount !== undefined ? p.actualAmount : p.nodePrice || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">노드 수: </span>
-                            <span className="font-bold text-foreground">{userDetailData.nodePurchases.length}개</span>
-                          </div>
-                        </div>
-                      )}
                       <TableHeader>
                         <TableRow>
                           <TableHead>Node Type</TableHead>
-                          <TableHead>정가 (USDT)</TableHead>
-                          <TableHead>실제투자금 (USDT)</TableHead>
+                          <TableHead>Price</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Purchase Date</TableHead>
                           <TableHead>Transaction Hash</TableHead>
-                          <TableHead>Memo</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1300,13 +1351,7 @@ export const AdminUsers = () => {
                         {userDetailData.nodePurchases.map((purchase) => (
                           <TableRow key={purchase.id}>
                             <TableCell>{purchase.nodeName}</TableCell>
-                            <TableCell className="font-mono">${purchase.nodePrice.toLocaleString()}</TableCell>
-                            <TableCell className="font-mono font-semibold text-primary">
-                              ${(purchase.actualAmount !== undefined ? purchase.actualAmount : purchase.nodePrice).toLocaleString()}
-                              {purchase.actualAmount !== undefined && purchase.actualAmount !== purchase.nodePrice && (
-                                <span className="ml-1 text-[10px] text-muted-foreground">(actual)</span>
-                              )}
-                            </TableCell>
+                            <TableCell>${purchase.nodePrice.toLocaleString()}</TableCell>
                             <TableCell>
                               <span className={`px-2 py-1 rounded text-xs ${
                                 purchase.status === "completed" ? "bg-green-500/20 text-green-400" :
@@ -1319,9 +1364,6 @@ export const AdminUsers = () => {
                             <TableCell>{formatDate(purchase.purchaseDate)}</TableCell>
                             <TableCell className="font-mono text-xs">
                               {purchase.transactionHash ? formatAddress(purchase.transactionHash, 8) : "-"}
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">
-                              {purchase.memo || "-"}
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">

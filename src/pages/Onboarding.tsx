@@ -1,3 +1,12 @@
+/**
+ * Onboarding.tsx
+ *
+ * 초대코드 입력 페이지
+ * 두 가지 방식 병행 지원:
+ *   1) URL 방식  : ?referral=0x지갑주소  → 자동 감지 & Firestore 저장
+ *   2) 수동 입력 : 6자리 숫자 코드       → DB 실시간 검증 후 Firestore 저장
+ */
+
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,50 +14,55 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, XCircle, Link } from "lucide-react";
 import { toast } from "sonner";
-import { getReferralCodeFromURL, storeReferralFromURL, setReferralCodeRegistered, isReferralCodeRegistered, getOrCreateReferralCode } from "@/lib/referral";
+import {
+  getReferralFromURL,
+  setReferralCodeRegistered,
+  isReferralCodeRegistered,
+  getOrCreateReferralCode,
+} from "@/lib/referral";
 import { useAccount } from "wagmi";
-import { saveUser, getUserByReferralCode } from "@/lib/users";
+import { saveUser, getUserByReferralCode, getUserByWallet } from "@/lib/users";
 import { saveReferral } from "@/lib/referrals";
 
 const Onboarding = () => {
-  const [referralCode, setReferralCode] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isValidating, setIsValidating] = useState(false);       // 실시간 검증 중
-  const [codeValid, setCodeValid] = useState<boolean | null>(null); // null=미검증, true=유효, false=무효
-  const [error, setError] = useState<string>("");
-  const [isChecking, setIsChecking] = useState(true);
-  const navigate = useNavigate();
+  const [referralCode, setReferralCode]           = useState<string>("");
+  const [isLoading, setIsLoading]                 = useState(false);
+  const [isValidating, setIsValidating]           = useState(false);
+  const [codeValid, setCodeValid]                 = useState<boolean | null>(null);
+  const [error, setError]                         = useState<string>("");
+  const [isChecking, setIsChecking]               = useState(true);
+
+  // URL 방식으로 들어온 경우
+  const [urlReferrerWallet, setUrlReferrerWallet] = useState<string | null>(null);
+  const [urlMode, setUrlMode]                     = useState(false); // URL 방식으로 자동 감지됨
+
+  const navigate     = useNavigate();
   const { address, isConnected } = useAccount();
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── 이미 등록된 경우 리다이렉트 ──────────────────────────────────────────
+  // ── 초기 체크: 이미 등록됐거나 URL 방식으로 들어온 경우 ──────────────────
   useEffect(() => {
-    const checkRegistration = () => {
-      const urlCode = getReferralCodeFromURL();
-      if (urlCode) {
-        if (isConnected && address) {
-          const stored = storeReferralFromURL(address);
-          if (stored) {
-            navigate("/", { replace: true });
-            return;
-          }
-        } else {
-          setReferralCode(urlCode);
-        }
-      }
-      if (isReferralCodeRegistered()) {
-        navigate("/", { replace: true });
-        return;
-      }
-      setIsChecking(false);
-    };
-    checkRegistration();
-  }, [navigate, isConnected, address]);
+    if (isReferralCodeRegistered()) {
+      navigate("/", { replace: true });
+      return;
+    }
 
-  // ── 6자리 입력 완료 시 DB 실시간 검증 ────────────────────────────────────
+    // ?referral=0x... 파라미터 감지
+    const walletFromUrl = getReferralFromURL();
+    if (walletFromUrl) {
+      setUrlReferrerWallet(walletFromUrl);
+      setUrlMode(true);
+    }
+
+    setIsChecking(false);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 6자리 코드 실시간 DB 검증 ────────────────────────────────────────────
   useEffect(() => {
+    if (urlMode) return; // URL 방식이면 코드 검증 불필요
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     if (referralCode.length < 6) {
@@ -57,27 +71,23 @@ const Onboarding = () => {
       return;
     }
 
-    // 6자리 숫자 형식 검사
     if (!/^\d{6}$/.test(referralCode)) {
       setCodeValid(false);
       setError("초대코드는 숫자 6자리입니다.");
       return;
     }
 
-    // 0.4초 디바운스 후 DB 조회
     debounceRef.current = setTimeout(async () => {
       setIsValidating(true);
       setError("");
       try {
         const found = await getUserByReferralCode(referralCode);
         if (found) {
-          // 자기 자신의 코드는 불가
           if (address && found.walletAddress.toLowerCase() === address.toLowerCase()) {
             setCodeValid(false);
             setError("자신의 초대코드는 사용할 수 없습니다.");
           } else {
             setCodeValid(true);
-            setError("");
           }
         } else {
           setCodeValid(false);
@@ -91,96 +101,152 @@ const Onboarding = () => {
       }
     }, 400);
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [referralCode, address]);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [referralCode, address, urlMode]);
 
-  // ── 제출 ─────────────────────────────────────────────────────────────────
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
-    const code = referralCode.trim();
-
-    // 코드를 입력한 경우 유효성 재확인
-    if (code) {
-      if (!/^\d{6}$/.test(code)) {
-        setError("초대코드는 숫자 6자리입니다.");
-        return;
-      }
-      if (codeValid === false) {
-        setError("유효하지 않은 초대코드입니다. 정확한 코드를 입력해주세요.");
-        return;
-      }
-      // 아직 검증이 완료되지 않은 경우 (isValidating=true) 기다림
-      if (isValidating || codeValid === null) {
-        setError("초대코드 확인 중입니다. 잠시 후 다시 시도해주세요.");
-        return;
-      }
+  // ── 공통 Firestore 저장 함수 ──────────────────────────────────────────────
+  const saveToFirestore = async (
+    referrerWallet: string | null,
+    referrerCode: string | null,
+  ) => {
+    if (!isConnected || !address) return;
+    const userReferralCode = getOrCreateReferralCode(address);
+    await saveUser(address, {
+      referralCode: userReferralCode,
+      referrerCode: referrerCode,
+      referrerWallet: referrerWallet,
+      isRegistered: true,
+    });
+    if (referrerWallet) {
+      await saveReferral(referrerWallet, address, referrerCode || "");
     }
+  };
 
+  // ── URL 방식 제출 ─────────────────────────────────────────────────────────
+  const handleUrlSubmit = async () => {
+    if (!urlReferrerWallet) return;
     setIsLoading(true);
     try {
-      if (code) {
-        const REFERRER_KEY = "alphabag_referrer_code";
-        localStorage.setItem(REFERRER_KEY, code);
-      }
+      // 추천인 지갑이 실제 존재하는지 확인
+      const referrer = await getUserByWallet(urlReferrerWallet);
+      const referrerCode = referrer?.referralCode || null;
+
+      // localStorage에도 기록
+      localStorage.setItem("alphabag_referrer_wallet", urlReferrerWallet);
+      if (referrerCode) localStorage.setItem("alphabag_referrer_code", referrerCode);
+
       setReferralCodeRegistered();
+      await saveToFirestore(urlReferrerWallet, referrerCode).catch(console.error);
 
-      if (isConnected && address) {
-        try {
-          const userReferralCode = getOrCreateReferralCode(address);
-
-          let referrerWallet: string | null = null;
-          if (code) {
-            const referrer = await getUserByReferralCode(code);
-            if (referrer) referrerWallet = referrer.walletAddress;
-          }
-
-          await saveUser(address, {
-            referralCode: userReferralCode,
-            referrerCode: code || null,
-            referrerWallet: referrerWallet,
-            isRegistered: true,
-          });
-
-          if (referrerWallet && code) {
-            await saveReferral(referrerWallet, address, code);
-          }
-        } catch (firebaseError) {
-          console.error("Error saving to Firebase:", firebaseError);
-        }
-      }
-
-      toast.success(code ? "등록 완료!" : "초대코드 없이 시작합니다.");
+      toast.success("추천인 등록 완료!");
       setTimeout(() => navigate("/", { replace: true }), 500);
     } catch (err) {
-      setError("등록에 실패했습니다. 다시 시도해주세요.");
-      console.error("Registration error:", err);
+      console.error(err);
+      setError("등록 중 오류가 발생했습니다.");
     } finally {
       setIsLoading(false);
     }
   };
 
+  // ── 6자리 코드 방식 제출 ──────────────────────────────────────────────────
+  const handleCodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    const code = referralCode.trim();
+
+    if (code) {
+      if (!/^\d{6}$/.test(code)) { setError("초대코드는 숫자 6자리입니다."); return; }
+      if (codeValid === false)    { setError("유효하지 않은 초대코드입니다."); return; }
+      if (isValidating || codeValid === null) { setError("초대코드 확인 중입니다. 잠시 후 다시 시도해주세요."); return; }
+    }
+
+    setIsLoading(true);
+    try {
+      let referrerWallet: string | null = null;
+      if (code) {
+        if (code) localStorage.setItem("alphabag_referrer_code", code);
+        const referrer = await getUserByReferralCode(code);
+        if (referrer) referrerWallet = referrer.walletAddress;
+      }
+      if (referrerWallet) localStorage.setItem("alphabag_referrer_wallet", referrerWallet);
+
+      setReferralCodeRegistered();
+      await saveToFirestore(referrerWallet, code || null).catch(console.error);
+
+      toast.success(code ? "등록 완료!" : "초대코드 없이 시작합니다.");
+      setTimeout(() => navigate("/", { replace: true }), 500);
+    } catch (err) {
+      setError("등록에 실패했습니다. 다시 시도해주세요.");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ── 로딩 화면 ─────────────────────────────────────────────────────────────
   if (isChecking) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">잠시만 기다려주세요...</p>
-        </div>
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  // 입력창 테두리 색상
+  // ── URL 방식 화면 ─────────────────────────────────────────────────────────
+  if (urlMode && urlReferrerWallet) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md card-metallic">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <Link className="w-8 h-8 text-primary" />
+            </div>
+            <CardTitle className="text-2xl font-display">추천 링크로 접속됨</CardTitle>
+            <CardDescription className="text-base mt-2">
+              아래 추천인의 링크를 통해 접속하셨습니다.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-center">
+              <p className="text-xs text-muted-foreground mb-1">추천인 지갑 주소</p>
+              <p className="font-mono text-sm break-all text-foreground">
+                {urlReferrerWallet}
+              </p>
+            </div>
+            <Button
+              variant="gold"
+              className="w-full"
+              onClick={handleUrlSubmit}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />등록 중...</>
+              ) : "이 추천인으로 시작하기"}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => { setUrlMode(false); setUrlReferrerWallet(null); }}
+              disabled={isLoading}
+            >
+              초대코드 직접 입력하기
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // ── 6자리 코드 입력 화면 ──────────────────────────────────────────────────
   const inputBorderClass =
-    codeValid === true
-      ? "border-green-500 focus-visible:ring-green-500"
-      : codeValid === false
-      ? "border-red-500 focus-visible:ring-red-500"
-      : "";
+    codeValid === true  ? "border-green-500 focus-visible:ring-green-500" :
+    codeValid === false ? "border-red-500 focus-visible:ring-red-500"     : "";
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -191,12 +257,12 @@ const Onboarding = () => {
           </div>
           <CardTitle className="text-2xl font-display">AlphaBag에 오신 것을 환영합니다</CardTitle>
           <CardDescription className="text-base mt-2">
-            추천인의 <strong>6자리 초대코드</strong>를 입력하세요.<br />
-            코드가 없으면 건너뛸 수 있습니다.
+            추천인의 <strong>6자리 초대코드</strong>를 입력하거나,<br />
+            추천 링크를 통해 접속하세요.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleCodeSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -224,29 +290,25 @@ const Onboarding = () => {
                   disabled={isLoading}
                   autoFocus
                 />
-                {/* 검증 상태 아이콘 */}
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  {isValidating && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-                  {!isValidating && codeValid === true && <CheckCircle2 className="w-4 h-4 text-green-500" />}
-                  {!isValidating && codeValid === false && <XCircle className="w-4 h-4 text-red-500" />}
+                  {isValidating               && <Loader2     className="w-4 h-4 animate-spin text-muted-foreground" />}
+                  {!isValidating && codeValid === true  && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                  {!isValidating && codeValid === false && <XCircle      className="w-4 h-4 text-red-500" />}
                 </div>
               </div>
 
-              {/* 상태 메시지 */}
               {!error && codeValid === true && (
                 <p className="text-xs text-green-500 flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" /> 유효한 초대코드입니다.
                 </p>
               )}
-              {!error && codeValid === null && referralCode.length === 0 && (
+              {!error && referralCode.length === 0 && (
                 <p className="text-xs text-muted-foreground">
                   초대코드가 없으면 빈칸으로 두고 계속하세요.
                 </p>
               )}
-              {!error && codeValid === null && referralCode.length > 0 && referralCode.length < 6 && (
-                <p className="text-xs text-muted-foreground">
-                  {referralCode.length} / 6자리 입력 중…
-                </p>
+              {!error && referralCode.length > 0 && referralCode.length < 6 && (
+                <p className="text-xs text-muted-foreground">{referralCode.length} / 6자리 입력 중…</p>
               )}
             </div>
 
@@ -257,15 +319,8 @@ const Onboarding = () => {
               disabled={isLoading || isValidating || (referralCode.length > 0 && codeValid === false)}
             >
               {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  등록 중...
-                </>
-              ) : referralCode.length === 0 ? (
-                "초대코드 없이 시작"
-              ) : (
-                "계속하기"
-              )}
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />등록 중...</>
+              ) : referralCode.length === 0 ? "초대코드 없이 시작" : "계속하기"}
             </Button>
 
             {!isConnected && (

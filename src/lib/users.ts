@@ -9,6 +9,7 @@ import {
   getDocs,
   getDoc,
   setDoc,
+  deleteDoc,
   query,
   where,
   orderBy,
@@ -449,3 +450,57 @@ export async function isNewWallet(walletAddress: string): Promise<boolean> {
   }
 }
 
+/**
+ * Delete a user document from Firestore
+ * WARNING: Only deletes the users collection document.
+ * Related data (referrals, investments, nodePurchases, etc.) must be
+ * handled separately to avoid orphaned records.
+ */
+export async function deleteUser(walletAddress: string): Promise<boolean> {
+  try {
+    const userRef = doc(db, USERS_COLLECTION, walletAddress.toLowerCase());
+    await deleteDoc(userRef);
+    return true;
+  } catch (error) {
+    console.error("Error deleting user from Firestore:", error);
+    return false;
+  }
+}
+
+/**
+ * Get users with invalid referrer codes
+ * - referrerCode is set but no matching user exists (invalid 6-digit code)
+ * - referrerWallet is set but no matching user exists (invalid wallet referral)
+ */
+export async function getUsersWithInvalidReferrer(): Promise<User[]> {
+  try {
+    const allUsers = await getAllUsers();
+    const valid: User[] = [];
+
+    for (const user of allUsers) {
+      // 추천인 정보가 없는 유저는 정상 (코드 없이 가입)
+      if (!user.referrerCode && !user.referrerWallet) continue;
+
+      let isInvalid = false;
+
+      // referrerWallet이 있는 경우 → 해당 지갑 유저가 존재하는지 확인
+      if (user.referrerWallet) {
+        const referrer = await getUserByWallet(user.referrerWallet);
+        if (!referrer) isInvalid = true;
+      }
+
+      // referrerCode가 있고 wallet이 없거나 매칭 안 되는 경우
+      if (!isInvalid && user.referrerCode && !user.referrerWallet) {
+        const referrer = await getUserByReferralCode(user.referrerCode);
+        if (!referrer) isInvalid = true;
+      }
+
+      if (isInvalid) valid.push(user);
+    }
+
+    return valid;
+  } catch (error) {
+    console.error("Error getting users with invalid referrer:", error);
+    return [];
+  }
+}
