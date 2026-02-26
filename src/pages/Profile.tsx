@@ -50,8 +50,7 @@ import { logActivity } from "@/lib/userActivityLog";
 // ── Lazy-loaded heavy components ──────────────────────────────────────────────
 const ReferralShare     = lazy(() => import("@/components/ReferralShare"));
 const PlanSelector      = lazy(() => import("@/components/PlanSelector"));
-const ReferralDashboard = lazy(() => import("@/components/ReferralDashboard"));
-const OrgChart          = lazy(() => import("@/components/OrgChart").then(m => ({ default: m.OrgChart })));
+
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type InvestmentPlan = import("@/lib/plans").InvestmentPlan;
@@ -790,12 +789,6 @@ const ProfilePage = ({
 
           {/* ── Leaderboard ── admin only, not shown on profile page */}
 
-          {/* ── OrgChart (user view) ── */}
-          <div className="mb-8">
-            <LazySection fallbackHeight="h-24" name="OrgChart">
-              <OrgChart viewAs="user" />
-            </LazySection>
-          </div>
 
           {/* ── Team Performance ── */}
           <Card className="mb-8 border-border/50">
@@ -820,7 +813,7 @@ const ProfilePage = ({
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
                   { label: t.community.marketLevel,         value: teamPerformance.marketLevel },
-                  { label: t.community.teamNode,            value: `${teamPerformance.teamNode}명` },
+                  { label: "직접 추천인수",                value: `${teamPerformance.teamNode}명` },
                   { label: "전체 팀원",                     value: `${teamPerformance.totalTeamMembers}명` },
                   { label: t.community.personalPerformance, value: `$${teamPerformance.personalPerformance.toFixed(2)}` },
                   { label: t.community.regionalPerformance, value: `$${teamPerformance.regionalPerformance.toFixed(2)}` },
