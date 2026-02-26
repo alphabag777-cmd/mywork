@@ -468,37 +468,62 @@ export async function deleteUser(walletAddress: string): Promise<boolean> {
 }
 
 /**
- * Get users with invalid referrer codes
+ * Get users with invalid referrer codes — 병렬 처리로 속도 최적화
  * - referrerCode is set but no matching user exists (invalid 6-digit code)
  * - referrerWallet is set but no matching user exists (invalid wallet referral)
+ *
+ * 개선 사항:
+ *   1) 추천인 정보가 있는 유저만 먼저 필터링 (불필요한 DB 호출 제거)
+ *   2) 모든 고유 referrerWallet / referrerCode를 한 번에 병렬 조회
+ *   3) 조회 결과를 Map으로 캐싱 → 중복 요청 제거
  */
 export async function getUsersWithInvalidReferrer(): Promise<User[]> {
   try {
     const allUsers = await getAllUsers();
-    const valid: User[] = [];
 
-    for (const user of allUsers) {
-      // 추천인 정보가 없는 유저는 정상 (코드 없이 가입)
-      if (!user.referrerCode && !user.referrerWallet) continue;
+    // 추천인 정보가 있는 유저만 추출
+    const candidates = allUsers.filter(u => u.referrerCode || u.referrerWallet);
+    if (candidates.length === 0) return [];
 
-      let isInvalid = false;
+    // 고유 referrerWallet 목록 추출
+    const uniqueWallets = [...new Set(
+      candidates
+        .filter(u => u.referrerWallet)
+        .map(u => u.referrerWallet!.toLowerCase())
+    )];
 
-      // referrerWallet이 있는 경우 → 해당 지갑 유저가 존재하는지 확인
+    // 고유 referrerCode 목록 추출 (wallet 없는 케이스)
+    const uniqueCodes = [...new Set(
+      candidates
+        .filter(u => u.referrerCode && !u.referrerWallet)
+        .map(u => u.referrerCode!)
+    )];
+
+    // 병렬로 모든 referrerWallet 존재 여부 조회
+    const walletResults = await Promise.all(
+      uniqueWallets.map(async w => ({ w, exists: !!(await getUserByWallet(w)) }))
+    );
+    const walletMap = new Map(walletResults.map(r => [r.w, r.exists]));
+
+    // 병렬로 모든 referrerCode 존재 여부 조회
+    const codeResults = await Promise.all(
+      uniqueCodes.map(async c => ({ c, exists: !!(await getUserByReferralCode(c)) }))
+    );
+    const codeMap = new Map(codeResults.map(r => [r.c, r.exists]));
+
+    // Map 기반으로 유효성 판별 (추가 DB 요청 없음)
+    const invalid: User[] = [];
+    for (const user of candidates) {
       if (user.referrerWallet) {
-        const referrer = await getUserByWallet(user.referrerWallet);
-        if (!referrer) isInvalid = true;
+        const key = user.referrerWallet.toLowerCase();
+        if (walletMap.get(key) === false) { invalid.push(user); continue; }
       }
-
-      // referrerCode가 있고 wallet이 없거나 매칭 안 되는 경우
-      if (!isInvalid && user.referrerCode && !user.referrerWallet) {
-        const referrer = await getUserByReferralCode(user.referrerCode);
-        if (!referrer) isInvalid = true;
+      if (user.referrerCode && !user.referrerWallet) {
+        if (codeMap.get(user.referrerCode) === false) { invalid.push(user); }
       }
-
-      if (isInvalid) valid.push(user);
     }
 
-    return valid;
+    return invalid;
   } catch (error) {
     console.error("Error getting users with invalid referrer:", error);
     return [];
