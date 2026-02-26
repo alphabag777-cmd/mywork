@@ -21,8 +21,8 @@ export default defineConfig({
     commonjsOptions: {
       transformMixedEsModules: true,
     },
-    chunkSizeWarningLimit: 2500,
-    // md-editor(1.7MB)가 초기 HTML modulepreload에 들어가지 않도록 제외
+    chunkSizeWarningLimit: 3000,
+    // md-editor(1.7MB)는 admin 페이지에서만 필요하므로 초기 preload 제외
     modulePreload: {
       resolveDependencies(_filename, deps) {
         return deps.filter(dep => !dep.includes("md-editor"));
@@ -31,7 +31,6 @@ export default defineConfig({
     rollupOptions: {
       maxParallelFileOps: 2,
       onwarn(warning, defaultHandler) {
-        // wagmi@3.x에서 @walletconnect/ethereum-provider가 선택적 의존성
         if (
           warning.code === "UNRESOLVED_IMPORT" &&
           (warning.message?.includes("@walletconnect") ||
@@ -45,20 +44,14 @@ export default defineConfig({
       },
       output: {
         manualChunks(id) {
-          // ── Firebase: 반드시 독립 청크 ────────────────────────────────────────
-          // Firestore 내부 `const ze`(FirestoreError 코드)가 wagmi/viem 등과
-          // 같은 청크에 묶이면 Rollup 초기화 순서 오류(TDZ) 발생.
-          // firebase만 분리하면 ze는 이 청크 안에서만 존재 → 문제 없음.
+          // Firebase만 분리: Firestore `ze` TDZ 방지 (검증된 안전한 분리)
           if (
             id.includes("node_modules/firebase") ||
             id.includes("node_modules/@firebase")
           ) {
             return "firebase";
           }
-
-          // ── MDEditor: admin 전용 무거운 에디터 ────────────────────────────────
-          // @uiw/react-md-editor + codemirror = ~1.7MB
-          // lazy(() => import(...))로만 사용되므로 독립 청크 분리 안전.
+          // MDEditor: admin 전용 에디터, lazy import 사용 (1.7MB)
           if (
             id.includes("node_modules/@uiw") ||
             id.includes("node_modules/codemirror") ||
@@ -66,21 +59,7 @@ export default defineConfig({
           ) {
             return "md-editor";
           }
-
-          // ── React 코어: 변경 빈도가 낮아 장기 캐싱에 유리 ───────────────────
-          if (
-            id.includes("node_modules/react/") ||
-            id.includes("node_modules/react-dom/") ||
-            id.includes("node_modules/react-router") ||
-            id.includes("node_modules/scheduler/")
-          ) {
-            return "react-vendor";
-          }
-
-          // ── wagmi / viem / walletconnect / web3modal ──────────────────────────
-          // 이 패키지들은 서로 circular dependency가 있어 하나의 청크로
-          // 강제 묶으면 TDZ 발생. Rollup 자동 분리에 맡긴다.
-          // (manualChunks에서 지정하지 않으면 Rollup이 안전하게 분산 처리)
+          // wagmi/viem/walletconnect/web3modal: circular dep 때문에 Rollup 자동 처리
         },
       },
     },
