@@ -248,3 +248,71 @@ export async function getAllReferralCounts(): Promise<{ [referrerWallet: string]
   }
 }
 
+/**
+ * Build a full referrer→referredWallet[] map from the entire referrals collection.
+ * Used for BFS sub-team counting without repeated Firestore queries.
+ */
+export async function buildReferralTree(): Promise<Map<string, string[]>> {
+  try {
+    const referralsRef = collection(db, REFERRALS_COLLECTION);
+    const querySnapshot = await getDocs(referralsRef);
+
+    const tree = new Map<string, string[]>();
+    // Track referred wallets to deduplicate
+    const referredSeen = new Map<string, string>(); // referredWallet -> referrerWallet (first seen)
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      const rw = (data.referrerWallet || "").toLowerCase();
+      const rd = (data.referredWallet || "").toLowerCase();
+      if (!rw || !rd) return;
+
+      // Deduplicate: one referredWallet can only have one referrer
+      if (referredSeen.has(rd)) return;
+      referredSeen.set(rd, rw);
+
+      if (!tree.has(rw)) tree.set(rw, []);
+      tree.get(rw)!.push(rd);
+    });
+
+    return tree;
+  } catch (error) {
+    console.error("Error building referral tree:", error);
+    return new Map();
+  }
+}
+
+/**
+ * BFS to count all sub-team members (all levels) under a given wallet.
+ * Returns { directCount, totalCount } where totalCount includes direct members.
+ */
+export function calcSubTeam(
+  wallet: string,
+  tree: Map<string, string[]>
+): { directCount: number; totalCount: number } {
+  const norm = wallet.toLowerCase();
+  const directList = tree.get(norm) ?? [];
+  const directCount = directList.length;
+
+  // BFS
+  const visited = new Set<string>([norm]);
+  let queue = [...directList];
+  let totalCount = 0;
+
+  while (queue.length > 0) {
+    const next: string[] = [];
+    for (const w of queue) {
+      if (visited.has(w)) continue;
+      visited.add(w);
+      totalCount++;
+      const children = tree.get(w) ?? [];
+      for (const c of children) {
+        if (!visited.has(c)) next.push(c);
+      }
+    }
+    queue = next;
+  }
+
+  return { directCount, totalCount };
+}
+

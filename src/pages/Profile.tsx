@@ -36,7 +36,7 @@ import { getReferrerWallet, getOrCreateReferralCode } from "@/lib/referral";
 import { getUserInvestments } from "@/lib/userInvestments";
 import { getActiveUserStakes } from "@/lib/userStakes";
 import { getUserByWallet } from "@/lib/users";
-import { getReferralsByReferrer } from "@/lib/referrals";
+import { getReferralsByReferrer, buildReferralTree, calcSubTeam } from "@/lib/referrals";
 import { getReferralActivitiesByReferrer, ReferralActivity } from "@/lib/referralActivities";
 import { updateNodeReferralCode } from "@/lib/userReferralCodes";
 import { useProfileData } from "@/hooks/useProfileData";
@@ -257,6 +257,99 @@ const NodeCard = ({
   );
 };
 
+// ── GradeLadder: 추천 등급 혜택 로드맵 (Team Performance 카드 하단 삽입용) ──────
+const COMING_SOON = "향후 보상정책 제공 예정";
+const GRADE_TIERS = [
+  { label: "브론즈",    required: 1,  color: "text-orange-700", bgColor: "bg-orange-100 dark:bg-orange-900/20" },
+  { label: "실버",      required: 3,  color: "text-slate-500",  bgColor: "bg-slate-100 dark:bg-slate-800/30" },
+  { label: "골드",      required: 5,  color: "text-yellow-600", bgColor: "bg-yellow-100 dark:bg-yellow-900/20" },
+  { label: "플래티넘",  required: 10, color: "text-blue-600",   bgColor: "bg-blue-100 dark:bg-blue-900/20" },
+  { label: "다이아몬드",required: 20, color: "text-purple-600", bgColor: "bg-purple-100 dark:bg-purple-900/20" },
+] as const;
+
+const GradeLadder = ({ referralCount }: { referralCount: number }) => {
+  const [open, setOpen] = useState(false);
+  const achieved = GRADE_TIERS.filter(t => referralCount >= t.required);
+  const current  = achieved[achieved.length - 1] ?? null;
+  const next     = GRADE_TIERS.find(t => referralCount < t.required) ?? null;
+  const progress = next
+    ? Math.min(100, Math.round((referralCount / next.required) * 100))
+    : 100;
+
+  return (
+    <div className="pt-4 border-t border-border/30">
+      {/* 등급 요약 + 토글 버튼 */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between group"
+      >
+        <div className="flex items-center gap-2">
+          <Award className={`w-4 h-4 ${current?.color ?? "text-muted-foreground"}`} />
+          <span className="text-sm font-semibold">
+            {current ? `${current.label} 등급` : "등급 없음"}
+          </span>
+          {next && (
+            <span className="text-xs text-muted-foreground">
+              · 다음 등급까지 {next.required - referralCount}명
+            </span>
+          )}
+          {!next && (
+            <span className="text-xs text-green-500">· 최고 등급 🎉</span>
+          )}
+        </div>
+        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {/* 진행률 바 */}
+      {next && (
+        <div className="mt-2 space-y-1">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>{current?.label ?? "시작"} → {next.label}</span>
+            <span>{referralCount} / {next.required}</span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 로드맵 (펼쳤을 때) */}
+      {open && (
+        <div className="mt-3 space-y-1.5">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+            등급 혜택 로드맵
+          </p>
+          {GRADE_TIERS.map((t) => {
+            const done      = referralCount >= t.required;
+            const isCurrent = current?.label === t.label;
+            return (
+              <div
+                key={t.label}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all ${
+                  isCurrent
+                    ? `${t.bgColor} border border-primary/30`
+                    : done
+                    ? "bg-muted/30 border border-border/40"
+                    : "bg-muted/10 border border-border/20 opacity-55"
+                }`}
+              >
+                <Star className={`w-3.5 h-3.5 shrink-0 ${done ? `fill-current ${t.color}` : "text-muted-foreground/30"}`} />
+                <span className={`font-semibold ${done ? t.color : "text-muted-foreground"}`}>{t.label}</span>
+                <span className="text-muted-foreground">{t.required}명 이상</span>
+                <span className="ml-auto italic text-muted-foreground/70">{COMING_SOON}</span>
+                {isCurrent && <Badge variant="outline" className="text-[9px] px-1 shrink-0">현재</Badge>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ProfilePage — only mounted when wallet IS connected
 // ─────────────────────────────────────────────────────────────────────────────
@@ -295,10 +388,12 @@ const ProfilePage = ({
       const norm = address.toLowerCase();
 
       // referrals 컬렉션 기준으로 추천인 목록 조회 (Admin과 동일한 소스)
-      const [myInvestments, referralDocs, activities] = await Promise.all([
+      // buildReferralTree: 전체 referrals를 한 번에 로드해 BFS 산하팀원 계산에 재활용
+      const [myInvestments, referralDocs, activities, referralTree] = await Promise.all([
         getUserInvestments(norm).catch(() => [] as any[]),
         getReferralsByReferrer(norm).catch(() => [] as any[]),
         getReferralActivitiesByReferrer(norm).catch(() => [] as any[]),
+        buildReferralTree().catch(() => new Map<string, string[]>()),
       ]);
 
       // 내 개인 성과 (Personal Performance)
@@ -310,6 +405,9 @@ const ProfilePage = ({
       const referredWallets: string[] = referralDocs.map(
         (r: { referredWallet: string }) => r.referredWallet.toLowerCase()
       );
+
+      // BFS로 전체 산하 팀원 수 계산 (직추천인 포함)
+      const { directCount, totalCount } = calcSubTeam(norm, referralTree);
 
       // 각 추천인의 User 정보 및 투자 데이터 병렬 조회
       const [userResults, invResults] = await Promise.all([
@@ -331,23 +429,25 @@ const ProfilePage = ({
           (s: number, inv: { amount?: number }) => s + (inv.amount || 0), 0
         );
         totalTeamPerf += perf;
+        // 각 직추천인의 산하 팀원 수도 BFS로 계산
+        const sub = calcSubTeam(user.wallet, referralTree);
         return {
           address: user.wallet,
           level: "Direct",
-          directPush: { current: 0, required: 1 },
+          directPush: { current: sub.directCount, required: 1 },
           personalPerformance: perf,
           communityPerformance: 0,
           thirtySky: 0,
           totalTeamPerformance: perf,
-          totalTeamMembers: 1,
+          totalTeamMembers: sub.totalCount,
         };
       });
 
       setDirectReferrals(built);
       setTeamPerformance(p => ({
         ...p,
-        teamNode: users.length,
-        totalTeamMembers: users.length,
+        teamNode: directCount,           // 직접 추천인 수 (1레벨)
+        totalTeamMembers: totalCount,    // 전체 산하 팀원 수 (BFS, 직추천인 포함)
         personalPerformance: myPersonalPerf,
         totalTeamPerformance: totalTeamPerf,
       }));
@@ -544,11 +644,6 @@ const ProfilePage = ({
             <PlanSelector />
           </LazySection>
 
-          {/* ── Referral Dashboard ── */}
-          <LazySection fallbackHeight="h-20" name="ReferralDashboard">
-            <ReferralDashboard />
-          </LazySection>
-
           {/* ── Referral Share ── */}
           <LazySection fallbackHeight="h-4" name="ReferralShare">
             <ReferralShare />
@@ -711,7 +806,7 @@ const ProfilePage = ({
                     {t.community.overallTeamPerformance}
                   </CardTitle>
                   <CardDescription>
-                    {t.community.myShare} · {referredUsers.length}{t.community.totalTeamMembers ? ` ${t.community.totalTeamMembers}` : "명"}
+                    직추천 {referredUsers.length}명 · 전체 팀원 {teamPerformance.totalTeamMembers}명
                   </CardDescription>
                 </div>
                 <Button variant="outline" size="icon" onClick={loadTeamData} disabled={isLoadingTeam}
@@ -724,7 +819,8 @@ const ProfilePage = ({
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
                   { label: t.community.marketLevel,         value: teamPerformance.marketLevel },
-                  { label: t.community.teamNode,            value: String(teamPerformance.teamNode) },
+                  { label: t.community.teamNode,            value: `${teamPerformance.teamNode}명` },
+                  { label: "전체 팀원",                     value: `${teamPerformance.totalTeamMembers}명` },
                   { label: t.community.personalPerformance, value: `$${teamPerformance.personalPerformance.toFixed(2)}` },
                   { label: t.community.regionalPerformance, value: `$${teamPerformance.regionalPerformance.toFixed(2)}` },
                   { label: `${t.community.communityPerformance} / 30sky`, value: `$${teamPerformance.communityPerformance.toFixed(2)} / $${teamPerformance.thirtySky.toFixed(2)}` },
@@ -834,6 +930,9 @@ const ProfilePage = ({
               </div>
 
               {/* ReferralShare 컴포넌트(상단)에서 링크 공유 제공 — 중복 제거 */}
+
+              {/* ── 등급 혜택 로드맵 (접기/펼치기) ── */}
+              <GradeLadder referralCount={referredUsers.length} />
             </CardContent>
           </Card>
 
