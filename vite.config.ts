@@ -21,31 +21,9 @@ export default defineConfig({
     commonjsOptions: {
       transformMixedEsModules: true,
     },
-    chunkSizeWarningLimit: 3000,
+    chunkSizeWarningLimit: 5000,
     rollupOptions: {
       maxParallelFileOps: 2,
-      output: {
-        manualChunks(id) {
-          // @uiw/codemirror → 별도 청크 (MDEditor 5MB)
-          if (
-            id.includes("node_modules/@uiw") ||
-            id.includes("node_modules/codemirror") ||
-            id.includes("node_modules/@codemirror")
-          ) {
-            return "md-editor";
-          }
-          // web3modal만 별도 청크 (원래 정상 작동 방식)
-          if (id.includes("node_modules/@web3modal")) {
-            return "web3";
-          }
-          if (id.includes("node_modules/firebase")) {
-            return "firebase";
-          }
-          if (id.includes("node_modules/react") || id.includes("node_modules/react-dom")) {
-            return "react-vendor";
-          }
-        },
-      },
     },
   },
   optimizeDeps: {
