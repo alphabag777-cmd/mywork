@@ -29,7 +29,7 @@ export default defineConfig({
         annotations: false,
       },
       onwarn(warning, warn) {
-        // walletconnect 관련 경고/오류 무시 (구버전 패키지 중첩 문제)
+        // walletconnect / web3 관련 경고 무시
         if (warning.message?.includes('@walletconnect')) return;
         if (warning.message?.includes('isTypeTwoEnvelope')) return;
         if (warning.message?.includes('getBundleId')) return;
@@ -37,23 +37,39 @@ export default defineConfig({
         if (warning.message?.includes('ox/_esm') || warning.message?.includes('porto')) return;
         if (warning.code === 'UNRESOLVED_IMPORT') return;
         if (warning.code === 'MISSING_EXPORT') {
-          // walletconnect 패키지의 누락된 export는 무시
-          if (warning.message?.includes('walletconnect') || warning.message?.includes('wagmi') || warning.message?.includes('web3modal')) return;
+          if (
+            warning.message?.includes('walletconnect') ||
+            warning.message?.includes('wagmi') ||
+            warning.message?.includes('web3modal')
+          ) return;
         }
+        // circular dependency 경고는 표시만 하고 빌드 중단하지 않음
+        if (warning.code === 'CIRCULAR_DEPENDENCY') return;
         warn(warning);
       },
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules/@uiw') || id.includes('node_modules/codemirror') || id.includes('node_modules/@codemirror')) {
+          // ⚠️ web3 라이브러리들을 하나의 청크로 묶으면
+          //    circular dependency로 인해 'Cannot access X before initialization' 오류가 발생함.
+          //    wagmi/viem/walletconnect는 Rollup이 자동으로 분리하도록 맡긴다.
+
+          // MDEditor는 별도 청크로 분리 (번들 크기 절감)
+          if (
+            id.includes('node_modules/@uiw') ||
+            id.includes('node_modules/codemirror') ||
+            id.includes('node_modules/@codemirror')
+          ) {
             return 'md-editor';
           }
-          if (id.includes('node_modules/@walletconnect') || id.includes('node_modules/@web3modal') || id.includes('node_modules/wagmi') || id.includes('node_modules/viem')) {
-            return 'web3';
-          }
+          // Firebase 별도 청크
           if (id.includes('node_modules/firebase')) {
             return 'firebase';
           }
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+          // React 코어 별도 청크
+          if (
+            id.includes('node_modules/react/') ||
+            id.includes('node_modules/react-dom/')
+          ) {
             return 'react-vendor';
           }
         },
