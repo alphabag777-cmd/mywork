@@ -12,6 +12,7 @@ import {
   PlusSquare, Trash2, Edit, Save, X, GripVertical, ChevronUp, ChevronDown,
   Image as ImageIcon, Star, Plus, Info, Link, Wallet,
   Eye, EyeOff, ArrowUp, ArrowDown, FileText, Bell, Youtube, Globe,
+  Code2, BookOpen, ExternalLink,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
