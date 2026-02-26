@@ -150,8 +150,17 @@ export async function getReferralsByReferrer(referrerWallet: string): Promise<Re
       
       // Sort by createdAt descending (in case orderBy fails)
       referrals.sort((a, b) => b.createdAt - a.createdAt);
+
+      // Deduplicate by referredWallet (keep the most recent)
+      const seen = new Set<string>();
+      const deduped = referrals.filter(r => {
+        const key = r.referredWallet.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
       
-      return referrals;
+      return deduped;
     } catch (orderByError: any) {
       // If orderBy fails (missing index), try without it
       if (orderByError.code === "failed-precondition") {
@@ -169,8 +178,17 @@ export async function getReferralsByReferrer(referrerWallet: string): Promise<Re
         
         // Sort by createdAt descending manually
         referrals.sort((a, b) => b.createdAt - a.createdAt);
+
+        // Deduplicate by referredWallet (keep the most recent)
+        const seen = new Set<string>();
+        const deduped = referrals.filter(r => {
+          const key = r.referredWallet.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
         
-        return referrals;
+        return deduped;
       }
       throw orderByError;
     }
