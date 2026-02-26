@@ -21,6 +21,8 @@ import {
   setReferralCodeRegistered,
   isReferralCodeRegistered,
   getOrCreateReferralCode,
+  getPlansFromURL,
+  savePromoPlans,
 } from "@/lib/referral";
 import { useAccount } from "wagmi";
 import { saveUser, getUserByReferralCode, getUserByWallet } from "@/lib/users";
@@ -37,6 +39,7 @@ const Onboarding = () => {
   // URL 방식으로 들어온 경우
   const [urlReferrerWallet, setUrlReferrerWallet] = useState<string | null>(null);
   const [urlMode, setUrlMode]                     = useState(false); // URL 방식으로 자동 감지됨
+  const [promoPlansFromUrl, setPromoPlansFromUrl] = useState<string[] | null>(null);
 
   const navigate     = useNavigate();
   const { address, isConnected } = useAccount();
@@ -54,6 +57,13 @@ const Onboarding = () => {
     if (walletFromUrl) {
       setUrlReferrerWallet(walletFromUrl);
       setUrlMode(true);
+    }
+
+    // &plans= 파라미터 감지 → 임시 저장
+    const plans = getPlansFromURL();
+    if (plans) {
+      setPromoPlansFromUrl(plans);
+      savePromoPlans(plans);
     }
 
     setIsChecking(false);
@@ -139,7 +149,9 @@ const Onboarding = () => {
       await saveToFirestore(urlReferrerWallet, referrerCode).catch(console.error);
 
       toast.success("추천인 등록 완료!");
-      setTimeout(() => navigate("/", { replace: true }), 500);
+      // 홍보링크로 접속한 경우 상품 페이지로 이동
+      const targetPath = promoPlansFromUrl ? "/investments" : "/";
+      setTimeout(() => navigate(targetPath, { replace: true }), 500);
     } catch (err) {
       console.error(err);
       setError("등록 중 오류가 발생했습니다.");
@@ -174,7 +186,9 @@ const Onboarding = () => {
       await saveToFirestore(referrerWallet, code || null).catch(console.error);
 
       toast.success(code ? "등록 완료!" : "초대코드 없이 시작합니다.");
-      setTimeout(() => navigate("/", { replace: true }), 500);
+      // 홍보링크로 접속한 경우 상품 페이지로 이동
+      const targetPath = promoPlansFromUrl ? "/investments" : "/";
+      setTimeout(() => navigate(targetPath, { replace: true }), 500);
     } catch (err) {
       setError("등록에 실패했습니다. 다시 시도해주세요.");
       console.error(err);
@@ -219,6 +233,11 @@ const Onboarding = () => {
                 {urlReferrerWallet}
               </p>
             </div>
+            {promoPlansFromUrl && promoPlansFromUrl.length > 0 && (
+              <div className="rounded-lg border border-yellow-400/40 bg-yellow-50 dark:bg-yellow-950/30 p-3 text-xs text-yellow-700 dark:text-yellow-300 text-center">
+                📦 홍보 링크로 접속하셨습니다. 등록 후 <strong>추천 상품 페이지</strong>로 이동합니다.
+              </div>
+            )}
             <Button
               variant="gold"
               className="w-full"
@@ -227,7 +246,7 @@ const Onboarding = () => {
             >
               {isLoading ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" />등록 중...</>
-              ) : "이 추천인으로 시작하기"}
+              ) : promoPlansFromUrl ? "이 추천인으로 시작 → 상품 보기" : "이 추천인으로 시작하기"}
             </Button>
             <Button
               variant="outline"

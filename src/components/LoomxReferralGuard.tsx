@@ -10,6 +10,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useAccount } from "wagmi";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,9 @@ import {
   setReferralCodeRegistered,
   getReferralFromURL,
   getOrCreateReferralCode,
+  getPlansFromURL,
+  savePromoPlans,
+  consumePromoPlans,
 } from "@/lib/referral";
 import { getUserByReferralCode, getUserByWallet, saveUser } from "@/lib/users";
 import { saveReferral } from "@/lib/referrals";
@@ -34,6 +38,7 @@ const LOOMX_GUARD_SHOWN_KEY = "loomx_referral_guard_shown";
 
 export const LoomxReferralGuard = () => {
   const { address, isConnected } = useAccount();
+  const navigate = useNavigate();
 
   const [showDialog, setShowDialog]           = useState(false);
   const [isChecking, setIsChecking]           = useState(false);
@@ -77,6 +82,10 @@ export const LoomxReferralGuard = () => {
       if (walletFromUrl && walletFromUrl.toLowerCase() !== address.toLowerCase()) {
         setUrlReferrerWallet(walletFromUrl);
       }
+
+      // 홍보링크의 &plans= 파라미터가 있으면 localStorage에 임시 저장
+      const promoPlans = getPlansFromURL();
+      if (promoPlans) savePromoPlans(promoPlans);
 
       const norm = address.toLowerCase();
 
@@ -243,6 +252,9 @@ export const LoomxReferralGuard = () => {
       window.dispatchEvent(new CustomEvent("loomx-referral-registered"));
       toast.success("추천인 등록 완료!");
       setShowDialog(false);
+      // 홍보링크로 접속 시 저장된 plans가 있으면 투자 페이지로 이동
+      const savedPlans = consumePromoPlans();
+      if (savedPlans) setTimeout(() => navigate("/investments"), 300);
     } catch (err) {
       console.error(err);
       toast.error("등록 중 오류가 발생했습니다.");
@@ -278,6 +290,9 @@ export const LoomxReferralGuard = () => {
       window.dispatchEvent(new CustomEvent("loomx-referral-registered"));
       toast.success(code ? "추천 코드 등록 완료!" : "초대코드 없이 시작합니다.");
       setShowDialog(false);
+      // 홍보링크로 접속 시 저장된 plans가 있으면 투자 페이지로 이동
+      const savedPlans2 = consumePromoPlans();
+      if (savedPlans2) setTimeout(() => navigate("/investments"), 300);
     } catch (err) {
       console.error(err);
       toast.error("등록에 실패했습니다. 다시 시도해주세요.");
