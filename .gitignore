@@ -3,5 +3,8 @@ dist/
 moonexe-clone/
 .env.local
 .env
-.env
-.env.local
+# temp / build artifacts
+core
+scripts/
+vite.config.ts.timestamp-*
+*.mjs.timestamp-*

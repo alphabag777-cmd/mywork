@@ -504,3 +504,75 @@ export async function getUsersWithInvalidReferrer(): Promise<User[]> {
     return [];
   }
 }
+
+/**
+ * Completely delete a user and ALL related data across collections:
+ *   - users
+ *   - referrals (as referrer OR as referred)
+ *   - user_investments
+ *   - nodePurchases
+ *   - referral_activities (as referrer OR as referred)
+ *
+ * Returns an object summarising what was deleted.
+ */
+export async function deleteUserCompletely(walletAddress: string): Promise<{
+  success: boolean;
+  deleted: {
+    user: boolean;
+    referrals: number;
+    investments: number;
+    nodePurchases: number;
+    referralActivities: number;
+  };
+  error?: string;
+}> {
+  const wallet = walletAddress.toLowerCase();
+  const result = {
+    success: false,
+    deleted: { user: false, referrals: 0, investments: 0, nodePurchases: 0, referralActivities: 0 },
+  };
+
+  try {
+    // 1. referrals (referrerWallet == wallet OR referredWallet == wallet)
+    const referralsRef = collection(db, "referrals");
+    const [asReferrer, asReferred] = await Promise.all([
+      getDocs(query(referralsRef, where("referrerWallet", "==", wallet))),
+      getDocs(query(referralsRef, where("referredWallet",  "==", wallet))),
+    ]);
+    const refDocs = [...asReferrer.docs, ...asReferred.docs];
+    await Promise.all(refDocs.map(d => deleteDoc(doc(db, "referrals", d.id))));
+    result.deleted.referrals = refDocs.length;
+
+    // 2. user_investments (walletAddress == wallet)
+    const investRef = collection(db, "user_investments");
+    const investSnap = await getDocs(query(investRef, where("walletAddress", "==", wallet)));
+    await Promise.all(investSnap.docs.map(d => deleteDoc(doc(db, "user_investments", d.id))));
+    result.deleted.investments = investSnap.size;
+
+    // 3. nodePurchases (walletAddress == wallet)
+    const nodeRef = collection(db, "nodePurchases");
+    const nodeSnap = await getDocs(query(nodeRef, where("walletAddress", "==", wallet)));
+    await Promise.all(nodeSnap.docs.map(d => deleteDoc(doc(db, "nodePurchases", d.id))));
+    result.deleted.nodePurchases = nodeSnap.size;
+
+    // 4. referral_activities (referrerWallet OR referredWallet == wallet)
+    const actRef = collection(db, "referral_activities");
+    const [actAsReferrer, actAsReferred] = await Promise.all([
+      getDocs(query(actRef, where("referrerWallet", "==", wallet))),
+      getDocs(query(actRef, where("referredWallet",  "==", wallet))),
+    ]);
+    const actDocs = [...actAsReferrer.docs, ...actAsReferred.docs];
+    await Promise.all(actDocs.map(d => deleteDoc(doc(db, "referral_activities", d.id))));
+    result.deleted.referralActivities = actDocs.length;
+
+    // 5. users document (last — after all related data removed)
+    await deleteDoc(doc(db, USERS_COLLECTION, wallet));
+    result.deleted.user = true;
+
+    result.success = true;
+    return result;
+  } catch (error: any) {
+    console.error("deleteUserCompletely error:", error);
+    return { ...result, error: error?.message || "Unknown error" };
+  }
+}

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Users, Loader2, ChevronLeft, ChevronRight, Eye, Edit, Plus, Trash2, Save, X, Search, XCircle, Download } from "lucide-react";
-import { getUsersPaginated, getUsersCount, User, updateUserReferrer, searchUsers, getAllUsers, deleteUser, getUsersWithInvalidReferrer } from "@/lib/users";
+import { getUsersPaginated, getUsersCount, User, updateUserReferrer, searchUsers, getAllUsers, deleteUser, deleteUserCompletely, getUsersWithInvalidReferrer } from "@/lib/users";
 import { getAllReferralCounts, getReferralsByReferrer, getReferralByReferred, Referral } from "@/lib/referrals";
 import { getUserNodePurchases, saveNodePurchase, deleteNodePurchase, updateNodePurchase, NodePurchase, getAllNodePurchases } from "@/lib/nodePurchases";
 import { getUserInvestments, saveUserInvestment, updateUserInvestment, deleteUserInvestment, UserInvestment, getAllUserInvestments } from "@/lib/userInvestments";
@@ -571,21 +571,48 @@ export const AdminUsers = () => {
     }
   };
 
+  // users 컬렉션만 삭제 (빠름, 관련 데이터는 남음)
   const handleDeleteInvalidUser = async (wallet: string) => {
-    if (!confirm(`정말 삭제하시겠습니까?\n\n지갑: ${wallet}\n\n⚠️ users 컬렉션에서만 삭제됩니다.\n투자/노드 데이터는 남아있습니다.`)) return;
-    setDeletingWallets(prev => new Set(prev).add(wallet));
+    if (!confirm(
+      `[users 컬렉션만 삭제]\n\n지갑: ${wallet}\n\n⚠️ 투자/노드/추천 데이터는 그대로 남습니다.\n계속하시겠습니까?`
+    )) return;
+    setDeletingWallets(prev => new Set(prev).add(wallet + "_soft"));
     try {
       const ok = await deleteUser(wallet);
       if (ok) {
         setInvalidReferrerUsers(prev => prev.filter(u => u.walletAddress !== wallet));
-        toast.success(`삭제 완료: ${wallet.slice(0, 10)}...`);
+        toast.success(`users 삭제 완료: ${wallet.slice(0, 10)}...`);
       } else {
         toast.error("삭제 실패");
       }
     } catch (e) {
       toast.error("삭제 오류");
     } finally {
-      setDeletingWallets(prev => { const s = new Set(prev); s.delete(wallet); return s; });
+      setDeletingWallets(prev => { const s = new Set(prev); s.delete(wallet + "_soft"); return s; });
+    }
+  };
+
+  // 모든 컬렉션 완전 삭제
+  const handleDeleteInvalidUserCompletely = async (wallet: string) => {
+    if (!confirm(
+      `[완전 삭제 - 복구 불가]\n\n지갑: ${wallet}\n\n삭제 대상:\n• users\n• referrals\n• user_investments\n• nodePurchases\n• referral_activities\n\n정말 모두 삭제하시겠습니까?`
+    )) return;
+    setDeletingWallets(prev => new Set(prev).add(wallet + "_hard"));
+    try {
+      const result = await deleteUserCompletely(wallet);
+      if (result.success) {
+        setInvalidReferrerUsers(prev => prev.filter(u => u.walletAddress !== wallet));
+        const { referrals, investments, nodePurchases, referralActivities } = result.deleted;
+        toast.success(
+          `완전 삭제 완료\n추천: ${referrals}건 · 투자: ${investments}건 · 노드: ${nodePurchases}건 · 활동: ${referralActivities}건`
+        );
+      } else {
+        toast.error(`삭제 실패: ${result.error || "알 수 없는 오류"}`);
+      }
+    } catch (e) {
+      toast.error("삭제 오류");
+    } finally {
+      setDeletingWallets(prev => { const s = new Set(prev); s.delete(wallet + "_hard"); return s; });
     }
   };
 
@@ -785,7 +812,8 @@ export const AdminUsers = () => {
                         <TableHead>추천코드</TableHead>
                         <TableHead>추천지갑</TableHead>
                         <TableHead>가입일</TableHead>
-                        <TableHead className="text-right">삭제</TableHead>
+                        <TableHead className="text-right">users만 삭제</TableHead>
+                        <TableHead className="text-right">완전 삭제</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -799,17 +827,34 @@ export const AdminUsers = () => {
                           <TableCell>
                             {u.createdAt ? new Date(u.createdAt).toLocaleDateString("ko-KR") : "-"}
                           </TableCell>
+                          {/* users 컬렉션만 삭제 */}
+                          <TableCell className="text-right">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-6 px-2 text-xs border-orange-500/50 text-orange-400 hover:bg-orange-500/10"
+                              onClick={() => handleDeleteInvalidUser(u.walletAddress)}
+                              disabled={deletingWallets.has(u.walletAddress + "_soft") || deletingWallets.has(u.walletAddress + "_hard")}
+                              title="users 컬렉션만 삭제 (투자/노드 데이터 유지)"
+                            >
+                              {deletingWallets.has(u.walletAddress + "_soft")
+                                ? <Loader2 className="w-3 h-3 animate-spin" />
+                                : <Trash2 className="w-3 h-3" />}
+                            </Button>
+                          </TableCell>
+                          {/* 모든 데이터 완전 삭제 */}
                           <TableCell className="text-right">
                             <Button
                               variant="destructive"
                               size="sm"
                               className="h-6 px-2 text-xs"
-                              onClick={() => handleDeleteInvalidUser(u.walletAddress)}
-                              disabled={deletingWallets.has(u.walletAddress)}
+                              onClick={() => handleDeleteInvalidUserCompletely(u.walletAddress)}
+                              disabled={deletingWallets.has(u.walletAddress + "_soft") || deletingWallets.has(u.walletAddress + "_hard")}
+                              title="모든 관련 데이터 완전 삭제 (복구 불가)"
                             >
-                              {deletingWallets.has(u.walletAddress)
+                              {deletingWallets.has(u.walletAddress + "_hard")
                                 ? <Loader2 className="w-3 h-3 animate-spin" />
-                                : <Trash2 className="w-3 h-3" />}
+                                : <><Trash2 className="w-3 h-3 mr-0.5" />전체</>}
                             </Button>
                           </TableCell>
                         </TableRow>
