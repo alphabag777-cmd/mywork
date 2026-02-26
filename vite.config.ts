@@ -36,6 +36,9 @@ export default defineConfig({
       },
       output: {
         manualChunks(id) {
+          if (id.includes('node_modules/@uiw') || id.includes('node_modules/codemirror') || id.includes('node_modules/@codemirror')) {
+            return 'md-editor';
+          }
           if (id.includes('node_modules/@walletconnect') || id.includes('node_modules/@web3modal') || id.includes('node_modules/wagmi') || id.includes('node_modules/viem')) {
             return 'web3';
           }

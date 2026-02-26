@@ -3,7 +3,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import MDEditor from "@uiw/react-md-editor";
+import { useState, useEffect, Suspense, lazy } from "react";
+const MDEditor = lazy(() => import("@uiw/react-md-editor"));
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1309,6 +1310,7 @@ export const AdminAddPlans = () => {
                           <span className="text-[11px] text-muted-foreground">{(formData.detailDescription || "").length}자</span>
                         </div>
                         <div className="px-4 pb-4">
+                          <Suspense fallback={<div className="h-[400px] flex items-center justify-center text-muted-foreground text-sm">에디터 로딩 중...</div>}>
                           <MDEditor
                             value={formData.detailDescription}
                             onChange={(val) => setFormData({ ...formData, detailDescription: val || "" })}
@@ -1321,6 +1323,7 @@ export const AdminAddPlans = () => {
                             }}
                             style={{ borderRadius: "0.5rem" }}
                           />
+                          </Suspense>
                           <p className="text-[11px] text-muted-foreground mt-2">
                             💡 왼쪽 = 편집, 오른쪽 = 실시간 미리보기 · <strong>B</strong> <em>I</em> H ─ 링크 이미지 코드 표 등 툴바 사용 가능
                           </p>
@@ -1511,6 +1514,7 @@ export const AdminAddPlans = () => {
                                 📄 {langLabels[lang]} 상세 설명
                                 <span className="font-normal text-xs text-muted-foreground ml-1">(마크다운·HTML·이모지 지원)</span>
                               </Label>
+                              <Suspense fallback={<div className="h-[320px] flex items-center justify-center text-muted-foreground text-sm">에디터 로딩 중...</div>}>
                               <MDEditor
                                 value={lc.detailDescription || ""}
                                 onChange={(val) => update({ detailDescription: val || "" })}
@@ -1523,6 +1527,7 @@ export const AdminAddPlans = () => {
                                 }}
                                 style={{ borderRadius: "0.5rem" }}
                               />
+                              </Suspense>
                             </div>
 
                             {/* 참고 자료 */}
