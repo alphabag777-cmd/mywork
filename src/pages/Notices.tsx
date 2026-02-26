@@ -132,12 +132,12 @@ export default function Notices() {
                               </Badge>
                             )}
                             <p className="font-medium text-sm leading-snug truncate group-hover:text-primary transition-colors">
-                              {notice.title || notice.points[0] || "—"}
+                              {notice.title || (notice.content?.split("\n").find(l => l.trim())) || "—"}
                             </p>
                           </div>
-                          {notice.points.length > 0 && notice.title && (
+                          {notice.content && notice.title && (
                             <p className="text-xs text-muted-foreground line-clamp-1">
-                              {notice.points[0]}
+                              {notice.content.split("\n").find(l => l.trim())}
                             </p>
                           )}
                         </div>

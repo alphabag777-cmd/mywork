@@ -113,7 +113,7 @@ export default function NoticeDetail() {
                     <Badge variant="outline" className="text-xs">{t.notices.noticeDetail}</Badge>
                   </div>
                   <h2 className="text-lg font-bold leading-snug">
-                    {notice.title || notice.points[0] || "—"}
+                    {notice.title || (notice.content ? notice.content.split("\n").find(l => l.trim()) : undefined) || "—"}
                   </h2>
                   <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                     <Calendar className="w-3 h-3" />
@@ -123,19 +123,13 @@ export default function NoticeDetail() {
                   </div>
                 </div>
 
-                {/* 본문 (points 배열) */}
-                <div className="space-y-3 pt-1">
-                  {notice.points.map((point, i) => (
-                    <div key={i} className="flex gap-3">
-                      <span className="text-primary font-bold text-sm shrink-0 mt-0.5">
-                        {i + 1}.
-                      </span>
-                      <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-line">
-                        {point}
-                      </p>
-                    </div>
-                  ))}
-                  {notice.points.length === 0 && (
+                {/* 본문 — 줄바꿈 그대로 표시 */}
+                <div className="pt-2">
+                  {notice.content ? (
+                    <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-line">
+                      {notice.content}
+                    </p>
+                  ) : (
                     <p className="text-sm text-muted-foreground">—</p>
                   )}
                 </div>
@@ -157,7 +151,7 @@ export default function NoticeDetail() {
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] text-muted-foreground">{t.notices.prevPost}</p>
                     <p className="text-sm truncate group-hover:text-primary transition-colors">
-                      {nextNotice.title || nextNotice.points[0] || "—"}
+                      {nextNotice.title || (nextNotice.content?.split("\n").find(l => l.trim())) || "—"}
                     </p>
                   </div>
                 </CardContent>
@@ -172,7 +166,7 @@ export default function NoticeDetail() {
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] text-muted-foreground text-right">{t.notices.nextPost}</p>
                     <p className="text-sm truncate text-right group-hover:text-primary transition-colors">
-                      {prevNotice.title || prevNotice.points[0] || "—"}
+                      {prevNotice.title || (prevNotice.content?.split("\n").find(l => l.trim())) || "—"}
                     </p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />

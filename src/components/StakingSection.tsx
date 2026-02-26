@@ -109,11 +109,11 @@ const StakingSection = () => {
           .filter((n) => n.isActive !== false)
           .sort((a, b) => a.sortOrder - b.sortOrder || b.createdAt - a.createdAt);
         setNotices(active);
-        // Translate
+        // Translate content
         const translated = await Promise.all(
           active.map(async (n) => ({
             ...n,
-            points: await Promise.all(n.points.map((p) => translate(p))),
+            content: await translate(n.content || ""),
           }))
         );
         setTranslatedNotices(translated);
@@ -472,7 +472,7 @@ const StakingSection = () => {
                 </div>
                 <ul className="space-y-1.5 md:space-y-2">
                   {(translatedNotices.length > 0 ? translatedNotices : notices).map((n) =>
-                    n.points.map((point, index) => (
+                    (n.content || "").split("\n").filter(l => l.trim()).map((line, index) => (
                       <li
                         key={n.id + "-" + index}
                         className="flex items-start gap-2 text-xs md:text-sm text-muted-foreground break-words cursor-pointer hover:text-foreground transition-colors"
@@ -483,7 +483,7 @@ const StakingSection = () => {
                           {n.title && index === 0 && (
                             <span className="font-medium text-foreground/80 mr-1">[{n.title}]</span>
                           )}
-                          {point}
+                          {line}
                         </span>
                       </li>
                     ))

@@ -12,38 +12,32 @@ import { Notice, getActivePopupNotices } from "@/lib/notices";
 import { Bell } from "lucide-react";
 
 export function UserNoticePopup() {
-  const [open, setOpen] = useState(false);
-  const [notices, setNotices] = useState<Notice[]>([]);
+  const [open, setOpen]               = useState(false);
+  const [notices, setNotices]         = useState<Notice[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    const loadNotices = async () => {
-      const activeNotices = await getActivePopupNotices();
-      if (activeNotices.length > 0) {
-        // Optional: Check if already seen in session storage
-        const seenIds = sessionStorage.getItem("seen_notices");
-        const unseenNotices = activeNotices.filter(n => !seenIds?.includes(n.id));
-        
-        if (unseenNotices.length > 0) {
-          setNotices(unseenNotices);
+    const load = async () => {
+      const active = await getActivePopupNotices();
+      if (active.length > 0) {
+        const seenIds = sessionStorage.getItem("seen_notices") || "";
+        const unseen  = active.filter((n) => !seenIds.includes(n.id));
+        if (unseen.length > 0) {
+          setNotices(unseen);
           setOpen(true);
         }
       }
     };
-
-    // Delay slightly to let app load
-    const timer = setTimeout(loadNotices, 1000);
+    const timer = setTimeout(load, 1000);
     return () => clearTimeout(timer);
   }, []);
 
   const handleClose = () => {
-    // Mark current as seen
-    const currentNotice = notices[currentIndex];
-    if (currentNotice) {
-      const seenIds = sessionStorage.getItem("seen_notices") || "";
-      sessionStorage.setItem("seen_notices", seenIds + "," + currentNotice.id);
+    const current = notices[currentIndex];
+    if (current) {
+      const seen = sessionStorage.getItem("seen_notices") || "";
+      sessionStorage.setItem("seen_notices", seen + "," + current.id);
     }
-
     if (currentIndex < notices.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
@@ -51,36 +45,34 @@ export function UserNoticePopup() {
     }
   };
 
-  const currentNotice = notices[currentIndex];
-
-  if (!currentNotice) return null;
+  const current = notices[currentIndex];
+  if (!current) return null;
 
   return (
-    <Dialog open={open} onOpenChange={(val) => !val && handleClose()}>
+    <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bell className="w-5 h-5 text-primary" />
-            {currentNotice.title || "Notice"}
+            {current.title || "공지사항"}
           </DialogTitle>
           {notices.length > 1 && (
             <DialogDescription>
-              {currentIndex + 1} of {notices.length}
+              {currentIndex + 1} / {notices.length}
             </DialogDescription>
           )}
         </DialogHeader>
-        
+
+        {/* 본문 — 줄바꿈 그대로 표시 */}
         <div className="py-4">
-          <ul className="list-disc list-inside space-y-2 text-sm text-foreground">
-            {currentNotice.points.map((point, i) => (
-              <li key={i}>{point}</li>
-            ))}
-          </ul>
+          <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">
+            {current.content}
+          </p>
         </div>
 
         <DialogFooter>
           <Button onClick={handleClose} className="w-full sm:w-auto">
-            {currentIndex < notices.length - 1 ? "Next" : "Close"}
+            {currentIndex < notices.length - 1 ? "다음" : "닫기"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -2,65 +2,48 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { FileText, Trash2, Edit, Save, X, PlusSquare, Eye, EyeOff, Plus } from "lucide-react";
+import {
+  FileText, Trash2, Edit, Save, X, PlusSquare, Eye, EyeOff,
+} from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Notice, getAllNotices, saveNotice, deleteNotice } from "@/lib/notices";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 
 export const AdminNotices = () => {
-  const [notices, setNotices] = useState<Notice[]>([]);
-  const [editingNotice, setEditingNotice] = useState<Notice | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [notices, setNotices]               = useState<Notice[]>([]);
+  const [editingNotice, setEditingNotice]   = useState<Notice | null>(null);
+  const [isDialogOpen, setIsDialogOpen]     = useState(false);
+  const [isDeleting, setIsDeleting]         = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
-    title: "",
-    points: [""] as string[],
-    type: "normal" as "normal" | "popup",
+    title:    "",
+    content:  "",
+    type:     "normal" as "normal" | "popup",
     isActive: true,
   });
 
-  useEffect(() => {
-    loadNotices();
-  }, []);
+  useEffect(() => { loadNotices(); }, []);
 
   const loadNotices = async () => {
     try {
-      const allNotices = await getAllNotices();
-      setNotices(allNotices);
-    } catch (error) {
-      console.error("Error loading notices:", error);
-      toast.error("Failed to load notices");
+      setNotices(await getAllNotices());
+    } catch {
+      toast.error("공지사항을 불러오지 못했습니다.");
     }
   };
 
   const resetForm = () => {
-    setFormData({
-      title: "",
-      points: [""],
-      type: "normal",
-      isActive: true,
-    });
+    setFormData({ title: "", content: "", type: "normal", isActive: true });
     setEditingNotice(null);
   };
 
@@ -68,9 +51,9 @@ export const AdminNotices = () => {
     if (notice) {
       setEditingNotice(notice);
       setFormData({
-        title: notice.title || "",
-        points: notice.points.length > 0 ? notice.points : [""],
-        type: notice.type,
+        title:    notice.title || "",
+        content:  notice.content || "",
+        type:     notice.type,
         isActive: notice.isActive,
       });
     } else {
@@ -79,89 +62,46 @@ export const AdminNotices = () => {
     setIsDialogOpen(true);
   };
 
-
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     resetForm();
   };
 
-  const handleAddPoint = () => {
-    setFormData({
-      ...formData,
-      points: [...formData.points, ""],
-    });
-  };
-
-  const handleRemovePoint = (index: number) => {
-    if (formData.points.length > 1) {
-      const newPoints = formData.points.filter((_, i) => i !== index);
-      setFormData({
-        ...formData,
-        points: newPoints,
-      });
-    } else {
-      toast.error("At least one bullet point is required");
-    }
-  };
-
-  const handlePointChange = (index: number, value: string) => {
-    const newPoints = [...formData.points];
-    newPoints[index] = value;
-    setFormData({
-      ...formData,
-      points: newPoints,
-    });
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Filter out empty points
-    const validPoints = formData.points.filter((point) => point.trim().length > 0);
-
-    if (validPoints.length === 0) {
-      toast.error("Please add at least one bullet point");
+    if (!formData.content.trim()) {
+      toast.error("공지 내용을 입력해 주세요.");
       return;
     }
-
-    const noticeData = {
-      id: editingNotice?.id,
-      title: formData.title,
-      points: validPoints,
-      type: formData.type,
-      isActive: formData.isActive,
-      sortOrder: editingNotice?.sortOrder || 0,
-    };
-
-
     try {
-      await saveNotice(noticeData);
-      toast.success(editingNotice ? "Notice updated successfully!" : "Notice created successfully!");
+      await saveNotice({
+        id:       editingNotice?.id,
+        title:    formData.title.trim(),
+        content:  formData.content.trim(),
+        type:     formData.type,
+        isActive: formData.isActive,
+        sortOrder: editingNotice?.sortOrder ?? 0,
+      });
+      toast.success(editingNotice ? "공지가 수정되었습니다." : "공지가 등록되었습니다.");
       await loadNotices();
       handleCloseDialog();
-    } catch (error) {
-      toast.error("Failed to save notice");
-      console.error(error);
+    } catch {
+      toast.error("저장 중 오류가 발생했습니다.");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this notice?")) {
-      return;
-    }
-
+    if (!confirm("이 공지를 삭제하시겠습니까?")) return;
     setIsDeleting(id);
     try {
-      const success = await deleteNotice(id);
-      if (success) {
-        toast.success("Notice deleted successfully!");
+      if (await deleteNotice(id)) {
+        toast.success("삭제되었습니다.");
         await loadNotices();
       } else {
-        toast.error("Failed to delete notice");
+        toast.error("삭제에 실패했습니다.");
       }
-    } catch (error) {
-      toast.error("Failed to delete notice");
-      console.error(error);
+    } catch {
+      toast.error("삭제 중 오류가 발생했습니다.");
     } finally {
       setIsDeleting(null);
     }
@@ -169,17 +109,18 @@ export const AdminNotices = () => {
 
   const handleToggleActive = async (notice: Notice) => {
     try {
-      await saveNotice({
-        ...notice,
-        type: notice.type || "normal",
-        isActive: !notice.isActive,
-      });
-      toast.success(`Notice ${!notice.isActive ? "activated" : "deactivated"} successfully!`);
+      await saveNotice({ ...notice, type: notice.type || "normal", isActive: !notice.isActive });
+      toast.success(`공지가 ${!notice.isActive ? "활성화" : "비활성화"}되었습니다.`);
       await loadNotices();
-    } catch (error) {
-      toast.error("Failed to update notice status");
-      console.error(error);
+    } catch {
+      toast.error("상태 변경에 실패했습니다.");
     }
+  };
+
+  /* ── 본문 미리보기 (첫 줄만) ── */
+  const previewText = (content: string, maxLen = 60) => {
+    const first = content.split("\n").find((l) => l.trim()) || "";
+    return first.length > maxLen ? first.slice(0, maxLen) + "…" : first;
   };
 
   return (
@@ -190,92 +131,82 @@ export const AdminNotices = () => {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-primary" />
-                Manage Notices
+                공지사항 관리
               </CardTitle>
               <CardDescription>
-                Create and manage notice bullet points that appear on the home page above ads
+                홈 화면 및 팝업에 표시될 공지사항을 작성·관리합니다.
               </CardDescription>
             </div>
             <Button onClick={() => handleOpenDialog()} className="gap-2">
               <PlusSquare className="w-4 h-4" />
-              Add New Notice
+              새 공지 작성
             </Button>
           </div>
         </CardHeader>
+
         <CardContent>
           {notices.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <p>No notices created yet. Click "Add New Notice" to create your first notice.</p>
+              <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p>등록된 공지가 없습니다. "새 공지 작성"을 눌러 첫 공지를 작성하세요.</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Title & Points</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="w-24">상태</TableHead>
+                  <TableHead className="w-20">유형</TableHead>
+                  <TableHead>제목 / 내용</TableHead>
+                  <TableHead className="text-right w-24">관리</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {notices.map((notice) => (
                   <TableRow key={notice.id}>
+                    {/* 상태 토글 */}
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Switch
                           checked={notice.isActive}
                           onCheckedChange={() => handleToggleActive(notice)}
                         />
-                        <span className="text-sm text-muted-foreground">
-                          {notice.isActive ? (
-                            <span className="flex items-center gap-1 text-green-600">
-                              <Eye className="w-4 h-4" />
-                              Active
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1 text-gray-500">
-                              <EyeOff className="w-4 h-4" />
-                              Inactive
-                            </span>
-                          )}
-                        </span>
+                        {notice.isActive ? (
+                          <span className="flex items-center gap-1 text-xs text-green-600">
+                            <Eye className="w-3.5 h-3.5" /> 활성
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <EyeOff className="w-3.5 h-3.5" /> 비활성
+                          </span>
+                        )}
                       </div>
                     </TableCell>
+
+                    {/* 유형 */}
                     <TableCell>
-                      <Badge variant={notice.type === "popup" ? "default" : "secondary"}>
-                        {notice.type === "popup" ? "Popup" : "Normal"}
+                      <Badge variant={notice.type === "popup" ? "default" : "secondary"} className="text-xs">
+                        {notice.type === "popup" ? "팝업" : "일반"}
                       </Badge>
                     </TableCell>
+
+                    {/* 제목 / 내용 미리보기 */}
                     <TableCell>
                       {notice.title && (
-                        <div className="font-semibold mb-1">{notice.title}</div>
+                        <p className="font-semibold text-sm mb-0.5">{notice.title}</p>
                       )}
-                      <ul className="list-disc list-inside space-y-1">
-
-                        {notice.points.slice(0, 3).map((point, index) => (
-                          <li key={index} className="text-sm">
-                            {point.length > 60 ? `${point.substring(0, 60)}...` : point}
-                          </li>
-                        ))}
-                        {notice.points.length > 3 && (
-                          <li className="text-xs text-muted-foreground">
-                            +{notice.points.length - 3} more
-                          </li>
-                        )}
-                      </ul>
+                      <p className="text-xs text-muted-foreground">
+                        {previewText(notice.content || "")}
+                      </p>
                     </TableCell>
+
+                    {/* 수정 / 삭제 */}
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenDialog(notice)}
-                        >
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(notice)}>
                           <Edit className="w-4 h-4" />
                         </Button>
                         <Button
-                          variant="ghost"
-                          size="icon"
+                          variant="ghost" size="icon"
                           onClick={() => handleDelete(notice.id)}
                           disabled={isDeleting === notice.id}
                         >
@@ -291,109 +222,86 @@ export const AdminNotices = () => {
         </CardContent>
       </Card>
 
-      {/* Create/Edit Dialog */}
+      {/* ── 작성 / 수정 다이얼로그 ── */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingNotice ? "Edit Notice" : "Create New Notice"}</DialogTitle>
+            <DialogTitle>{editingNotice ? "공지 수정" : "새 공지 작성"}</DialogTitle>
             <DialogDescription>
-              Add bullet points that will be displayed on the home page. One active notice will be shown.
+              제목과 내용을 입력하세요. 줄바꿈은 그대로 표시됩니다.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Notice Type</Label>
-                <RadioGroup 
-                  value={formData.type} 
-                  onValueChange={(val: "normal" | "popup") => setFormData({...formData, type: val})}
-                  className="flex gap-4"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="normal" id="type-normal" />
-                    <Label htmlFor="type-normal">Normal (Home Page)</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="popup" id="type-popup" />
-                    <Label htmlFor="type-popup">Popup (Modal)</Label>
-                  </div>
-                </RadioGroup>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="title">Title (Optional)</Label>
-                <Input
-                  id="title"
-                  placeholder="e.g. Important Announcement"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                />
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-5">
 
-              <div className="flex items-center justify-between">
-                <Label>Bullet Points</Label>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddPoint}
-                  className="gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Point
-                </Button>
-              </div>
-              
-              {formData.points.map((point, index) => (
-                <div key={index} className="flex gap-2 items-start">
-                  <div className="flex-1">
-                    <Textarea
-                      value={point}
-                      onChange={(e) => handlePointChange(index, e.target.value)}
-                      placeholder={`Bullet point ${index + 1}...`}
-                      rows={2}
-                      className="resize-none"
-                    />
-                  </div>
-                  {formData.points.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleRemovePoint(index)}
-                      className="mt-1"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  )}
+            {/* 공지 유형 */}
+            <div className="space-y-2">
+              <Label>공지 유형</Label>
+              <RadioGroup
+                value={formData.type}
+                onValueChange={(v: "normal" | "popup") => setFormData({ ...formData, type: v })}
+                className="flex gap-6"
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="normal" id="type-normal" />
+                  <Label htmlFor="type-normal" className="cursor-pointer">일반 (홈 화면)</Label>
                 </div>
-              ))}
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="popup" id="type-popup" />
+                  <Label htmlFor="type-popup" className="cursor-pointer">팝업 (모달)</Label>
+                </div>
+              </RadioGroup>
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t">
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="isActive"
-                  checked={formData.isActive}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, isActive: checked })
-                  }
-                />
-                <Label htmlFor="isActive" className="cursor-pointer">
-                  Active (only one active notice will be displayed)
-                </Label>
-              </div>
+            {/* 제목 (선택) */}
+            <div className="space-y-1.5">
+              <Label htmlFor="notice-title">제목 <span className="text-muted-foreground font-normal">(선택)</span></Label>
+              <Input
+                id="notice-title"
+                placeholder="예) 서비스 점검 안내"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              />
             </div>
 
-            <div className="flex justify-end gap-2 pt-4">
+            {/* 본문 */}
+            <div className="space-y-1.5">
+              <Label htmlFor="notice-content">
+                공지 내용 <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                id="notice-content"
+                placeholder={"공지 내용을 자유롭게 입력하세요.\n줄바꿈은 그대로 표시됩니다.\n\n예)\n• 2025년 3월 1일 오전 2시~4시 서버 점검\n• 점검 중 서비스 이용이 불가합니다."}
+                value={formData.content}
+                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                rows={8}
+                className="resize-y font-sans text-sm leading-relaxed"
+              />
+              <p className="text-xs text-muted-foreground">
+                {formData.content.length}자 입력됨
+              </p>
+            </div>
+
+            {/* 활성 여부 */}
+            <div className="flex items-center gap-3 pt-2 border-t">
+              <Switch
+                id="notice-active"
+                checked={formData.isActive}
+                onCheckedChange={(v) => setFormData({ ...formData, isActive: v })}
+              />
+              <Label htmlFor="notice-active" className="cursor-pointer">
+                활성화 <span className="text-muted-foreground font-normal text-xs">(활성 공지만 사용자에게 표시됩니다)</span>
+              </Label>
+            </div>
+
+            {/* 버튼 */}
+            <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={handleCloseDialog}>
-                <X className="w-4 h-4 mr-2" />
-                Cancel
+                <X className="w-4 h-4 mr-1.5" /> 취소
               </Button>
               <Button type="submit" className="gap-2">
                 <Save className="w-4 h-4" />
-                {editingNotice ? "Update Notice" : "Create Notice"}
+                {editingNotice ? "수정 완료" : "공지 등록"}
               </Button>
             </div>
           </form>
@@ -404,4 +312,3 @@ export const AdminNotices = () => {
 };
 
 export default AdminNotices;
-
