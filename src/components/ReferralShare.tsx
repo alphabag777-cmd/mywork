@@ -49,10 +49,8 @@ function telegramUrl(text: string, url: string) {
 function twitterUrl(text: string, url: string) {
   return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text + "\n" + url)}`;
 }
-function kakaoUrl(url: string) {
-  return `kakaotalk://send?msg=${encodeURIComponent(url)}`;
-}
-// PC용 카카오스토리 공유 (카카오톡 웹 공유)
+// 카카오톡 링크 공유: 모바일/PC 공통으로 Web Share API 또는 클립보드 fallback
+// kakaotalk://send 딥링크는 최신 카카오톡에서 deprecated → 동작 안 함
 function kakaoWebUrl(text: string, url: string) {
   return `https://story.kakao.com/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
 }
@@ -158,23 +156,23 @@ const ReferralShare = () => {
     window.open(twitterUrl(shareText, inviteLink), "_blank", "noopener,noreferrer");
 
   const shareKakao = async () => {
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (isMobile) {
-      // 모바일: 카카오톡 앱 딥링크로 바로 전송
+    // 1순위: Web Share API (모바일 Chrome/Safari → 카카오톡 앱 선택 가능)
+    if (navigator.share) {
       try {
-        const a = document.createElement("a");
-        a.href = kakaoUrl(inviteLink);
-        a.style.display = "none";
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => {
-          try { if (document.body.contains(a)) document.body.removeChild(a); } catch { /* ignore */ }
-        }, 100);
-      } catch { await copyInvite(); }
-    } else {
-      // PC: 카카오스토리 웹 공유 페이지로 열기
-      window.open(kakaoWebUrl(shareText, inviteLink), "_blank", "noopener,noreferrer,width=600,height=500");
+        await navigator.share({
+          title: "AlphaBag 투자상품 추천",
+          text: shareText,
+          url: inviteLink,
+        });
+        return;
+      } catch (e: any) {
+        // 사용자가 직접 취소한 경우 → 아무것도 하지 않음
+        if (e?.name === "AbortError") return;
+        // 그 외 오류 → fallback 진행
+      }
     }
+    // 2순위: 카카오스토리 웹 공유 팝업 (PC 또는 Web Share 미지원)
+    window.open(kakaoWebUrl(shareText, inviteLink), "_blank", "noopener,noreferrer,width=600,height=500");
   };
 
   const shareNative = async () => {
