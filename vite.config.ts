@@ -24,6 +24,16 @@ export default defineConfig({
     chunkSizeWarningLimit: 3000,
     rollupOptions: {
       maxParallelFileOps: 2,
+      onwarn(warning, warn) {
+        // @walletconnect/ethereum-provider 미해석 경고를 오류 대신 경고로 처리
+        if (
+          warning.code === 'UNRESOLVED_IMPORT' &&
+          warning.message?.includes('@walletconnect/ethereum-provider')
+        ) {
+          return;
+        }
+        warn(warning);
+      },
       output: {
         manualChunks(id) {
           if (id.includes('node_modules/@walletconnect') || id.includes('node_modules/@web3modal') || id.includes('node_modules/wagmi') || id.includes('node_modules/viem')) {

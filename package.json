@@ -72,6 +72,10 @@
     "wagmi": "^2.12.9",
     "zod": "^3.25.76"
   },
+  "overrides": {
+    "@walletconnect/core": "2.18.1",
+    "@walletconnect/ethereum-provider": "2.18.1"
+  },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@tailwindcss/typography": "^0.5.16",
