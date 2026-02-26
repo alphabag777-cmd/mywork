@@ -32,7 +32,7 @@ import {
   ResponsiveContainer, Legend, BarChart, Bar,
   XAxis, YAxis, CartesianGrid,
 } from "recharts";
-import { generateReferralLink, getReferrerWallet, getOrCreateReferralCode } from "@/lib/referral";
+import { getReferrerWallet, getOrCreateReferralCode } from "@/lib/referral";
 import { getUserInvestments } from "@/lib/userInvestments";
 import { getActiveUserStakes } from "@/lib/userStakes";
 import { getUserByWallet } from "@/lib/users";
@@ -388,15 +388,12 @@ const ProfilePage = ({
   }, [address]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── UI state ──────────────────────────────────────────────────────────────
-  const [referralLink, setReferralLink] = useState("");
   const [copied, setCopied] = useState<Record<string, boolean>>({});
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [editingCode, setEditingCode] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    setReferralLink(generateReferralLink(origin, address));
     void getReferrerWallet();
     void getOrCreateReferralCode(address);
   }, [address]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -836,22 +833,7 @@ const ProfilePage = ({
                 )}
               </div>
 
-              {/* Referral link quick-copy */}
-              {referralLink && (
-                <div className="pt-4 border-t border-border/40">
-                  <p className="text-xs text-muted-foreground mb-2">My Referral Link</p>
-                  <div className="flex gap-2">
-                    <input
-                      readOnly
-                      value={referralLink}
-                      className="flex-1 text-xs font-mono border border-border rounded px-3 py-2 bg-muted/30 truncate"
-                    />
-                    <Button size="sm" variant="outline" onClick={() => handleCopy(referralLink, "ref-link")}>
-                      {copied["ref-link"] ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                </div>
-              )}
+              {/* ReferralShare 컴포넌트(상단)에서 링크 공유 제공 — 중복 제거 */}
             </CardContent>
           </Card>
 
