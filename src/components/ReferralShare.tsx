@@ -95,11 +95,10 @@ const ReferralShare = () => {
 
   /* ── 링크 조합 ── */
   const base       = typeof window !== "undefined" ? window.location.origin : "";
-  const planParam  = userSelection && userSelection.planIds.length > 0
-    ? `&plans=${userSelection.planIds.join(",")}`
-    : "";
-  const referralLink = `${base}/?referral=${address}${planParam}`;
+  // 회원가입용 레퍼럴 링크는 지갑주소만 포함 (무업 파라미터 제외)
+  const referralLink = `${base}/?referral=${address}`;
   const planNames    = selectedPlans.map((p) => p.name).join(", ");
+  // SNS 공유 시 선택 상품 정보는 메시지에만 포함
   const shareText    = buildShareText(planNames);
   const hasSelection = selectedPlans.length > 0;
 
@@ -265,7 +264,7 @@ const ReferralShare = () => {
 
           {/* 지갑 주소 (레퍼럴 코드) */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">내 지갑 주소 (레퍼럴 코드)</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">내 지갑 주소</label>
             <div className="flex items-center gap-2">
               <Input value={address} readOnly className="font-mono text-xs h-8" />
               <Button variant="outline" size="icon" className="h-8 w-8 shrink-0"
