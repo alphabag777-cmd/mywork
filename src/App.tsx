@@ -26,6 +26,7 @@ import NotFound from "./pages/NotFound";
 import AdminRouteGuard, { AdminPermissionGuard } from "./pages/admin/AdminRouteGuard";
 
 // ── Lazy-loaded pages (chunked by route) ─────────────────────────────────────
+const Onboarding          = lazy(() => import("./pages/Onboarding"));
 const Login               = lazy(() => import("./pages/Login"));
 const SignUp              = lazy(() => import("./pages/SignUp"));
 const ResetPassword       = lazy(() => import("./pages/ResetPassword"));
@@ -146,6 +147,7 @@ const App = () => (
                     </Route>
 
                     {/* Auth routes */}
+                    <Route path="/onboarding"    element={<ErrorBoundary><Onboarding /></ErrorBoundary>} />
                     <Route path="/login"          element={<ErrorBoundary><Login /></ErrorBoundary>} />
                     <Route path="/signup"         element={<ErrorBoundary><SignUp /></ErrorBoundary>} />
                     <Route path="/reset-password" element={<ErrorBoundary><ResetPassword /></ErrorBoundary>} />
