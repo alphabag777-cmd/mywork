@@ -52,6 +52,10 @@ function twitterUrl(text: string, url: string) {
 function kakaoUrl(url: string) {
   return `kakaotalk://send?msg=${encodeURIComponent(url)}`;
 }
+// PC용 카카오스토리 공유 (카카오톡 웹 공유)
+function kakaoWebUrl(text: string, url: string) {
+  return `https://story.kakao.com/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+}
 
 const ReferralShare = () => {
   const { address, isConnected } = useAccount();
@@ -156,6 +160,7 @@ const ReferralShare = () => {
   const shareKakao = async () => {
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     if (isMobile) {
+      // 모바일: 카카오톡 앱 딥링크로 바로 전송
       try {
         const a = document.createElement("a");
         a.href = kakaoUrl(inviteLink);
@@ -167,12 +172,8 @@ const ReferralShare = () => {
         }, 100);
       } catch { await copyInvite(); }
     } else {
-      if (navigator.share) {
-        try { await navigator.share({ title: "AlphaBag 투자상품 추천", text: shareText, url: inviteLink }); return; }
-        catch { /* cancelled */ }
-      }
-      await copyInvite();
-      toast.info("PC에서는 카카오 직접 공유가 어렵습니다. 링크를 복사했습니다.");
+      // PC: 카카오스토리 웹 공유 페이지로 열기
+      window.open(kakaoWebUrl(shareText, inviteLink), "_blank", "noopener,noreferrer,width=600,height=500");
     }
   };
 
