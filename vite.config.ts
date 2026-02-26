@@ -29,11 +29,17 @@ export default defineConfig({
         annotations: false,
       },
       onwarn(warning, warn) {
-        // walletconnect 관련 경고/오류 무시
+        // walletconnect 관련 경고/오류 무시 (구버전 패키지 중첩 문제)
         if (warning.message?.includes('@walletconnect')) return;
         if (warning.message?.includes('isTypeTwoEnvelope')) return;
         if (warning.message?.includes('getBundleId')) return;
+        if (warning.message?.includes('TRANSPORT_TYPES')) return;
+        if (warning.message?.includes('ox/_esm') || warning.message?.includes('porto')) return;
         if (warning.code === 'UNRESOLVED_IMPORT') return;
+        if (warning.code === 'MISSING_EXPORT') {
+          // walletconnect 패키지의 누락된 export는 무시
+          if (warning.message?.includes('walletconnect') || warning.message?.includes('wagmi') || warning.message?.includes('web3modal')) return;
+        }
         warn(warning);
       },
       output: {

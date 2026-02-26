@@ -5,6 +5,13 @@ moonexe-clone/
 .env
 # temp / build artifacts
 core
-scripts/
+# scripts/ directory tracked for postinstall helpers
+!scripts/fix-walletconnect.cjs
+scripts/*.py
+scripts/*.sh
+scripts/*.csv
+scripts/*.js
+scripts/package.json
+scripts/package-lock.json
 vite.config.ts.timestamp-*
 *.mjs.timestamp-*
