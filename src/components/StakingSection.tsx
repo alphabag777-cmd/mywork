@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { getOrCreateReferralCode, wasReferred, storeReferralFromURL } from "@/lib/referral";
 import { trackReferralActivity } from "@/lib/referralActivities";
 import { useTranslate } from "@/hooks/useTranslate";
@@ -26,13 +26,15 @@ import { useRef, useEffect } from "react";
 import ProjectDetails from "@/components/ProjectDetails";
 import { getAllPlans, InvestmentPlan } from "@/lib/plans";
 import { getFixedAd, getRotatingAds, AdImage } from "@/lib/ads";
-import { getActiveNotice, Notice } from "@/lib/notices";
+import { getAllNotices, Notice } from "@/lib/notices";
 import { useCart } from "@/contexts/CartContext";
+import { getUserSelectedPlans, UserSelectedPlans } from "@/lib/userSelectedPlans";
 
 const StakingSection = () => {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [amount, setAmount] = useState<string>("");
   const [allocationCards, setAllocationCards] = useState<InvestmentPlan[]>([]);
   const [fixedAd, setFixedAd] = useState<AdImage | null>(null);
@@ -40,8 +42,8 @@ const StakingSection = () => {
   const [translatedFixedAd, setTranslatedFixedAd] = useState<AdImage | null>(null);
   const [translatedRotatingAds, setTranslatedRotatingAds] = useState<AdImage[]>([]);
   const [currentRotatingIndex, setCurrentRotatingIndex] = useState(0);
-  const [notice, setNotice] = useState<Notice | null>(null);
-  const [translatedNotice, setTranslatedNotice] = useState<Notice | null>(null);
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [translatedNotices, setTranslatedNotices] = useState<Notice[]>([]);
   const [selectedProject, setSelectedProject] = useState<InvestmentPlan | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [referralDialogOpen, setReferralDialogOpen] = useState(false);
@@ -56,9 +58,19 @@ const StakingSection = () => {
   
   // State for translated plans
   const [translatedPlans, setTranslatedPlans] = useState<InvestmentPlan[]>([]);
+  // User's selected plan state (for filtered display)
+  const [userSelection, setUserSelection] = useState<UserSelectedPlans | null>(null);
+  // Category tab filter: null = all, otherwise filter by category
+  const [activeCategory, setActiveCategory] = useState<"ABAG" | "BBAG" | "CBAG" | "SELF_COLLECTION" | null>(null);
 
   // Note: Referral validation pop-up is handled by LoomxReferralGuard component
   // This prevents duplicate pop-ups and ensures consistent behavior
+
+  // Load user's selected plans
+  useEffect(() => {
+    if (!address) { setUserSelection(null); return; }
+    getUserSelectedPlans(address).then(sel => setUserSelection(sel)).catch(() => setUserSelection(null));
+  }, [address]);
 
   // Load plans from Firebase
   useEffect(() => {
@@ -67,12 +79,11 @@ const StakingSection = () => {
         const plans = await getAllPlans();
         setAllocationCards(plans);
         
-        // Translate plans if needed
+        // Translate only description/focus/tags — NOT name/label (keep original English)
         const translated = await Promise.all(
           plans.map(async (plan) => ({
             ...plan,
-            name: await translate(plan.name),
-            label: await translate(plan.label),
+            // name & label intentionally NOT translated — always show original text
             description: await translate(plan.description),
             focus: await translate(plan.focus),
             quickActionsDescription: await translate(plan.quickActionsDescription || ''),
@@ -89,29 +100,28 @@ const StakingSection = () => {
     loadPlans();
   }, [translate]);
 
-  // Load notice from Firebase
+  // Load notices from Firebase (여러 개 표시)
   useEffect(() => {
-    const loadNotice = async () => {
+    const loadNotices = async () => {
       try {
-        const activeNotice = await getActiveNotice();
-        setNotice(activeNotice);
-        
-        // Translate notice points if needed
-        if (activeNotice) {
-          const translatedPoints = await Promise.all(
-            activeNotice.points.map(point => translate(point))
-          );
-          setTranslatedNotice({
-            ...activeNotice,
-            points: translatedPoints,
-          });
-        }
+        const all = await getAllNotices();
+        const active = all
+          .filter((n) => n.isActive !== false)
+          .sort((a, b) => a.sortOrder - b.sortOrder || b.createdAt - a.createdAt);
+        setNotices(active);
+        // Translate content
+        const translated = await Promise.all(
+          active.map(async (n) => ({
+            ...n,
+            content: await translate(n.content || ""),
+          }))
+        );
+        setTranslatedNotices(translated);
       } catch (error) {
-        console.error("Error loading notice:", error);
+        console.error("Error loading notices:", error);
       }
     };
-    
-    loadNotice();
+    loadNotices();
   }, [translate]);
 
   // Load ad images from Firebase
@@ -375,7 +385,7 @@ const StakingSection = () => {
       <div className="absolute inset-0 bg-gradient-radial from-primary/5 via-transparent to-transparent pointer-events-none" />
       
       {/* Ad Placements + Notice in One Row */}
-      {((translatedFixedAd || fixedAd) || (translatedRotatingAds.length > 0 ? translatedRotatingAds : rotatingAds).length > 0 || (translatedNotice || notice)) && (
+      {((translatedFixedAd || fixedAd) || (translatedRotatingAds.length > 0 ? translatedRotatingAds : rotatingAds).length > 0 || (translatedNotices.length > 0 || notices.length > 0)) && (
         <div className="container mx-auto px-2 md:px-4 mb-4 md:mb-6">
           <div className="flex flex-col md:flex-row items-stretch gap-3 md:gap-4">
             {/* Fixed Ad Placement */}
@@ -445,24 +455,48 @@ const StakingSection = () => {
             )}
 
             {/* Notice Section */}
-            {(translatedNotice || notice) && (
+            {(translatedNotices.length > 0 || notices.length > 0) && (
               <div className="flex-1 min-w-0 bg-card/50 backdrop-blur-sm border border-border/60 rounded-xl p-3 md:p-6">
                 <div className="flex items-center justify-between mb-2 md:mb-3 gap-2">
                   <h3 className="text-sm md:text-lg font-semibold text-foreground whitespace-nowrap">
                     Notice
                   </h3>
-                  <Button variant="outline" size="sm" className="h-6 md:h-7 text-[10px] md:text-xs px-2 md:px-3 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 md:h-7 text-[10px] md:text-xs px-2 md:px-3 shrink-0"
+                    onClick={() => navigate("/notices")}
+                  >
                     NOTICE
                   </Button>
                 </div>
                 <ul className="space-y-1.5 md:space-y-2">
-                  {(translatedNotice || notice)!.points.map((point, index) => (
-                    <li key={index} className="flex items-start gap-2 text-xs md:text-sm text-muted-foreground break-words">
-                      <span className="text-primary mt-0.5 md:mt-1 shrink-0">•</span>
-                      <span className="flex-1 min-w-0">{point}</span>
-                    </li>
-                  ))}
+                  {(translatedNotices.length > 0 ? translatedNotices : notices).map((n) =>
+                    (n.content || "").split("\n").filter(l => l.trim()).map((line, index) => (
+                      <li
+                        key={n.id + "-" + index}
+                        className="flex items-start gap-2 text-xs md:text-sm text-muted-foreground break-words cursor-pointer hover:text-foreground transition-colors"
+                        onClick={() => navigate(`/notices/${n.id}`)}
+                      >
+                        <span className="text-primary mt-0.5 md:mt-1 shrink-0">•</span>
+                        <span className="flex-1 min-w-0">
+                          {n.title && index === 0 && (
+                            <span className="font-medium text-foreground/80 mr-1">[{n.title}]</span>
+                          )}
+                          {line}
+                        </span>
+                      </li>
+                    ))
+                  )}
                 </ul>
+                {(translatedNotices.length > 0 ? translatedNotices : notices).length > 1 && (
+                  <button
+                    className="mt-2 text-[10px] text-primary hover:underline"
+                    onClick={() => navigate("/notices")}
+                  >
+                    전체 공지 보기 →
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -504,16 +538,103 @@ const StakingSection = () => {
           </Button>
         </div>
 
+        {/* Category Tabs */}
+        {(() => {
+          const basePlans = translatedPlans.length > 0 ? translatedPlans : allocationCards;
+          const hasSelfCollection = basePlans.some(p => p.category === "SELF_COLLECTION");
+          const hasAbag = basePlans.some(p => p.category === "ABAG");
+          const hasBbag = basePlans.some(p => p.category === "BBAG");
+          const hasCbag = basePlans.some(p => p.category === "CBAG");
+          // Show tabs only if there are any categorised plans
+          if (!hasAbag && !hasBbag && !hasCbag && !hasSelfCollection) return null;
+          const tabs: { key: "ABAG"|"BBAG"|"CBAG"|"SELF_COLLECTION"|null; label: string }[] = [
+            { key: null, label: "전체" },
+            ...(hasAbag ? [{ key: "ABAG" as const, label: "A BAG" }] : []),
+            ...(hasBbag ? [{ key: "BBAG" as const, label: "B BAG" }] : []),
+            ...(hasCbag ? [{ key: "CBAG" as const, label: "C BAG" }] : []),
+            ...(hasSelfCollection ? [{ key: "SELF_COLLECTION" as const, label: "셀프컬렉션" }] : []),
+          ];
+          return (
+            <div className="flex items-center justify-center gap-2 mb-6 flex-wrap">
+              {tabs.map(tab => (
+                <button
+                  key={String(tab.key)}
+                  type="button"
+                  onClick={() => setActiveCategory(tab.key)}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                    activeCategory === tab.key
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          );
+        })()}
+
         {/* Allocation Cards Grid */}
-        {allocationCards.length === 0 ? (
-          <div className="text-center py-12 mb-8">
-            <p className="text-muted-foreground text-lg">
-              No investment plans available. Please check back later.
-            </p>
-          </div>
-        ) : (
+        {(() => {
+          // Compute which plans to show
+          const basePlans = translatedPlans.length > 0 ? translatedPlans : allocationCards;
+          // URL ?plans= param overrides user's saved selection (for referral visitors)
+          const urlPlansParam = searchParams.get("plans");
+          const urlPlanIds = urlPlansParam ? urlPlansParam.split(",").map(s => s.trim()).filter(Boolean) : [];
+          // Priority: URL param (referral visitor) > user's saved selection > show all
+          const activePlanIds = urlPlanIds.length > 0
+            ? urlPlanIds
+            : (isConnected && address && userSelection && userSelection.planIds.length > 0)
+              ? userSelection.planIds
+              : [];
+          const visiblePlans = (() => {
+            const bySelection = activePlanIds.length > 0
+              ? basePlans.filter(p => activePlanIds.includes(p.id))
+              : basePlans;
+            // Apply category tab filter
+            if (activeCategory === null) return bySelection;
+            return bySelection.filter(p => p.category === activeCategory);
+          })();
+
+          if (allocationCards.length === 0) {
+            return (
+              <div className="text-center py-12 mb-8">
+                <p className="text-muted-foreground text-lg">
+                  No investment plans available. Please check back later.
+                </p>
+              </div>
+            );
+          }
+
+          if (isConnected && address && activePlanIds.length > 0 && visiblePlans.length === 0) {
+            return (
+              <div className="text-center py-12 mb-8">
+                <p className="text-muted-foreground">선택하신 투자상품이 현재 표시 불가 상태입니다.</p>
+                <Button variant="outline" className="mt-4" onClick={() => navigate("/profile")}>
+                  상품 선택 변경
+                </Button>
+              </div>
+            );
+          }
+
+          return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
-          {(translatedPlans.length > 0 ? translatedPlans : allocationCards).map((card, index) => {
+          {/* User selection / referral visitor banner */}
+          {activePlanIds.length > 0 && (
+            <div className="col-span-full flex items-center justify-between px-3 py-2 rounded-xl bg-primary/10 border border-primary/30 mb-2">
+              <span className="text-xs text-muted-foreground">
+                {urlPlanIds.length > 0
+                  ? `🔗 추천인이 선택한 ${visiblePlans.length}개 상품을 보여드립니다`
+                  : `📌 내가 선택한 ${userSelection?.planIds.length || 0}개 상품`}
+              </span>
+              {urlPlanIds.length === 0 && isConnected && (
+                <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => navigate("/profile")}>
+                  변경
+                </Button>
+              )}
+            </div>
+          )}
+          {visiblePlans.map((card, index) => {
             return (
               <div 
                 key={card.id}
@@ -529,13 +650,19 @@ const StakingSection = () => {
                   />
                 </div>
 
-                {/* Top Section: BINANCE Alpha + Badge and DAILY PROFIT Button */}
+                {/* Top Section: category badge + status badge */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 mb-3 sm:mb-4">
                   <div className="bg-secondary/50 border border-border rounded-full px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs text-muted-foreground">
-                    <span className="font-semibold text-primary">{t.staking.binanceAlpha}</span>
-                    <span className="mx-1">•</span>
-                    <span className="hidden sm:inline">{t.staking.insuranceHedge} • {t.staking.chooseLikeCart}</span>
-                    <span className="sm:hidden">{t.staking.insuranceHedge}</span>
+                    {card.category === "SELF_COLLECTION" ? (
+                      <span className="font-semibold text-amber-500">셀프컬렉션</span>
+                    ) : (
+                      <>
+                        <span className="font-semibold text-primary">{t.staking.binanceAlpha}</span>
+                        <span className="mx-1">•</span>
+                        <span className="hidden sm:inline">{t.staking.insuranceHedge} • {t.staking.chooseLikeCart}</span>
+                        <span className="sm:hidden">{t.staking.insuranceHedge}</span>
+                      </>
+                    )}
                   </div>
                   <div className="bg-primary/20 border border-primary/50 rounded-full px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1 sm:gap-1.5">
                     <div className="w-1 sm:w-1.5 h-1 sm:h-1.5 rounded-full bg-primary"></div>
@@ -548,12 +675,26 @@ const StakingSection = () => {
                   <h3 className="font-display text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-foreground mb-2 break-words">
                     {card.name}
                   </h3>
-                  {/* Allocation Breakdown - 40% 40% 20% */}
-                  <div className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1 sm:py-2 bg-red-500/10 border-2 border-red-500/30 rounded-full">
-                    <span className="text-sm sm:text-base lg:text-lg font-bold text-red-500">40%</span>
-                    <span className="text-sm sm:text-base lg:text-lg font-bold text-red-500">40%</span>
-                    <span className="text-sm sm:text-base lg:text-lg font-bold text-red-500">20%</span>
-                  </div>
+                  {/* Allocation Breakdown - dynamic per plan */}
+                  {(() => {
+                    const hasW2 = !!(card.wallet2 && card.wallet2.trim()) || !!card.useUserAddress2;
+                    const hasW3 = !!(card.wallet3 && card.wallet3.trim()) || !!card.useUserAddress3;
+                    // Self-collection: category flag OR single wallet only
+                    const isSelfCol = card.category === "SELF_COLLECTION" || (!hasW2 && !hasW3);
+                    const p1 = isSelfCol ? 100 : (card.wallet1Percentage ?? 0);
+                    const p2 = hasW2 ? (card.wallet2Percentage ?? 0) : 0;
+                    const p3 = hasW3 ? (card.wallet3Percentage ?? 0) : 0;
+                    const color = isSelfCol ? "text-amber-500" : "text-red-500";
+                    const border = isSelfCol ? "border-amber-500/30 bg-amber-500/10" : "border-red-500/30 bg-red-500/10";
+                    return (
+                      <div className={`inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1 sm:py-2 border-2 ${border} rounded-full`}>
+                        <span className={`text-sm sm:text-base lg:text-lg font-bold ${color}`}>{p1}%</span>
+                        {hasW2 && <span className={`text-sm sm:text-base lg:text-lg font-bold ${color}`}>{p2}%</span>}
+                        {hasW3 && <span className={`text-sm sm:text-base lg:text-lg font-bold ${color}`}>{p3}%</span>}
+                        {isSelfCol && <span className="text-[10px] text-amber-500 font-semibold ml-1">셀프</span>}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Daily Profit */}
@@ -630,7 +771,8 @@ const StakingSection = () => {
             );
           })}
         </div>
-        )}
+          );
+        })()}
 
       </div>
       
