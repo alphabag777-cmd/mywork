@@ -428,8 +428,35 @@ export async function updatePlanOrder(planOrders: Array<{ id: string; sortOrder:
 }
 
 /**
- * Clear all plans (for testing/debugging)
+ * Rename a plan's document ID in Firestore.
+ * Since Firestore doesn't support renaming doc IDs, this copies the doc to the new ID and deletes the old one.
  */
+export async function renamePlanId(oldId: string, newId: string): Promise<InvestmentPlan> {
+  if (!oldId || !newId || oldId === newId) throw new Error("Invalid IDs");
+  // Check new ID is not already taken
+  const newRef = doc(db, PLANS_COLLECTION, newId);
+  const newSnap = await getDoc(newRef);
+  if (newSnap.exists()) throw new Error(`ID "${newId}" already exists`);
+  // Get old plan data
+  const oldPlan = await getPlanById(oldId);
+  if (!oldPlan) throw new Error(`Plan "${oldId}" not found`);
+  // Write to new doc
+  const now = Date.now();
+  const newData = toFirestore({ ...oldPlan, updatedAt: now });
+  await setDoc(newRef, newData);
+  // Delete old doc
+  const oldRef = doc(db, PLANS_COLLECTION, oldId);
+  await deleteDoc(oldRef);
+  // Update localStorage
+  if (typeof window !== "undefined") {
+    const plans = getPlansFromLocalStorage();
+    const updated = plans.map((p) => p.id === oldId ? { ...p, id: newId } : p);
+    localStorage.setItem(PLANS_STORAGE_KEY, JSON.stringify(updated));
+  }
+  return { ...oldPlan, id: newId, updatedAt: now };
+}
+
+
 export async function clearAllPlans(): Promise<void> {
   try {
     const plans = await getAllPlans();

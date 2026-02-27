@@ -237,13 +237,18 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
   useEffect(() => {
     // 언어 변경 또는 팝업 열릴 때 번역 실행
     let cancelled = false;
-    const run = async () => {
-      // langContent에 해당 언어 직접 텍스트가 있으면 번역 API 불필요
-      const lcKey = language === "ko" ? "ko" : language === "en" ? "en" : language === "zh" ? "zh" : language === "ja" ? "ja" : null;
-      const lcData = lcKey ? (project.langContent?.[lcKey as "ko"|"en"|"zh"|"ja"] ?? null) : null;
 
+    const lcKey = language === "ko" ? "ko" : language === "en" ? "en" : language === "zh" ? "zh" : language === "ja" ? "ja" : null;
+    const lcData = lcKey ? (project.langContent?.[lcKey as "ko"|"en"|"zh"|"ja"] ?? null) : null;
+
+    // ── langContent에 설정된 값은 즉시(동기) 적용 ──
+    if (lcData?.description)        setTxDescription(lcData.description);
+    if (lcData?.detailDescription)  setTxDetailDescription(lcData.detailDescription);
+
+    const run = async () => {
+      // langContent에 없는 필드만 번역 API 호출
       const [desc, focus, detail, audit, qaDesc, notice] = await Promise.all([
-        lcData?.description    ? Promise.resolve(lcData.description)    : translateContent(project.description || "", language),
+        lcData?.description       ? Promise.resolve(lcData.description)       : translateContent(project.description || "", language),
         translateContent(project.focus || "", language),
         lcData?.detailDescription ? Promise.resolve(lcData.detailDescription) : translateContent(project.detailDescription || "", language),
         translateContent(project.auditInfo || "", language),

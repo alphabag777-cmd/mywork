@@ -132,14 +132,20 @@ export default function PlanDetail() {
   useEffect(() => {
     if (!plan) return;
     let cancelled = false;
-    const run = async () => {
-      const lcKey = (language === "ko" ? "ko" : language === "en" ? "en" : language === "zh" ? "zh" : language === "ja" ? "ja" : null) as "ko" | "en" | "zh" | "ja" | null;
-      const lcData = lcKey ? (plan.langContent?.[lcKey] ?? null) : null;
 
+    const lcKey = (language === "ko" ? "ko" : language === "en" ? "en" : language === "zh" ? "zh" : language === "ja" ? "ja" : null) as "ko" | "en" | "zh" | "ja" | null;
+    const lcData = lcKey ? (plan.langContent?.[lcKey] ?? null) : null;
+
+    // ── langContent에 설정된 값은 즉시(동기) 적용 ──
+    if (lcData?.description)        setTxDescription(lcData.description);
+    if (lcData?.detailDescription)  setTxDetailDescription(lcData.detailDescription);
+
+    const run = async () => {
+      // langContent에 없는 필드만 번역 API 호출
       const [desc, focus, detail, audit, qaDesc, notice] = await Promise.all([
-        lcData?.description ? Promise.resolve(lcData.description) : translateContent(plan.description || "", language),
+        lcData?.description        ? Promise.resolve(lcData.description)        : translateContent(plan.description || "", language),
         translateContent(plan.focus || "", language),
-        lcData?.detailDescription ? Promise.resolve(lcData.detailDescription) : translateContent(plan.detailDescription || "", language),
+        lcData?.detailDescription  ? Promise.resolve(lcData.detailDescription)  : translateContent(plan.detailDescription || "", language),
         translateContent(plan.auditInfo || "", language),
         translateContent(plan.quickActionsDescription || "", language),
         translateContent(plan.noticeText || "", language),

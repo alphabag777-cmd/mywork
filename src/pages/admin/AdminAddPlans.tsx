@@ -14,7 +14,7 @@ import {
   Code2, BookOpen, ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
-import { InvestmentPlan, LangContent, PlanStatus, PlanCategory, getAllPlans, savePlan, deletePlan, updatePlanOrder } from "@/lib/plans";
+import { InvestmentPlan, LangContent, PlanStatus, PlanCategory, getAllPlans, savePlan, deletePlan, updatePlanOrder, renamePlanId } from "@/lib/plans";
 import { ImageUpload } from "@/components/ImageUpload";
 import { PdfUpload } from "@/components/PdfUpload";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
@@ -623,6 +623,8 @@ export const AdminAddPlans = () => {
   const [editingPlan, setEditingPlan] = useState<InvestmentPlan | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [renameDialog, setRenameDialog] = useState<{ open: boolean; plan: InvestmentPlan | null; newId: string }>({ open: false, plan: null, newId: "" });
+  const [isRenaming, setIsRenaming] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState("basic");
@@ -636,6 +638,7 @@ export const AdminAddPlans = () => {
   /* ── 폼 상태 ── */
   const [formData, setFormData] = useState({
     // 기본 정보
+    customId: "",   // 커스텀 URL ID (예: plan_moonexe)
     name: "", label: "", dailyProfit: "",
     status: "Daily profit" as PlanStatus,
     focus: "", logo: "", dappUrl: "",
@@ -686,6 +689,7 @@ export const AdminAddPlans = () => {
 
   const resetForm = () => {
     setFormData({
+      customId: "",
       name: "", label: "", dailyProfit: "",
       status: "Daily profit",
       focus: "", logo: "", dappUrl: "",
@@ -741,6 +745,7 @@ export const AdminAddPlans = () => {
     if (plan) {
       setEditingPlan(plan);
       setFormData({
+        customId: plan.id || "",   // 편집 시 현재 ID 표시
         name: plan.name, label: plan.label, dailyProfit: plan.dailyProfit,
         status: plan.status || "Daily profit",
         focus: plan.focus, logo: plan.logo, dappUrl: plan.dappUrl,
@@ -829,8 +834,14 @@ export const AdminAddPlans = () => {
       toast.error("지갑 1 주소를 입력해주세요. (투자금 수신 지갑)");
       return;
     }
+    // customId 처리: 공백 제거, 영문/숫자/하이픈/언더스코어만 허용
+    const rawCustomId = formData.customId.trim().replace(/[^a-zA-Z0-9_-]/g, "");
+    // 신규 플랜일 때 customId 입력이 있으면 사용, 없으면 자동 생성
+    const resolvedId = editingPlan?.id ||
+      (rawCustomId ? rawCustomId : undefined);
+
     const planData = {
-      id: editingPlan?.id,
+      id: resolvedId,
       sortOrder: editingPlan?.sortOrder,
       createdAt: editingPlan?.createdAt,
       name: formData.name, label: formData.label, dailyProfit: formData.dailyProfit,
@@ -900,6 +911,24 @@ export const AdminAddPlans = () => {
       else toast.error("Failed to delete");
     } catch { toast.error("Failed to delete"); }
     finally { setIsDeleting(null); }
+  };
+
+  const handleRenameSubmit = async () => {
+    if (!renameDialog.plan) return;
+    const newId = renameDialog.newId.trim().replace(/[^a-zA-Z0-9_-]/g, "");
+    if (!newId) { toast.error("유효한 ID를 입력해주세요"); return; }
+    if (newId === renameDialog.plan.id) { setRenameDialog({ open: false, plan: null, newId: "" }); return; }
+    setIsRenaming(true);
+    try {
+      await renamePlanId(renameDialog.plan.id, newId);
+      toast.success(`ID가 변경되었습니다: ${renameDialog.plan.id} → ${newId}`);
+      setRenameDialog({ open: false, plan: null, newId: "" });
+      await loadPlans();
+    } catch (err: any) {
+      toast.error(err?.message || "ID 변경에 실패했습니다");
+    } finally {
+      setIsRenaming(false);
+    }
   };
 
   /* ── 드래그 앤 드롭 ── */
@@ -1047,7 +1076,14 @@ export const AdminAddPlans = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost" size="icon"
+                            title="URL ID 변경"
+                            onClick={() => setRenameDialog({ open: true, plan, newId: plan.id })}
+                          >
+                            <span className="text-xs font-mono text-muted-foreground">ID</span>
+                          </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(plan)}><Edit className="w-4 h-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => handleDelete(plan.id)} disabled={isDeleting === plan.id}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                         </div>
@@ -1060,6 +1096,48 @@ export const AdminAddPlans = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* ─── Rename Plan ID Dialog ─── */}
+      <Dialog open={renameDialog.open} onOpenChange={(o) => !o && setRenameDialog({ open: false, plan: null, newId: "" })}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>🔗 플랜 URL ID 변경</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="p-3 rounded-lg bg-muted/40 text-sm">
+              <p className="text-muted-foreground">현재 ID:</p>
+              <p className="font-mono font-semibold text-foreground">{renameDialog.plan?.id}</p>
+              <p className="text-xs text-muted-foreground mt-1">현재 URL: <span className="font-mono">/plan/{renameDialog.plan?.id}</span></p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="renameId" className="text-sm font-medium">새 ID <span className="font-normal text-muted-foreground text-xs">(영문·숫자·하이픈·언더스코어만)</span></Label>
+              <Input
+                id="renameId"
+                value={renameDialog.newId}
+                onChange={(e) => setRenameDialog({ ...renameDialog, newId: e.target.value.replace(/[^a-zA-Z0-9_-]/g, "") })}
+                placeholder="예: plan_moonexe"
+                className="font-mono"
+              />
+              {renameDialog.newId && renameDialog.newId !== renameDialog.plan?.id && (
+                <p className="text-xs text-primary">새 URL: <span className="font-mono">/plan/{renameDialog.newId}</span></p>
+              )}
+            </div>
+            <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-xs text-yellow-700 dark:text-yellow-400">
+              ⚠️ ID 변경 시 기존 URL로 접근이 불가해집니다. 외부에 공유한 링크가 있다면 업데이트가 필요합니다.
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setRenameDialog({ open: false, plan: null, newId: "" })}>취소</Button>
+              <Button
+                variant="gold"
+                onClick={handleRenameSubmit}
+                disabled={isRenaming || !renameDialog.newId || renameDialog.newId === renameDialog.plan?.id}
+              >
+                {isRenaming ? "변경 중..." : "ID 변경"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ─── Create/Edit Dialog ─── */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -1177,6 +1255,37 @@ export const AdminAddPlans = () => {
 
                     {/* ══════════════ 탭 1: 기본 정보 ══════════════ */}
                     <TabsContent value="basic" className="mt-0 space-y-5">
+
+                      {/* ── Custom Plan ID ── */}
+                      <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 space-y-2">
+                        <Label htmlFor="customId" className="text-sm font-semibold flex items-center gap-2">
+                          🔗 커스텀 URL ID
+                          <span className="text-xs font-normal text-muted-foreground">(영문·숫자·하이픈·언더스코어만 가능)</span>
+                        </Label>
+                        <Input
+                          id="customId"
+                          value={formData.customId}
+                          onChange={(e) => {
+                            const v = e.target.value.replace(/[^a-zA-Z0-9_-]/g, "");
+                            setFormData({ ...formData, customId: v });
+                          }}
+                          placeholder="예: plan_moonexe  (비워두면 자동 생성)"
+                          className="font-mono text-sm"
+                          disabled={!!editingPlan}
+                        />
+                        {formData.customId && !editingPlan && (
+                          <p className="text-xs text-primary">
+                            🌐 URL: <span className="font-mono">/plan/{formData.customId}</span>
+                          </p>
+                        )}
+                        {editingPlan && (
+                          <p className="text-xs text-muted-foreground">
+                            현재 ID: <span className="font-mono text-foreground">{editingPlan.id}</span>
+                            <span className="ml-2 text-yellow-500">(생성 후 ID 변경 불가)</span>
+                          </p>
+                        )}
+                      </div>
+
                       <div className="grid gap-4 md:grid-cols-2">
                         <div className="space-y-2">
                           <Label htmlFor="name">플랜 이름 *</Label>
