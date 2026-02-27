@@ -46,6 +46,8 @@ const NoticeDetail        = lazy(() => import("./pages/NoticeDetail"));
 const Community           = lazy(() => import("./pages/Community"));
 const Earnings            = lazy(() => import("./pages/Earnings"));
 const Airdrop             = lazy(() => import("./pages/Airdrop"));
+// 플랜 세부정보 전용 페이지
+const PlanDetail          = lazy(() => import("./pages/PlanDetail"));
 
 // Admin pages — separate chunk
 const AdminLogin    = lazy(() => import("./pages/admin/AdminLogin"));
@@ -170,6 +172,8 @@ const App = () => (
                     <Route path="/promo/:planId" element={<ErrorBoundary><PromoDetail /></ErrorBoundary>} />
                     <Route path="/notices"       element={<ErrorBoundary><Notices /></ErrorBoundary>} />
                     <Route path="/notices/:id"   element={<ErrorBoundary><NoticeDetail /></ErrorBoundary>} />
+                    {/* 플랜 세부정보 전용 URL */}
+                    <Route path="/plan/:planId"  element={<ErrorBoundary><PlanDetail /></ErrorBoundary>} />
                     <Route path="*"              element={<NotFound />} />
                   </Routes>
                 </Suspense>

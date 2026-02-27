@@ -410,6 +410,20 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
         <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto p-4 sm:p-6">
           <DialogTitle className="sr-only">{project.name} - Project Details</DialogTitle>
 
+          {/* ── 새 탭 링크 ── */}
+          <div className="flex justify-end mb-1">
+            <a
+              href={`/plan/${project.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1 rounded-lg hover:bg-muted/40"
+              title="독립 페이지에서 열기"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              새 탭으로 보기
+            </a>
+          </div>
+
           {/* ── 주의사항 배너 (최상단) ── */}
           {txNoticeText && (
             <div className="flex gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-sm text-red-600 dark:text-red-400 mb-2">

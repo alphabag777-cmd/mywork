@@ -730,10 +730,10 @@ const StakingSection = () => {
                 </p>
 
                 {/* Action Button: Details */}
-                <div className="mb-3">
+                <div className="mb-3 flex gap-2">
                   <Button
                     variant="outline"
-                    className="w-full gap-2"
+                    className="flex-1 gap-2"
                     onClick={() => {
                       setSelectedProject(card);
                       setDetailsOpen(true);
@@ -742,6 +742,11 @@ const StakingSection = () => {
                     <Eye className="w-4 h-4" />
                     {t.staking.details}
                   </Button>
+                  <Link to={`/plan/${card.id}`} target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" className="px-3" title="새 탭에서 세부정보 보기">
+                      <ExternalLink className="w-4 h-4" />
+                    </Button>
+                  </Link>
                 </div>
 
                 {/* Go to Website Button */}
