@@ -221,6 +221,8 @@ function toFirestore(plan: Partial<InvestmentPlan>): any {
     noticeText: plan.noticeText || "",
     category: plan.category || null, // null = legacy plan
     pdfFiles: plan.pdfFiles || [],
+    externalLinks: plan.externalLinks || [],
+    blogLinks: plan.blogLinks || [],
     langContent: plan.langContent || null,
     sortOrder: plan.sortOrder !== undefined ? plan.sortOrder : 999999,
     wallet1: plan.wallet1 || "",
@@ -437,23 +439,22 @@ export async function renamePlanId(oldId: string, newId: string): Promise<Invest
   const newRef = doc(db, PLANS_COLLECTION, newId);
   const newSnap = await getDoc(newRef);
   if (newSnap.exists()) throw new Error(`ID "${newId}" already exists`);
-  // Get old plan data
-  const oldPlan = await getPlanById(oldId);
-  if (!oldPlan) throw new Error(`Plan "${oldId}" not found`);
-  // Write to new doc
-  const now = Date.now();
-  const newData = toFirestore({ ...oldPlan, updatedAt: now });
-  await setDoc(newRef, newData);
-  // Delete old doc
+  // Read RAW Firestore data from old doc (preserves ALL fields exactly)
   const oldRef = doc(db, PLANS_COLLECTION, oldId);
+  const oldSnap = await getDoc(oldRef);
+  if (!oldSnap.exists()) throw new Error(`Plan "${oldId}" not found`);
+  const rawData = oldSnap.data();
+  // Write identical raw data to new doc ID
+  await setDoc(newRef, { ...rawData, updatedAt: Timestamp.now() });
+  // Delete old doc
   await deleteDoc(oldRef);
-  // Update localStorage
+  // Clear localStorage cache entirely so next getAllPlans() fetches fresh from server
   if (typeof window !== "undefined") {
-    const plans = getPlansFromLocalStorage();
-    const updated = plans.map((p) => p.id === oldId ? { ...p, id: newId } : p);
-    localStorage.setItem(PLANS_STORAGE_KEY, JSON.stringify(updated));
+    localStorage.removeItem(PLANS_STORAGE_KEY);
   }
-  return { ...oldPlan, id: newId, updatedAt: now };
+  // Return parsed plan with new id
+  const oldPlan = fromFirestore(rawData, newId);
+  return oldPlan;
 }
 
 
