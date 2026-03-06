@@ -20,6 +20,7 @@ interface LangContent {
   detailImages?: Array<{ url: string; caption: string }>;
   youtubeUrls?: Array<{ url: string; title: string }>;
   blogLinks?: Array<{ title: string; url: string; type?: string }>;
+  externalLinks?: Array<{ title: string; url: string }>;
 }
 
 interface ProjectDetailsProps {
@@ -307,6 +308,13 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
       ? lc.materials
       : (project.materials ?? [])
   , [lc, project.materials]);
+
+  /* ── 언어별 외부링크: langContent 우선, 없으면 기본 externalLinks ── */
+  const activeExternalLinks = useMemo(() =>
+    (lc?.externalLinks && lc.externalLinks.length > 0)
+      ? lc.externalLinks
+      : (project.externalLinks ?? [])
+  , [lc, project.externalLinks]);
 
   /* ── 언어별 YouTube: langContent 우선, 없으면 기본 youtubeUrls/youtubeUrl ── */
   const activeLangYoutubeList = useMemo((): Array<{ url: string; title: string }> =>
@@ -737,14 +745,14 @@ const ProjectDetails = ({ open, onOpenChange, project }: ProjectDetailsProps) =>
                 </div>
               )}
 
-              {/* 외부 URL 링크 (externalLinks) */}
-              {(project.externalLinks && project.externalLinks.length > 0) && (
+              {/* 외부 URL 링크 (externalLinks) - 언어별 우선 */}
+              {activeExternalLinks.length > 0 && (
                 <div>
                   <h4 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
                     <ExternalLink className="w-4 h-4 text-blue-500" /> 관련 링크
                   </h4>
                   <div className="flex flex-col gap-1.5">
-                    {project.externalLinks.map((link, i) => (
+                    {activeExternalLinks.map((link, i) => (
                       <a
                         key={i}
                         href={/^https?:\/\//i.test(link.url) ? link.url : "https://" + link.url}

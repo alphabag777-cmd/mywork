@@ -190,6 +190,10 @@ export default function PlanDetail() {
     () => (lc?.materials && lc.materials.length > 0 ? lc.materials : plan?.materials ?? []),
     [lc, plan]
   );
+  const activeExternalLinks = useMemo(
+    () => (lc?.externalLinks && lc.externalLinks.length > 0 ? lc.externalLinks : plan?.externalLinks ?? []),
+    [lc, plan]
+  );
   const activeLangYoutubeList = useMemo((): Array<{ url: string; title: string }> => {
     if (lc?.youtubeUrls && lc.youtubeUrls.length > 0) return lc.youtubeUrls;
     if (plan?.youtubeUrls && plan.youtubeUrls.length > 0) return plan.youtubeUrls;
@@ -630,14 +634,14 @@ export default function PlanDetail() {
               </div>
             )}
 
-            {/* 외부 URL 링크 */}
-            {plan.externalLinks && plan.externalLinks.length > 0 && (
+            {/* 외부 URL 링크 - 언어별 우선 */}
+            {activeExternalLinks.length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
                   <ExternalLink className="w-4 h-4 text-blue-500" /> 관련 링크
                 </h4>
                 <div className="flex flex-col gap-1.5">
-                  {plan.externalLinks.map((link: any, i: number) => (
+                  {activeExternalLinks.map((link: any, i: number) => (
                     <a
                       key={i}
                       href={/^https?:\/\//i.test(link.url) ? link.url : "https://" + link.url}

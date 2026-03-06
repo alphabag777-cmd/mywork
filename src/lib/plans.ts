@@ -100,6 +100,7 @@ export interface LangContent {
   detailImages?: Array<{ url: string; caption: string }>; // 해당 언어 이미지 (최대 20개)
   youtubeUrls?: Array<{ url: string; title: string }>; // 해당 언어 YouTube
   blogLinks?: Array<{ title: string; url: string }>; // 해당 언어 블로그/SNS 링크 (최대 5개)
+  externalLinks?: Array<{ title: string; url: string }>; // 해당 언어 외부 URL 링크 (최대 5개)
 }
 
 const PLANS_COLLECTION = "investment_plans";

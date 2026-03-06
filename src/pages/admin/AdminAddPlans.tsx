@@ -28,6 +28,24 @@ import {
 // ── 모든 import가 끝난 후 lazy 선언 (Rollup 모듈 평가 순서 보장) ──────────────
 const MDEditor = lazy(() => import("@uiw/react-md-editor"));
 
+/**
+ * LangContent 객체에 실제 입력값이 있는지 확인
+ * - 문자열 필드: 비어있지 않으면 true
+ * - 배열 필드: length > 0 이면 true
+ */
+function hasLangContent(lc: LangContent): boolean {
+  if (!lc) return false;
+  if (lc.description?.trim()) return true;
+  if (lc.detailDescription?.trim()) return true;
+  if (lc.materials && lc.materials.length > 0) return true;
+  if (lc.pdfFiles && lc.pdfFiles.length > 0) return true;
+  if (lc.detailImages && lc.detailImages.length > 0) return true;
+  if (lc.youtubeUrls && lc.youtubeUrls.length > 0) return true;
+  if (lc.blogLinks && lc.blogLinks.length > 0) return true;
+  if (lc.externalLinks && lc.externalLinks.length > 0) return true;
+  return false;
+}
+
 /* ─────────────────────────────────────────────── */
 /*  Highlight 행 편집 컴포넌트                      */
 /* ─────────────────────────────────────────────── */
@@ -856,10 +874,10 @@ export const AdminAddPlans = () => {
       externalLinks,
       blogLinks,
       langContent: {
-        en: Object.keys(langContent.en).length ? langContent.en : null,
-        zh: Object.keys(langContent.zh).length ? langContent.zh : null,
-        ko: Object.keys(langContent.ko).length ? langContent.ko : null,
-        ja: Object.keys(langContent.ja).length ? langContent.ja : null,
+        en: hasLangContent(langContent.en) ? langContent.en : null,
+        zh: hasLangContent(langContent.zh) ? langContent.zh : null,
+        ko: hasLangContent(langContent.ko) ? langContent.ko : null,
+        ja: hasLangContent(langContent.ja) ? langContent.ja : null,
       },
       recommendedAmount: formData.recommendedAmount,
       // 세부 정보
@@ -1593,32 +1611,66 @@ export const AdminAddPlans = () => {
 
                     {/* ══════════════ 탭 4: 언어별 콘텐츠 ══════════════ */}
                     <TabsContent value="lang" className="mt-0 space-y-5">
-                      <div className="p-3 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/50">
-                        <p className="text-xs text-blue-600 dark:text-blue-400">
-                          💡 <strong>{t.admin.langContent}</strong>: 언어별로 설명, 자료, PDF를 개별 등록하세요. 미입력 시 기본(KO) 내용이 표시됩니다.
+
+                      {/* ── 우선순위 안내 배너 ── */}
+                      <div className="p-3 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/50 space-y-2">
+                        <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                          🌐 언어별 콘텐츠 우선순위 규칙
                         </p>
+                        <div className="space-y-1 text-xs text-blue-600 dark:text-blue-400">
+                          <p>✅ 이 탭에서 <strong>언어별로 입력한 값</strong>이 세부정보 화면에 우선 표시됩니다.</p>
+                          <p>⬇️ 미입력 항목은 <strong>링크·미디어 탭</strong>의 공통 값이 자동으로 표시됩니다.</p>
+                          <p>💬 설명/상세설명 미입력 시 <strong>자동번역 API</strong>가 기본 설명을 번역하여 표시합니다.</p>
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-blue-200 dark:border-blue-800/50">
+                          <p className="text-xs text-blue-500 dark:text-blue-500">
+                            📌 <strong>시나리오 2 사용법</strong>: 각 언어 탭을 선택 → 해당 언어 자료(YouTube·PDF·참고자료·이미지·블로그링크) 입력 → 저장
+                          </p>
+                        </div>
                       </div>
 
-                      {/* 언어 탭 선택 */}
-                      <div className="flex border-b border-border/60">
+                      {/* ── 언어별 입력 상태 요약 ── */}
+                      <div className="grid grid-cols-4 gap-2">
                         {(["en", "zh", "ko", "ja"] as const).map((lang) => {
-                          const labels: Record<string, string> = { en: "🇺🇸 English", zh: "🇨🇳 中文", ko: "🇰🇷 한국어", ja: "🇯🇵 日本語" };
-                          const hasData = !!(langContent[lang]?.description || langContent[lang]?.detailDescription ||
-                            (langContent[lang]?.materials?.length ?? 0) > 0 ||
-                            (langContent[lang]?.pdfFiles?.length ?? 0) > 0);
+                          const labels: Record<string, string> = { en: "🇺🇸 EN", zh: "🇨🇳 ZH", ko: "🇰🇷 KO", ja: "🇯🇵 JA" };
+                          const lc = langContent[lang];
+                          const counts = {
+                            desc: !!(lc?.description?.trim() || lc?.detailDescription?.trim()),
+                            media: (lc?.youtubeUrls?.length ?? 0) > 0,
+                            pdf: (lc?.pdfFiles?.length ?? 0) > 0,
+                            mat: (lc?.materials?.length ?? 0) > 0,
+                            img: (lc?.detailImages?.length ?? 0) > 0,
+                            blog: (lc?.blogLinks?.length ?? 0) > 0,
+                            ext: (lc?.externalLinks?.length ?? 0) > 0,
+                          };
+                          const filled = Object.values(counts).filter(Boolean).length;
                           return (
                             <button
                               key={lang}
                               type="button"
                               onClick={() => setActiveLangTab(lang)}
-                              className={`flex-1 py-2.5 text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
+                              className={`p-2 rounded-lg border text-xs transition-all ${
                                 activeLangTab === lang
-                                  ? "border-b-2 border-primary text-foreground bg-background"
-                                  : "text-muted-foreground hover:text-foreground"
+                                  ? "border-primary bg-primary/10 text-foreground"
+                                  : filled > 0
+                                  ? "border-green-500/50 bg-green-500/5 text-muted-foreground hover:text-foreground"
+                                  : "border-border/40 bg-muted/10 text-muted-foreground hover:text-foreground"
                               }`}
                             >
-                              {labels[lang]}
-                              {hasData && <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />}
+                              <div className="font-semibold">{labels[lang]}</div>
+                              {filled > 0 ? (
+                                <div className="mt-1 flex flex-wrap gap-0.5 justify-center">
+                                  {counts.desc && <span className="px-1 rounded bg-blue-500/20 text-blue-400 text-[9px]">설명</span>}
+                                  {counts.media && <span className="px-1 rounded bg-red-500/20 text-red-400 text-[9px]">YT</span>}
+                                  {counts.pdf && <span className="px-1 rounded bg-orange-500/20 text-orange-400 text-[9px]">PDF</span>}
+                                  {counts.mat && <span className="px-1 rounded bg-green-500/20 text-green-400 text-[9px]">자료</span>}
+                                  {counts.img && <span className="px-1 rounded bg-purple-500/20 text-purple-400 text-[9px]">이미지</span>}
+                                  {counts.blog && <span className="px-1 rounded bg-pink-500/20 text-pink-400 text-[9px]">블로그</span>}
+                                  {counts.ext && <span className="px-1 rounded bg-blue-500/20 text-blue-400 text-[9px]">외부링크</span>}
+                                </div>
+                              ) : (
+                                <div className="mt-1 text-[9px] text-muted-foreground">미입력 (공통값 사용)</div>
+                              )}
                             </button>
                           );
                         })}
@@ -1633,15 +1685,84 @@ export const AdminAddPlans = () => {
                           setLangContent({ ...langContent, [lang]: { ...lc, ...patch } });
                         return (
                           <div key={lang} className="space-y-5">
+
+                            {/* ── 링크·미디어 탭 공통값 복사 버튼 ── */}
+                            <div className="p-3 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50">
+                              <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-2">
+                                📋 링크·미디어 탭 공통값 → {langLabels[lang]}에 복사
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {materials.length > 0 && (
+                                  <Button type="button" variant="outline" size="sm"
+                                    className="h-7 text-xs gap-1 border-amber-400/50 hover:bg-amber-500/10"
+                                    onClick={() => { update({ materials: [...materials] }); toast.success(`참고자료 ${materials.length}개 복사됨`); }}
+                                  >
+                                    🔗 참고자료 복사 ({materials.length}개)
+                                  </Button>
+                                )}
+                                {pdfFiles.length > 0 && (
+                                  <Button type="button" variant="outline" size="sm"
+                                    className="h-7 text-xs gap-1 border-amber-400/50 hover:bg-amber-500/10"
+                                    onClick={() => { update({ pdfFiles: [...pdfFiles] }); toast.success(`PDF ${pdfFiles.length}개 복사됨`); }}
+                                  >
+                                    📄 PDF 복사 ({pdfFiles.length}개)
+                                  </Button>
+                                )}
+                                {youtubeItems.length > 0 && (
+                                  <Button type="button" variant="outline" size="sm"
+                                    className="h-7 text-xs gap-1 border-amber-400/50 hover:bg-amber-500/10"
+                                    onClick={() => { update({ youtubeUrls: [...youtubeItems] }); toast.success(`YouTube ${youtubeItems.length}개 복사됨`); }}
+                                  >
+                                    ▶ YouTube 복사 ({youtubeItems.length}개)
+                                  </Button>
+                                )}
+                                {detailImages.length > 0 && (
+                                  <Button type="button" variant="outline" size="sm"
+                                    className="h-7 text-xs gap-1 border-amber-400/50 hover:bg-amber-500/10"
+                                    onClick={() => { update({ detailImages: detailImages.map(img => ({ url: img.url, caption: img.caption || "" })) }); toast.success(`이미지 ${detailImages.length}장 복사됨`); }}
+                                  >
+                                    🖼 이미지 복사 ({detailImages.length}장)
+                                  </Button>
+                                )}
+                                {blogLinks.length > 0 && (
+                                  <Button type="button" variant="outline" size="sm"
+                                    className="h-7 text-xs gap-1 border-amber-400/50 hover:bg-amber-500/10"
+                                    onClick={() => { update({ blogLinks: [...blogLinks] }); toast.success(`블로그링크 ${blogLinks.length}개 복사됨`); }}
+                                  >
+                                    📝 블로그링크 복사 ({blogLinks.length}개)
+                                  </Button>
+                                )}
+                                {externalLinks.length > 0 && (
+                                  <Button type="button" variant="outline" size="sm"
+                                    className="h-7 text-xs gap-1 border-amber-400/50 hover:bg-amber-500/10"
+                                    onClick={() => { update({ externalLinks: [...externalLinks] }); toast.success(`외부링크 ${externalLinks.length}개 복사됨`); }}
+                                  >
+                                    🔗 외부링크 복사 ({externalLinks.length}개)
+                                  </Button>
+                                )}
+                                {materials.length === 0 && pdfFiles.length === 0 && youtubeItems.length === 0 && detailImages.length === 0 && blogLinks.length === 0 && externalLinks.length === 0 && (
+                                  <p className="text-xs text-muted-foreground">링크·미디어 탭에 공통 자료를 먼저 입력하면 여기서 복사할 수 있습니다.</p>
+                                )}
+                              </div>
+                            </div>
+
                             {/* 간략 설명 - HTML 지원 */}
                             <div className="space-y-2">
                               <div className="flex items-center justify-between">
                                 <Label className="text-sm font-semibold">📝 {langLabels[lang]} 간략 설명 <span className="font-normal text-xs text-muted-foreground">(HTML 지원)</span></Label>
+                                {formData.description && !lc.description && (
+                                  <Button type="button" variant="ghost" size="sm"
+                                    className="h-6 text-xs text-muted-foreground hover:text-foreground gap-1"
+                                    onClick={() => update({ description: formData.description })}
+                                  >
+                                    기본값 복사
+                                  </Button>
+                                )}
                               </div>
                               <Textarea
                                 value={lc.description || ""}
                                 onChange={(e) => update({ description: e.target.value })}
-                                placeholder={`${langLabels[lang]}로 간략 설명 입력 (카드에 표시됨)\nHTML 태그 사용 가능: <b>굵게</b>, <br>, <ul><li>항목</li></ul>`}
+                                placeholder={`${langLabels[lang]}로 간략 설명 입력 (카드에 표시됨)\nHTML 태그 사용 가능: <b>굵게</b>, <br>, <ul><li>항목</li></ul>\n\n⬇️ 미입력 시: 기본 설명이 자동번역되어 표시됩니다`}
                                 rows={4}
                                 className="text-sm font-mono"
                               />
@@ -1658,10 +1779,20 @@ export const AdminAddPlans = () => {
 
                             {/* 상세 설명 - MDEditor (마크다운+HTML+이모지) */}
                             <div className="space-y-2" data-color-mode="dark">
+                              <div className="flex items-center justify-between">
                               <Label className="text-sm font-semibold">
                                 📄 {langLabels[lang]} 상세 설명
                                 <span className="font-normal text-xs text-muted-foreground ml-1">(마크다운·HTML·이모지 지원)</span>
                               </Label>
+                                {formData.detailDescription && !lc.detailDescription && (
+                                  <Button type="button" variant="ghost" size="sm"
+                                    className="h-6 text-xs text-muted-foreground hover:text-foreground gap-1"
+                                    onClick={() => update({ detailDescription: formData.detailDescription })}
+                                  >
+                                    기본값 복사
+                                  </Button>
+                                )}
+                              </div>
                               <Suspense fallback={<div className="h-[320px] flex items-center justify-center text-muted-foreground text-sm">에디터 로딩 중...</div>}>
                               <MDEditor
                                 value={lc.detailDescription || ""}
@@ -1680,10 +1811,15 @@ export const AdminAddPlans = () => {
 
                             {/* 참고 자료 */}
                             <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
-                              <Label className="text-sm font-semibold">
-                                <FileText className="w-4 h-4 inline mr-1 text-primary" />
-                                {langLabels[lang]} {t.admin.materials}
-                              </Label>
+                              <div className="flex items-center justify-between">
+                                <Label className="text-sm font-semibold">
+                                  <FileText className="w-4 h-4 inline mr-1 text-primary" />
+                                  {langLabels[lang]} {t.admin.materials}
+                                </Label>
+                                {(!lc.materials || lc.materials.length === 0) && materials.length > 0 && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-400/30">⬇️ 링크·미디어 탭 공통값 사용 중</span>
+                                )}
+                              </div>
                               <MaterialEditor
                                 materials={lc.materials || []}
                                 onChange={(m) => update({ materials: m })}
@@ -1693,11 +1829,16 @@ export const AdminAddPlans = () => {
 
                             {/* 첨부파일 (PDF/DOC/XLS/ZIP 등, 최대 5개) */}
                             <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
-                              <Label className="text-sm font-semibold">
-                                <FileText className="w-4 h-4 inline mr-1 text-red-500" />
-                                {langLabels[lang]} 첨부파일 (최대 5개)
-                                <span className="text-xs font-normal text-muted-foreground ml-1">PDF/DOC/XLS/ZIP 등</span>
-                              </Label>
+                              <div className="flex items-center justify-between">
+                                <Label className="text-sm font-semibold">
+                                  <FileText className="w-4 h-4 inline mr-1 text-red-500" />
+                                  {langLabels[lang]} 첨부파일 (최대 5개)
+                                  <span className="text-xs font-normal text-muted-foreground ml-1">PDF/DOC/XLS/ZIP 등</span>
+                                </Label>
+                                {(!lc.pdfFiles || lc.pdfFiles.length === 0) && pdfFiles.length > 0 && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-400/30">⬇️ 링크·미디어 탭 공통값 사용 중</span>
+                                )}
+                              </div>
                               <PdfUpload
                                 files={lc.pdfFiles || []}
                                 onChange={(files) => update({ pdfFiles: files })}
@@ -1709,10 +1850,15 @@ export const AdminAddPlans = () => {
 
                             {/* 블로그/SNS 링크 */}
                             <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
-                              <Label className="text-sm font-semibold">
-                                <BookOpen className="w-4 h-4 inline mr-1 text-purple-500" />
-                                {langLabels[lang]} 블로그/SNS 링크
-                              </Label>
+                              <div className="flex items-center justify-between">
+                                <Label className="text-sm font-semibold">
+                                  <BookOpen className="w-4 h-4 inline mr-1 text-purple-500" />
+                                  {langLabels[lang]} 블로그/SNS 링크
+                                </Label>
+                                {(!lc.blogLinks || lc.blogLinks.length === 0) && blogLinks.length > 0 && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-400/30">⬇️ 링크·미디어 탭 공통값 사용 중</span>
+                                )}
+                              </div>
                               <BlogLinkEditor
                                 links={(lc.blogLinks || []) as BlogLinkRow[]}
                                 onChange={(l) => update({ blogLinks: l })}
@@ -1722,10 +1868,15 @@ export const AdminAddPlans = () => {
 
                             {/* 이미지 갤러리 */}
                             <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
-                              <Label className="text-sm font-semibold">
-                                <ImageIcon className="w-4 h-4 inline mr-1 text-blue-500" />
-                                {langLabels[lang]} {t.admin.detailImages}
-                              </Label>
+                              <div className="flex items-center justify-between">
+                                <Label className="text-sm font-semibold">
+                                  <ImageIcon className="w-4 h-4 inline mr-1 text-blue-500" />
+                                  {langLabels[lang]} {t.admin.detailImages}
+                                </Label>
+                                {(!lc.detailImages || lc.detailImages.length === 0) && detailImages.length > 0 && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-400/30">⬇️ 링크·미디어 탭 공통값 사용 중</span>
+                                )}
+                              </div>
                               <DetailImageEditor
                                 images={lc.detailImages || []}
                                 onChange={(imgs) => update({ detailImages: imgs })}
@@ -1734,13 +1885,37 @@ export const AdminAddPlans = () => {
 
                             {/* YouTube 영상 */}
                             <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
-                              <Label className="text-sm font-semibold">
-                                <span className="text-red-500 mr-1">▶</span>
-                                {langLabels[lang]} YouTube 영상
-                              </Label>
+                              <div className="flex items-center justify-between">
+                                <Label className="text-sm font-semibold">
+                                  <span className="text-red-500 mr-1">▶</span>
+                                  {langLabels[lang]} YouTube 영상
+                                </Label>
+                                {(!lc.youtubeUrls || lc.youtubeUrls.length === 0) && youtubeItems.length > 0 && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-400/30">⬇️ 링크·미디어 탭 공통값 사용 중</span>
+                                )}
+                              </div>
                               <YoutubeEditor
                                 items={lc.youtubeUrls || []}
                                 onChange={(items) => update({ youtubeUrls: items })}
+                              />
+                            </div>
+
+                            {/* 외부 URL 링크 */}
+                            <div className="p-4 rounded-xl border border-border/60 bg-muted/10 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-sm font-semibold">
+                                  <ExternalLink className="w-4 h-4 inline mr-1 text-blue-500" />
+                                  {langLabels[lang]} 외부 URL 링크
+                                  <span className="text-xs font-normal text-muted-foreground ml-1">웹사이트, DApp 등</span>
+                                </Label>
+                                {(!lc.externalLinks || lc.externalLinks.length === 0) && externalLinks.length > 0 && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-400/30">⬇️ 링크·미디어 탭 공통값 사용 중</span>
+                                )}
+                              </div>
+                              <MaterialEditor
+                                materials={(lc.externalLinks || []) as Array<{ title: string; url: string }>}
+                                onChange={(m) => update({ externalLinks: m })}
+                                maxItems={5}
                               />
                             </div>
                           </div>
